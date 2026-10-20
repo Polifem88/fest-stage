@@ -5,15 +5,15 @@ import { HALL_BACK_FLOOR_Y } from '../build/architecture.js';
 
 const fmt = (m) => `${m.toFixed(2).replace(/\.?0+$/, '').replace('.', ',')} м`;
 
-/** Список размеров: [p1(x,y,d), p2(x,y,d), подпись] */
+/** Список размеров: [p1(x,y,d), p2(x,y,d), подпись, положение подписи 0…1 (по умолчанию середина)] */
 function dimList() {
   const W = BOX_HALF, PW2 = DIM.portal.width / 2, FS = DIM.forestage;
   return [
     [[-PW2, DIM.portal.height + 0.25, -0.05], [PW2, DIM.portal.height + 0.25, -0.05], `Портал ${fmt(DIM.portal.width)}`],
-    [[-PW2 - 0.35, 0, -0.05], [-PW2 - 0.35, DIM.portal.height, -0.05], `${fmt(DIM.portal.height)}`],
+    [[-PW2 - 0.35, 0, -0.05], [-PW2 - 0.35, DIM.portal.height, -0.05], `${fmt(DIM.portal.height)}`, 0.35], // подпись ниже «Деко-потолка»
     [[-W, 0.03, DIM.box.backWallD - 0.4], [W, 0.03, DIM.box.backWallD - 0.4], `Коробка ${fmt(DIM.box.width)}`],
     [[0, 0.03, -FS.depth], [0, 0.03, DIM.box.backWallD], `До задней стены ${fmt(FS.depth + DIM.box.backWallD)} (≈12)`],
-    [[-FS.frontWidth / 2 - 0.1, 0.03, -FS.depth], [-FS.frontWidth / 2 - 0.1, 0.03, 0], `Авансцена ${fmt(FS.depth)}`],
+    [[FS.frontWidth / 2 - 0.4, 0.03, -FS.depth], [FS.frontWidth / 2 - 0.4, 0.03, 0], `Авансцена ${fmt(FS.depth)}`], // справа: слева подпись С0
     [[-FS.frontWidth / 2, -FS.height + 0.02, -FS.depth - 0.25], [FS.frontWidth / 2, -FS.height + 0.02, -FS.depth - 0.25], `Перед авансцены ${fmt(FS.frontWidth)}`],
     [[W - 1.2, 0, 5.0], [W - 1.2, DIM.box.ceiling, 5.0], `Потолок ${fmt(DIM.box.ceiling)}`],
     [[-W + 1.2, 0, DIM.rigel.d], [-W + 1.2, DIM.rigel.bottomY, DIM.rigel.d], `Ригель ${fmt(DIM.rigel.bottomY)}`],
@@ -27,35 +27,55 @@ function dimList() {
   ];
 }
 
+/**
+ * Размеры разложены по направлению: x — поперёк сцены, d — вглубь, y — по высоте.
+ * На плане сверху высоты схлопываются в точку, а на разрезе сбоку — поперечные размеры,
+ * и их подписи наезжают на соседние; такие размеры прячет setDimsView().
+ */
 export function buildDims(labels) {
   const g = new THREE.Group();
   g.name = 'dims';
-  const verts = [];
-  for (const [a, b, text] of dimList()) {
+  const axes = {};
+  const verts = { x: [], y: [], d: [] };
+  for (const [a, b, text, t = 0.5] of dimList()) {
     const A = new THREE.Vector3(a[0], a[1], -a[2]);
     const B = new THREE.Vector3(b[0], b[1], -b[2]);
-    verts.push(...A.toArray(), ...B.toArray());
-    // засечки
     const dir = B.clone().sub(A).normalize();
+    const axis = Math.abs(dir.y) > 0.9 ? 'y' : Math.abs(dir.x) > 0.9 ? 'x' : 'd';
+    if (!axes[axis]) { axes[axis] = new THREE.Group(); axes[axis].name = `dims:${axis}`; g.add(axes[axis]); }
+    const v = verts[axis];
+    v.push(...A.toArray(), ...B.toArray());
+    // засечки
     const up = Math.abs(dir.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
     const tick = new THREE.Vector3().crossVectors(dir, up).normalize().multiplyScalar(0.12).add(up.clone().multiplyScalar(0.0));
     const t2 = up.clone().multiplyScalar(0.12);
     for (const P of [A, B]) {
-      verts.push(...P.clone().sub(t2).toArray(), ...P.clone().add(t2).toArray());
-      verts.push(...P.clone().sub(tick).toArray(), ...P.clone().add(tick).toArray());
+      v.push(...P.clone().sub(t2).toArray(), ...P.clone().add(t2).toArray());
+      v.push(...P.clone().sub(tick).toArray(), ...P.clone().add(tick).toArray());
     }
     if (labels) {
       const s = labels.make(text, { px: 13, color: '#111', bg: 'rgba(255,214,90,0.92)', kind: 'dim', depthTest: false });
-      s.position.copy(A).add(B).multiplyScalar(0.5);
-      g.add(s);
+      s.position.lerpVectors(A, B, t);
+      axes[axis].add(s);
     }
   }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-  const lines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xffc83a, depthTest: false, transparent: true }));
-  lines.renderOrder = 9;
-  g.add(lines);
+  const mat = new THREE.LineBasicMaterial({ color: 0xffc83a, depthTest: false, transparent: true });
+  for (const [axis, v] of Object.entries(verts)) {
+    if (!v.length) continue;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+    const lines = new THREE.LineSegments(geo, mat);
+    lines.renderOrder = 9;
+    axes[axis].add(lines);
+  }
+  g.userData.axes = axes;
   return g;
+}
+
+/** Какие размеры видны в текущем виде: 'top' — план, 'side' — разрез, иначе все. */
+export function setDimsView(g, dir) {
+  const hide = dir === 'top' ? 'y' : dir === 'side' ? 'x' : null;
+  for (const [axis, grp] of Object.entries(g.userData.axes)) grp.visible = axis !== hide;
 }
 
 export function buildGrid() {

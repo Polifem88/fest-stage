@@ -186,6 +186,11 @@ export class FixtureSystem {
       polygonOffset: true, polygonOffsetFactor: -2,
     });
     this.pools = new THREE.InstancedMesh(poolGeo, this.poolMat, n);
+    // пятна обрезаются по границам пола: 0 — планшет и авансцена, 1 — зал
+    this.poolZone = new THREE.InstancedBufferAttribute(new Float32Array(n), 1);
+    this.poolZone.setUsage(THREE.DynamicDrawUsage);
+    poolGeo.setAttribute('aZone', this.poolZone);
+    clipPoolsToFloor(this.poolMat);
     this.pools.name = 'pools';
     this.pools.frustumCulled = false;
     this.pools.renderOrder = 4;
@@ -300,6 +305,9 @@ export class FixtureSystem {
       const qp = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ang);
       this._m.compose(hit.point.clone().setY(hit.point.y + 0.012), qp, this._s.set(rad * stretch, 1, rad));
       this.pools.setMatrixAt(f.idx, this._m);
+      const stageLevel = Math.abs(hit.point.y) < 0.02 && -hit.point.z >= -DIM.forestage.depth - 0.01;
+      this.poolZone.setX(f.idx, stageLevel ? 0 : 1);
+      this.poolZone.needsUpdate = true;
     } else this.pools.setMatrixAt(f.idx, zero);
     this.pools.setColorAt(f.idx, poolColor(f));
     if (f.label) f.label.position.copy(mount).add(new THREE.Vector3(0, hang ? 0.12 : 0.3, 0));
@@ -396,6 +404,32 @@ function poolColor(f) {
   // пятна от приборов в зале (на сцену издалека) — слабее
   const k = f.group.startsWith('BR') || f.group.startsWith('BOX') ? 0.35 : f.group === 'FOH' ? 0.6 : 0.5;
   return WARM.clone().multiplyScalar(k * POOL_GAIN);
+}
+
+/**
+ * Обрезка пятен по границам пола (в шейдере): вытянутое пятно у стены или края авансцены
+ * не должно «висеть» за стеной коробки или в воздухе над залом.
+ * aZone = 0: планшет (|x| ≤ полуширины коробки, до задней стены) и трапеция авансцены;
+ * aZone = 1: зал (|x| ≤ полуширины зала). Координата d = −z.
+ */
+function clipPoolsToFloor(mat) {
+  const fs = DIM.forestage;
+  const c = (v) => v.toFixed(4);
+  mat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float aZone;\nvarying float vZone;\nvarying vec3 vPoolW;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvZone = aZone;\nvPoolW = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying float vZone;\nvarying vec3 vPoolW;')
+      .replace('void main() {', `void main() {
+  float pd = -vPoolW.z;
+  float ax = abs(vPoolW.x);
+  if (vZone < 0.5) {
+    if (pd > ${c(DIM.box.backWallD)} || ax > ${c(BOX_HALF)} || pd < ${c(-fs.depth)}) discard;
+    if (pd < 0.0 && ax > ${c(fs.frontWidth / 2)} + (pd + ${c(fs.depth)}) / ${c(fs.depth)} * ${c((fs.backWidth - fs.frontWidth) / 2)}) discard;
+  } else if (ax > ${c(HALL_HALF)}) discard;`);
+  };
+  mat.customProgramCacheKey = () => 'pool-clip';
 }
 
 /** Пересечение луча с полом сцены/зала/стенами зала. */

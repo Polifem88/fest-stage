@@ -12,7 +12,7 @@ import { buildArchitecture, buildSeats, buildEmitters, HALL_BACK_FLOOR_Y } from 
 import { RiggingSystem } from '../build/rigging.js';
 import { FixtureSystem } from '../build/fixtures.js';
 import { LightingSystem } from '../build/lighting.js';
-import { buildDims, buildGrid } from './overlays.js';
+import { buildDims, buildGrid, setDimsView } from './overlays.js';
 import { encodeState, decodeState } from './state.js';
 
 export const PROFILES = {
@@ -189,6 +189,7 @@ export class Stage {
     const v = VIEWS[key];
     if (!v) return;
     this.view = key;
+    setDimsView(this.dims, v.type === 'ortho' ? v.dir : null);
     if (v.type === 'ortho') {
       this.camera = this.ortho;
       this.controls.object = this.ortho;

@@ -117,8 +117,9 @@ details.grp summary small { color: var(--muted); font-weight: 400; }
 .mobile .quick .tgl.mixed { background: #403616; border-color: var(--mixed); }
 .mobile .sheet { position: fixed; z-index: 18; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; display: flex; flex-direction: column; height: calc(70px + env(safe-area-inset-bottom)); transition: height .22s; padding-bottom: env(safe-area-inset-bottom); }
 .mobile .sheet[data-state=open] { height: min(62vh, 560px); }
-.mobile .handle { flex: none; height: 18px; border: 0; background: none; position: relative; touch-action: none; }
-.mobile .handle::after { content: ""; position: absolute; left: 50%; top: 6px; width: 44px; height: 5px; border-radius: 3px; background: #4a5263; transform: translateX(-50%); }
+/* язычок: видимая полоска прежняя, а зона касания 44 px (на 26 px выступает над шторкой, прозрачно) */
+.mobile .handle { flex: none; align-self: center; width: 160px; height: 44px; margin-top: -26px; border: 0; background: none; position: relative; touch-action: none; cursor: grab; }
+.mobile .handle::after { content: ""; position: absolute; left: 50%; top: 32px; width: 44px; height: 5px; border-radius: 3px; background: #4a5263; transform: translateX(-50%); }
 .mobile .mtabs { flex: none; display: grid; grid-template-columns: repeat(4, 1fr); }
 .mobile .mtab { background: none; border: 0; display: grid; place-items: center; gap: 1px; min-height: 48px; color: var(--muted); font-size: 12px; }
 .mobile .mtab .ico { font-size: 20px; }

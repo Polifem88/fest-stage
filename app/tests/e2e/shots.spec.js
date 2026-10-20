@@ -69,7 +69,7 @@ test('снимки всех видов', async ({ page }, info) => {
         .filter(({ r }) => r.width > 0 && Math.min(r.width, r.height) < 44 && r.bottom > 0 && r.top < innerHeight)
         .map(({ r, t }) => `${t} (${Math.round(r.width)}×${Math.round(r.height)})`));
       report.smallTargets = small;
-      if (small.length) info.annotations.push({ type: 'мелкие кнопки', description: small.slice(0, 15).join('; ') });
+      expect.soft(small, 'кнопки мельче 44 px').toEqual([]);
     });
   }
 
