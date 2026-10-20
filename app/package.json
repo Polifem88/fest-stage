@@ -10,8 +10,9 @@
     "preview": "vite preview --host --outDir dist",
     "test": "vitest run",
     "shots": "playwright test tests/e2e/shots.spec.js",
-    "perf": "playwright test tests/e2e/perf.spec.js",
-    "e2e": "playwright test"
+    "perf": "node scripts/build.mjs && playwright test tests/e2e/perf.spec.js",
+    "e2e": "playwright test",
+    "check": "vitest run && node scripts/build.mjs && playwright test"
   },
   "dependencies": {
     "three": "^0.170.0"
