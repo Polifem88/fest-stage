@@ -89,19 +89,22 @@ describe('Приборы', () => {
     // софиты и прострелы — точно
     for (const g of ['C0', 'C1', 'C2', 'C3']) expect(countByType([g]), g).toEqual(INVENTORY[g]);
     for (const g of ['TOW_L', 'TOW_R']) expect(countByType([g]), g).toEqual(INVENTORY.towerEach);
-    // ложи — всё, кроме BroPar (на схеме не найден)
-    const { BROPAR, ...boxes } = INVENTORY.boxesEachSide;
-    expect(BROPAR).toBe(1);
+    // ложи — полностью как в перечне (BroPar — без номера на схеме)
+    const boxes = INVENTORY.boxesEachSide;
     expect(countByType(['BOX_L1', 'BOX_L2']), 'левые ложи').toEqual(boxes);
     expect(countByType(['BOX_R1', 'BOX_R2']), 'правые ложи').toEqual(boxes);
+    // RGBALC — по одному в каждой ложе
+    for (const g of ['BOX_L1', 'BOX_L2', 'BOX_R1', 'BOX_R2']) expect(countByType([g]).PROF_RGB, g).toBe(1);
     // мосты: Fresnel и Profile — как в перечне; два ETC 26° (107 — 19° со сменной линзой 14/26) + Jr 50° (по завцеху)
     const br = countByType(['BR1', 'BR2']);
     expect(br.FRESNEL).toBe(INVENTORY.bridges.FRESNEL);
     expect(br.PROF_CW).toBe(INVENTORY.bridges.PROF_CW);
     expect((br.ETC26 || 0) + (br.ETC19 || 0)).toBe(INVENTORY.bridges.ETC26);
     expect(br.ETCJR50).toBe(1);
-    // галереи: 14 мест на схеме, тип уточняется (ETC 26° ×4 + PAR-64 ×8)
-    expect(countByType(['GAL_L', 'GAL_R', 'GAL_B'])).toEqual({ GAL_LAMP: 14 });
+    // галереи: на задней 2 ETC 26°; на боковых 12 мест = ещё 4 ETC 26° + 8 PAR-64 (какие где — уточняется)
+    expect(countByType(['GAL_B'])).toEqual({ ETC26: 2 });
+    expect(countByType(['GAL_L', 'GAL_R'])).toEqual({ GAL_LAMP: 12 });
+    expect(INVENTORY.galleries.ETC26 - 2 + INVENTORY.galleries.PAR64).toBe(12);
   });
 
   it('ламповые приборы — это ровно трёхзначные номера (= диммерные линии)', () => {

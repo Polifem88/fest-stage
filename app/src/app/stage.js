@@ -495,12 +495,13 @@ export class Stage {
       ['Тип', t.name],
       ['Группа', g.name],
       ['Питание', powerOf(f)],
-      ['Линии группы', `${g.ds} (D — диммерные, S — свитчерные)`],
+      ['Линии группы', g.ds === '—' ? 'на схеме не указаны' : `${g.ds} (D — диммерные, S — свитчерные)`],
       ['Висит на', f.mount.on ? `${RIG_BY_ID[f.mount.on].name} (высота ${this.rigging.height(f.mount.on).toFixed(2).replace('.', ',')} м)` : g.name],
       ['Высота прибора', `${pos.y.toFixed(2).replace('.', ',')} м`],
       ['Угол луча', `${t.beam}°`],
     ];
     if (t.note) rows.push([t.unknown ? 'Внимание' : 'Примечание', t.note]);
+    if (f.note) rows.push(['Примечание', f.note]);
     return { title: `Прибор № ${f.no}`, kind: 'fixture', idx: f.idx, on: f.on, rows };
   }
 

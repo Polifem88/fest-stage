@@ -6,7 +6,7 @@ p.on('pageerror', (e) => errs.push(e.message));
 p.on('console', (m) => m.type() === 'error' && errs.push(m.text()));
 await p.goto('http://localhost:5173/desktop.html');
 await p.waitForFunction(() => window.__fest?.ready, null, { timeout: 60000 });
-for (const no of [102, 142, 41, 187, 18]) {
+for (const no of ['УФ-Л', 'П', 17, 20, 201, 187]) {
   const r = await p.evaluate((no) => { window.__fest.selectFixture(no); return window.__fest.describe(); }, no);
   console.log(no, JSON.stringify(r?.rows ?? r));
 }
