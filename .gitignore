@@ -3,6 +3,11 @@ app/dist/
 app/test-results/
 app/playwright-report/
 app/review/shots/
+# снимки тестировщиков (в т.ч. уменьшенные копии исходных фото) — только локально
+app/review/**/*.jpg
+app/review/**/*.png
+app/review/**/*.json
+!app/review/**/package.json
 *.log
 
 # исходные фото и схема — только локально, не публикуются
