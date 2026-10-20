@@ -1,0 +1,9 @@
+node_modules/
+app/dist/
+app/test-results/
+app/playwright-report/
+app/review/shots/
+*.log
+
+# исходные фото и схема Ч только локально, не публикуютс€
+data/
