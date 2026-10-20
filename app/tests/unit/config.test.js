@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DIM, BOX_HALF, GALLERY_INNER_X, BACK_GALLERY_FRONT_D } from '../../src/config/dimensions.js';
 import { RIGGING, SPACING, DEPTHS, LEFT_RAIL_ORDER, RIG_BY_ID, ropeDepth, DUTY_ROWS } from '../../src/config/rigging.js';
-import { FIXTURES, TYPES, GROUPS, typeSummary } from '../../src/config/fixtures.js';
+import { FIXTURES, TYPES, GROUPS, INVENTORY, countByType } from '../../src/config/fixtures.js';
 
 describe('Размеры и глубины', () => {
   it('сумма расстояний + галерея + портал + авансцена = 12 м (±5 см)', () => {
@@ -85,9 +85,29 @@ describe('Приборы', () => {
     expect(c('C3')).toBe(11);
   });
 
-  it('по каждому типу из легенды расставлено ровно столько, сколько в легенде', () => {
-    for (const row of typeSummary()) {
-      if (TYPES[row.key].legendCount > 0) expect(row.placed, row.name).toBe(row.legend);
+  it('расстановка сходится с перечнем светового цеха', () => {
+    // софиты и прострелы — точно
+    for (const g of ['C0', 'C1', 'C2', 'C3']) expect(countByType([g]), g).toEqual(INVENTORY[g]);
+    for (const g of ['TOW_L', 'TOW_R']) expect(countByType([g]), g).toEqual(INVENTORY.towerEach);
+    // ложи — всё, кроме BroPar (на схеме не найден)
+    const { BROPAR, ...boxes } = INVENTORY.boxesEachSide;
+    expect(BROPAR).toBe(1);
+    expect(countByType(['BOX_L1', 'BOX_L2']), 'левые ложи').toEqual(boxes);
+    expect(countByType(['BOX_R1', 'BOX_R2']), 'правые ложи').toEqual(boxes);
+    // мосты: Fresnel и Profile — как в перечне; два ETC 26° (107 — 19° со сменной линзой 14/26) + Jr 50° (по завцеху)
+    const br = countByType(['BR1', 'BR2']);
+    expect(br.FRESNEL).toBe(INVENTORY.bridges.FRESNEL);
+    expect(br.PROF_CW).toBe(INVENTORY.bridges.PROF_CW);
+    expect((br.ETC26 || 0) + (br.ETC19 || 0)).toBe(INVENTORY.bridges.ETC26);
+    expect(br.ETCJR50).toBe(1);
+    // галереи: 14 мест на схеме, тип уточняется (ETC 26° ×4 + PAR-64 ×8)
+    expect(countByType(['GAL_L', 'GAL_R', 'GAL_B'])).toEqual({ GAL_LAMP: 14 });
+  });
+
+  it('ламповые приборы — это ровно трёхзначные номера (= диммерные линии)', () => {
+    for (const f of FIXTURES) {
+      if (f.group === 'FOH') continue;
+      expect(!!TYPES[f.type].lamp, String(f.no)).toBe(Number(f.no) >= 100);
     }
   });
 

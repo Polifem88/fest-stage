@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DIM, rowFrontD } from '../config/dimensions.js';
 import { RIGGING, RIG_BY_ID, DUTY_ROWS } from '../config/rigging.js';
-import { GROUPS, GROUP_SETS, TYPES, BAR_DEPTH } from '../config/fixtures.js';
+import { GROUPS, GROUP_SETS, TYPES, BAR_DEPTH, powerOf } from '../config/fixtures.js';
 import { createMaterials } from '../core/materials.js';
 import { StaticBatch } from '../core/geom.js';
 import { LabelManager } from '../core/labels.js';
@@ -494,12 +494,13 @@ export class Stage {
     const rows = [
       ['Тип', t.name],
       ['Группа', g.name],
-      ['D / S (группы)', g.ds],
+      ['Питание', powerOf(f)],
+      ['Линии группы', `${g.ds} (D — диммерные, S — свитчерные)`],
       ['Висит на', f.mount.on ? `${RIG_BY_ID[f.mount.on].name} (высота ${this.rigging.height(f.mount.on).toFixed(2).replace('.', ',')} м)` : g.name],
       ['Высота прибора', `${pos.y.toFixed(2).replace('.', ',')} м`],
       ['Угол луча', `${t.beam}°`],
     ];
-    if (t.unknown) rows.push(['Внимание', 'тип не указан в легенде схемы']);
+    if (t.note) rows.push([t.unknown ? 'Внимание' : 'Примечание', t.note]);
     return { title: `Прибор № ${f.no}`, kind: 'fixture', idx: f.idx, on: f.on, rows };
   }
 
