@@ -6,6 +6,9 @@ import { DIM } from '../config/dimensions.js';
 import { BAR_DEPTH } from '../config/fixtures.js';
 
 const WARM = 0xffd2a0;
+// Общий множитель яркости сценического света (подбирается по скриншотам: scripts/luma.ps1)
+const GROUP_GAIN = 1.5;
+const DUTY_GAIN = 0.6;
 
 /** Набор групповых источников для профиля. members — группы приборов. */
 const PLAN = {
@@ -41,7 +44,7 @@ export class LightingSystem {
 
   _build() {
     // общий слабый «технический» свет — модель читается и в темноте
-    this.hemi = new THREE.HemisphereLight(0xb8c4d6, 0x1a1816, 0.35);
+    this.hemi = new THREE.HemisphereLight(0xb8c4d6, 0x1a1816, 0.25);
     this.root.add(this.hemi);
 
     for (const g of PLAN[this.opts.plan]) {
@@ -69,7 +72,7 @@ export class LightingSystem {
       const c = pts.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / pts.length);
       const L = new THREE.PointLight(0xffe2b0, 0, 0, 1.4);
       L.position.copy(c).add(new THREE.Vector3(0, -0.3, 0));
-      L.userData.base = this.opts.plan === 'full' ? 34 : 70;
+      L.userData.base = (this.opts.plan === 'full' ? 34 : 70) * DUTY_GAIN;
       this.root.add(L);
       return L;
     });
@@ -119,7 +122,7 @@ export class LightingSystem {
       L.angle = Math.min(Math.PI / 2.3, Math.atan((spread + 2.2) / Math.max(1, dist)));
       // яркость: ~ доля включённых × количество × расстояние^затухание (физические единицы)
       const per = (g.members.some((m) => m.startsWith('BOX') || m.startsWith('TOW')) ? 2.5 : g.members[0] === 'FOH' ? 14 : 3.2) * (this.opts.plan === 'lite' ? 0.7 : 1);
-      L.userData.base = per * on * Math.pow(dist, 1.6) * 0.032;
+      L.userData.base = per * on * Math.pow(dist, 1.6) * 0.032 * GROUP_GAIN;
       L.intensity = L.userData.base * this.level.stage;
     }
   }

@@ -117,6 +117,21 @@ export function radialTex() {
   }, { repeat: false, srgb: false });
 }
 
+/** Мягкое пятно в цвете (чёрный фон, белый центр, без прозрачности) — для смешивания «максимумом». */
+export function radialTexRGB() {
+  return canvasTex(128, (g, S) => {
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, S, S);
+    const gr = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    gr.addColorStop(0, '#ffffff');
+    gr.addColorStop(0.5, '#a0a0a0');
+    gr.addColorStop(0.8, '#383838');
+    gr.addColorStop(1, '#000000');
+    g.fillStyle = gr;
+    g.fillRect(0, 0, S, S);
+  }, { repeat: false, srgb: false });
+}
+
 /**
  * Библиотека материалов. uvScale — сколько метров в одном повторе текстуры
  * (UV у статической геометрии задаются в метрах, см. geom.js → worldUV).

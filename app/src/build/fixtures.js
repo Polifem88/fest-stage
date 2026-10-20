@@ -3,7 +3,9 @@
 import * as THREE from 'three';
 import { DIM, BOX_HALF, HALL_HALF, hallFloorY } from '../config/dimensions.js';
 import { FIXTURES, TYPES, BAR_DEPTH } from '../config/fixtures.js';
-import { radialTex } from '../core/materials.js';
+import { radialTexRGB } from '../core/materials.js';
+
+const POOL_GAIN = 0.55; // яркость одного пятна на полу (подбирается по скриншотам)
 
 const WARM = new THREE.Color(1.0, 0.8, 0.55);
 const LENS_OFF = new THREE.Color(0.05, 0.05, 0.055);
@@ -76,7 +78,7 @@ function merge(parts) {
 
 function beamMaterial() {
   return new THREE.ShaderMaterial({
-    uniforms: { uStrength: { value: 0.055 } },
+    uniforms: { uStrength: { value: 0.012 } },
     vertexShader: /* glsl */ `
       varying float vT;
       varying float vF;
@@ -172,9 +174,14 @@ export class FixtureSystem {
     this.beams.renderOrder = 5;
     this.beams.visible = !!this.opts.beams;
     this.root.add(this.beams);
-    // пятна на полу
+    // пятна на полу: смешивание «максимумом» — сотня пятен в центре не складывается в белое,
+    // яркость в любой точке не выше самого яркого пятна
     const poolGeo = new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2);
-    this.poolMat = new THREE.MeshBasicMaterial({ map: radialTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.05, toneMapped: true, polygonOffset: true, polygonOffsetFactor: -2 });
+    this.poolMat = new THREE.MeshBasicMaterial({
+      map: radialTexRGB(), transparent: true, depthWrite: false, toneMapped: false,
+      blending: THREE.CustomBlending, blendEquation: THREE.MaxEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+      polygonOffset: true, polygonOffsetFactor: -2,
+    });
     this.pools = new THREE.InstancedMesh(poolGeo, this.poolMat, n);
     this.pools.name = 'pools';
     this.pools.frustumCulled = false;
@@ -303,7 +310,7 @@ export class FixtureSystem {
 function poolColor(f) {
   // пятна от приборов в зале (на сцену издалека) — слабее
   const k = f.group.startsWith('BR') || f.group.startsWith('BOX') ? 0.35 : f.group === 'FOH' ? 0.6 : 0.5;
-  return WARM.clone().multiplyScalar(k);
+  return WARM.clone().multiplyScalar(k * POOL_GAIN);
 }
 
 /** Пересечение луча с полом сцены/зала/стенами зала. */
