@@ -17,6 +17,9 @@ const TYPE_PALETTE = ['#e6194b', '#3cb44b', '#f58231', '#4363d8', '#911eb4', '#0
 export const TYPE_COLORS = Object.fromEntries(Object.keys(TYPES).map((k, i) => [k, TYPE_PALETTE[i % TYPE_PALETTE.length]]));
 const TYPE_COLOR_OBJ = Object.fromEntries(Object.entries(TYPE_COLORS).map(([k, c]) => [k, new THREE.Color(c)]));
 const BODY_SEL_BP = new THREE.Color(0x111111);
+// плотность дымки: uStrength = HAZE_MIN + HAZE_RANGE × (0…1); по умолчанию 0,3 → ≈ 0,019
+const HAZE_MIN = 0.004, HAZE_RANGE = 0.05;
+export const HAZE_DEFAULT = 0.3;
 
 // Геометрия «головы» для каждого вида (линза смотрит в +Z, центр в начале координат)
 function headGeometry(shape) {
@@ -83,7 +86,7 @@ function merge(parts) {
 
 function beamMaterial() {
   return new THREE.ShaderMaterial({
-    uniforms: { uStrength: { value: 0.012 } },
+    uniforms: { uStrength: { value: HAZE_MIN + HAZE_RANGE * HAZE_DEFAULT } },
     vertexShader: /* glsl */ `
       varying float vT;
       varying float vF;
@@ -318,7 +321,7 @@ export class FixtureSystem {
     } else this.pools.setMatrixAt(f.idx, zero);
     this.pools.setColorAt(f.idx, poolColor(f));
     if (f.label) f.label.position.copy(mount).add(new THREE.Vector3(0, hang ? 0.12 : 0.3, 0));
-    f.world = { head, dir, lensPos };
+    f.world = { head, dir, lensPos, throw: L, onFloor: hit.floor };
   }
 
   setOn(idx, on) {
@@ -343,6 +346,8 @@ export class FixtureSystem {
   }
 
   setHaze(v) { this.beams.visible = v; }
+  /** Плотность дымки 0…1 (видимость лучей). 0,3 — по умолчанию. */
+  setHazeDensity(v) { this.beams.material.uniforms.uStrength.value = HAZE_MIN + HAZE_RANGE * Math.max(0, Math.min(1, v)); }
   setPools(v) { this.pools.visible = v; }
   /** Окраска корпусов по типу прибора (для режима «чертёж»). */
   setColorByType(v) { if (this.colorByType === v) return; this.colorByType = v; this.updateAll(); }

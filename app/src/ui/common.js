@@ -92,13 +92,24 @@ export function toggle(label, get, set, { icon = '', id } = {}) {
 export function lightPanel(stage, { compact = false } = {}) {
   const toggles = [];
   const T = (...a) => { const t = toggle(...a); toggles.push(t); return t; };
-  const master = h('div', { class: 'grid-2' },
+  const master = h('div', { class: 'grid-2 master' },
     T('Сценический свет', () => { const s = stage.stageState(); return s === 'on' ? true : s === 'mixed' ? 'mixed' : false; }, (v) => stage.setAllStage(v), { icon: '🎭', id: 'stage' }),
     T('Дежурный свет', () => stage.flags.duty, (v) => stage.setFlag('duty', v), { icon: '💡', id: 'duty' }),
     T('Свет в зале', () => stage.flags.house, (v) => stage.setFlag('house', v), { icon: '🏛', id: 'house' }),
     T('Лучи (дымка)', () => stage.flags.haze, (v) => stage.setFlag('haze', v), { icon: '🌫', id: 'haze' }),
   );
-  const groups = h('div', { class: 'grid-2 groups' },
+  // плотность дымки: насколько видны лучи в воздухе
+  const hazeVal = h('span', { class: 'unit' });
+  const hazeSlider = h('input', { type: 'range', min: 0, max: 100, step: 5, 'aria-label': 'Плотность дымки, %' });
+  const updHaze = () => {
+    const v = Math.round((stage.flags.hazeDensity ?? 0.3) * 100);
+    hazeSlider.value = v;
+    hazeVal.textContent = `${v} %`;
+    hazeRow.classList.toggle('dim', !stage.flags.haze);
+  };
+  hazeSlider.addEventListener('input', () => { if (!stage.flags.haze) stage.setFlag('haze', true); stage.setFlag('hazeDensity', +hazeSlider.value / 100); });
+  const hazeRow = h('label', { class: 'haze-row' }, h('span', {}, '🌫 Плотность дымки'), hazeSlider, hazeVal);
+  const groups = h('div', { class: `groups ${compact ? 'grid-2' : 'grid-1'}` },
     GROUP_SETS.map((s) => {
       const n = stage.fixtures.list.filter((f) => s.groups.includes(f.group)).length;
       const full = `${[...new Set(s.groups.map((g) => GROUPS[g]?.name).filter(Boolean))].join(', ')} — ${n} приб.`;
@@ -152,7 +163,7 @@ export function lightPanel(stage, { compact = false } = {}) {
     return d;
   });
   const updChips = () => { for (const [i, c] of chips) { const f = stage.fixtures.list[i]; c.hidden = !!f.hidden; c.classList.toggle('off', !f.on); c.classList.toggle('sel', !!f.selected); c.classList.toggle('unk', !!TYPES[f.type].unknown); } };
-  const updAll = () => { toggles.forEach((t) => t._upd()); updChips(); updPortable(); };
+  const updAll = () => { toggles.forEach((t) => t._upd()); updChips(); updPortable(); updHaze(); };
   stage.on('lights', updAll);
   stage.on('flags', updAll);
   stage.on('state', updAll);
@@ -168,9 +179,10 @@ export function lightPanel(stage, { compact = false } = {}) {
   });
   updChips();
   updPortable();
+  updHaze();
   return h('div', { class: 'panel-light' },
     h('h4', {}, 'Найти прибор'), searchRow,
-    h('h4', {}, 'Свет'), master,
+    h('h4', {}, 'Свет'), master, hazeRow,
     h('h4', {}, 'Группы приборов'), groups,
     h('div', { class: 'hint' }, compact ? 'Кнопка группы — вкл/выкл, «соло» — горит только она.' : 'Кнопка группы — вкл/выкл; «соло» — горит только эта группа, остальной сценический свет гаснет.'),
     h('h4', {}, 'Переносные ETC 50° (прострелы по планшету)'), portable,

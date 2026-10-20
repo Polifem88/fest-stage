@@ -18,6 +18,7 @@ export function encodeState(st) {
   LAYERS.forEach((k, i) => { if (st.layers[k] !== false) l |= 1 << i; });
   const obj = { v: 1, h, fx: b64(bytes), f, l, view: st.view || '' };
   if (st.portable && st.portable.mode !== 'off') obj.p = [PORT_MODES.indexOf(st.portable.mode), st.portable.count];
+  if (st.flags.hazeDensity != null) obj.hd = Math.round(st.flags.hazeDensity * 100); // плотность дымки, %
   return b64(new TextEncoder().encode(JSON.stringify(obj)));
 }
 
@@ -31,6 +32,7 @@ export function decodeState(str) {
     const fixturesOn = FIXTURES.map((_, i) => !!(bytes[i >> 3] & (1 << (i & 7))));
     const flags = {};
     FLAGS.forEach((k, i) => { flags[k] = !!(obj.f & (1 << i)); });
+    if (typeof obj.hd === 'number') flags.hazeDensity = obj.hd / 100;
     const layers = {};
     LAYERS.forEach((k, i) => { layers[k] = !!(obj.l & (1 << i)); });
     const portable = Array.isArray(obj.p) ? { mode: PORT_MODES[obj.p[0]] || 'off', count: obj.p[1] } : { mode: 'off', count: 8 };

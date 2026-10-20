@@ -256,7 +256,7 @@ export class RiggingSystem {
       s.renderOrder = mode === 'plan' ? 12 : 10;
       if (it.cfg.kind === 'side') {
         // боковой штанкет идёт под колонками подписей — на плане подпись к середине, ближе к центру
-        if (mode === 'plan') s.position.set(it.cfg.x - Math.sign(it.cfg.x) * 0.8, s.position.y, -(it.cfg.dFrom + it.cfg.dTo) / 2);
+        if (mode === 'plan') s.position.set(it.cfg.x - Math.sign(it.cfg.x) * 1.2, s.position.y, -(it.cfg.dFrom + it.cfg.dTo) / 2);
         continue;
       }
       const far = mode === 'plan' && Math.floor(s.userData.order / 2) % 2 === 1;

@@ -2,6 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { DIM, BOX_HALF, GALLERY_INNER_X, BACK_GALLERY_FRONT_D } from '../../src/config/dimensions.js';
 import { RIGGING, SPACING, DEPTHS, LEFT_RAIL_ORDER, RIG_BY_ID, ropeDepth, DUTY_ROWS } from '../../src/config/rigging.js';
 import { FIXTURES, TYPES, GROUPS, INVENTORY, countByType, PORTABLE, portablePlacement } from '../../src/config/fixtures.js';
+import { SPECS } from '../../src/config/specs.js';
+
+describe('Паспорта приборов', () => {
+  it('у каждого типа прибора есть паспортные данные с источником', () => {
+    for (const t of Object.keys(TYPES)) {
+      expect(SPECS[t], `нет паспорта для ${t}`).toBeTruthy();
+      expect(SPECS[t].url, `нет ссылки на источник для ${t}`).toMatch(/^https:\/\//);
+    }
+  });
+});
 
 describe('Размеры и глубины', () => {
   it('сумма расстояний + галерея + портал + авансцена = 12 м (±5 см)', () => {

@@ -43,13 +43,16 @@ export class SheetOverlay {
   /** Нарисовать лист в контексте g размером w×h css-пикселей. */
   paint(g, w, h, { legend = true } = {}) {
     const st = this.stage;
-    if (!st.flags.blueprint) return;
+    if (!st.flags.blueprint || !st.camera.isOrthographicCamera) return;
     const small = w < 600;
-    if (legend) this._legend(g, w, h, small);
-    if (st.camera.isOrthographicCamera) this._scaleBar(g, w, h, small);
+    // экспликация — только на плане сверху (на разрезе закрывала бы зал, в 3D — сцену)
+    let legendTop = null;
+    if (legend && st.viewDir === 'top') legendTop = this._legend(g, w, h, small, st.view === 'planStage' ? 7 : null);
+    this._scaleBar(g, w, h, small, legendTop);
   }
 
-  _legend(g, w, h, small) {
+  /** @returns y верхней границы экспликации */
+  _legend(g, w, h, small, rowsLimit) {
     const st = this.stage;
     const counts = new Map();
     for (const f of st.fixtures.list) if (!f.hidden) counts.set(f.type, (counts.get(f.type) || 0) + 1);
@@ -59,8 +62,9 @@ export class SheetOverlay {
     const font = (wt = '') => `${wt}${fs}px "Segoe UI", system-ui, sans-serif`;
     // строки: [цвет, текст, вид значка]
     const items = [...rows.map(([t, n]) => [TYPE_COLORS[t], `${TYPES[t].name} — ${n}`, 'box']), ...RIG_LEGEND.map(([c, s]) => [c, s, 'line'])];
-    // по возможности одной колонкой (уже — меньше закрывает чертёж); если не влезает по высоте — в 2–3
-    const maxRows = Math.max(6, Math.floor((h * 0.85 - pad * 2 - lh * 2) / lh));
+    // по возможности одной колонкой (уже — меньше закрывает чертёж); если не влезает по высоте — в 2–3;
+    // на «Плане сцены» — широкой полосой внизу (там свободна полоса под авансценой)
+    const maxRows = rowsLimit || Math.max(6, Math.floor((h * 0.85 - pad * 2 - lh * 2) / lh));
     const ncol = Math.min(3, Math.ceil(items.length / maxRows));
     const perCol = Math.ceil(items.length / ncol);
     g.font = font();
@@ -90,20 +94,30 @@ export class SheetOverlay {
       g.fillStyle = '#111';
       g.fillText(text, x + sw + pad * 0.7, yy);
     });
+    return y0;
   }
 
-  _scaleBar(g, w, h, small) {
+  _scaleBar(g, w, h, small, legendTop = null) {
     const cam = this.stage.camera;
     const pxPerM = (h * cam.zoom) / (cam.top - cam.bottom);
     if (!isFinite(pxPerM) || pxPerM <= 0) return;
     const steps = [1, 2, 5, 10, 20];
-    const len = steps.find((s) => s * pxPerM >= Math.min(160, w * 0.3)) || 20;
+    const len = steps.find((s) => s * pxPerM >= Math.min(small ? 90 : 160, w * 0.3)) || 20;
     const seg = len <= 2 ? 0.5 : len <= 5 ? 1 : len / 5;
     const L = len * pxPerM;
     const fs = small ? 10 : 11;
-    const x1 = w - (small ? 14 : 24), x0 = x1 - L;
-    // вверху справа: внизу слева экспликация, внизу справа — подсказка управления
-    const y = (small ? 70 : 34) + fs;
+    let x0, y;
+    if (small) {
+      // узкий экран (телефон): вверху тесно от механики — над экспликацией слева,
+      // а без экспликации (на экране телефона) — внизу справа над шторкой
+      x0 = 16;
+      y = legendTop != null ? legendTop - 14 : h - 96;
+      if (legendTop == null) x0 = w - 16 - L;
+    } else {
+      // вверху справа: внизу слева экспликация, внизу справа — подсказка управления
+      x0 = w - 24 - L;
+      y = 34 + fs;
+    }
     g.fillStyle = 'rgba(255,255,255,0.9)';
     g.fillRect(x0 - 10, y - fs - 10, L + 20, fs + 26);
     g.strokeStyle = '#111';

@@ -10,10 +10,11 @@ const ROUND = process.env.ROUND || 'r1-self';
 
 /** Все готовые виды + «сюжетные» снимки для проверки света, механики и чертежа. */
 const SHOTS = [
-  'overview', 'hall', 'booth', 'plan', 'section', 'stageToHall', 'upperGallery', 'flyGallery',
+  'overview', 'hall', 'booth', 'plan', 'planStage', 'section', 'stageToHall', 'upperGallery', 'flyGallery',
   'plan+bp+dims',       // чертёж для райдера (экспликация, масштаб)
   'plan+bp+grid',       // чертёж с оцифрованной сеткой 1 м
-  'section+bp+dims',    // разрез: высоты штанкетов
+  'planStage+bp+dims',  // план сцены крупно — лист развеса
+  'section+bp+dims+grid', // разрез: высоты штанкетов, вся глубина здания
   'hall+off',           // сценический свет выключен, горит дежурка
   'hall+off+noduty+house', // только зальный свет
   'hall+onlyC2',        // включён только 2-й софит

@@ -48,11 +48,13 @@ export function startMobile() {
 
   // «Поделиться»: PNG и ссылка — частые действия на телефоне, поэтому в шапке
   const shareMenu = h('div', { class: 'share-menu', hidden: true, role: 'menu' },
-    h('button', { class: 'btn', role: 'menuitem', onclick: () => { shareMenu.hidden = true; shareLink(stage); } }, '🔗 Ссылка на это состояние'),
-    h('button', { class: 'btn', role: 'menuitem', onclick: () => { shareMenu.hidden = true; stage.screenshot(); toast('Скриншот сохранён'); } }, '📷 Скриншот в PNG'),
+    h('button', { class: 'btn', role: 'menuitem', onclick: () => { setShare(false); shareLink(stage); } }, '🔗 Ссылка на это состояние'),
+    h('button', { class: 'btn', role: 'menuitem', onclick: () => { setShare(false); stage.screenshot(); toast('Скриншот сохранён'); } }, '📷 Скриншот в PNG'),
   );
-  const shareBtn = h('button', { class: 'tgl share-btn', 'aria-label': 'Поделиться: ссылка или скриншот', title: 'Поделиться', onclick: (e) => { e.stopPropagation(); shareMenu.hidden = !shareMenu.hidden; } }, h('span', { class: 'ico' }, '📤'));
-  document.addEventListener('pointerdown', (e) => { if (!shareMenu.hidden && !shareMenu.contains(e.target) && e.target !== shareBtn && !shareBtn.contains(e.target)) shareMenu.hidden = true; });
+  // прозрачная подложка: тап мимо меню только закрывает его и не нажимает кнопки под ним
+  const shareBackdrop = h('div', { class: 'share-backdrop', hidden: true, onpointerdown: (e) => { e.preventDefault(); e.stopPropagation(); setShare(false); } });
+  const setShare = (on) => { shareMenu.hidden = !on; shareBackdrop.hidden = !on; };
+  const shareBtn = h('button', { class: 'tgl share-btn', 'aria-label': 'Поделиться: ссылка или скриншот', title: 'Поделиться', onclick: () => setShare(shareMenu.hidden) }, h('span', { class: 'ico' }, '📤'));
 
   const top = h('header', { class: 'mtop' },
     h('div', { class: 'brand' }, h('b', {}, 'ФЭСТ'), h('span', {}, ' Большая сцена')),
@@ -64,7 +66,7 @@ export function startMobile() {
   const hideHint = () => hint.classList.add('hide');
   setTimeout(hideHint, 3000);
   window.addEventListener('pointerdown', hideHint, { once: true });
-  document.body.append(top, shareMenu, card, sheet, hint, dragBadge(stage));
+  document.body.append(top, shareBackdrop, shareMenu, card, sheet, hint, dragBadge(stage));
   setSheet('peek');
 
   stage.on('select', (sel, req) => {

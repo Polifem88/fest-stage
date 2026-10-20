@@ -13,10 +13,10 @@ export function startDesktop() {
   loading.remove();
 
   const tabs = [
-    ['rig', '⚙ Механика', () => rigPanel(stage)],
-    ['light', '💡 Свет', () => lightPanel(stage)],
-    ['layers', '🗂 Слои', () => layersPanel(stage)],
-    ['views', '👁 Виды', () => viewsPanel(stage)],
+    ['rig', '⚙', 'Механика', () => rigPanel(stage)],
+    ['light', '💡', 'Свет', () => lightPanel(stage)],
+    ['layers', '🗂', 'Слои', () => layersPanel(stage)],
+    ['views', '👁', 'Виды', () => viewsPanel(stage)],
   ];
   const body = h('div', { class: 'side-body' });
   const panes = {};
@@ -30,12 +30,12 @@ export function startDesktop() {
     }
     for (const [k, p] of Object.entries(panes)) p.hidden = k !== id;
   };
-  const tabBtns = tabs.map(([id, name, make]) => {
+  const tabBtns = tabs.map(([id, ico, name, make]) => {
     panes[id] = make();
     panes[id].hidden = id !== 'rig';
     panes[id].setAttribute('role', 'tabpanel');
     body.append(panes[id]);
-    return h('button', { class: `tab${id === 'rig' ? ' on' : ''}`, role: 'tab', 'aria-selected': String(id === 'rig'), tabindex: id === 'rig' ? 0 : -1, 'data-tab': id, onclick: () => openTab(id) }, name);
+    return h('button', { class: `tab${id === 'rig' ? ' on' : ''}`, role: 'tab', 'aria-selected': String(id === 'rig'), tabindex: id === 'rig' ? 0 : -1, 'data-tab': id, onclick: () => openTab(id) }, h('span', { class: 'ico', 'aria-hidden': 'true' }, ico), ' ', name);
   });
   const tablist = h('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Разделы панели' }, tabBtns);
   // стрелки влево/вправо листают вкладки (как принято для role=tablist)

@@ -4,15 +4,16 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DIM, rowFrontD } from '../config/dimensions.js';
 import { RIGGING, RIG_BY_ID, DUTY_ROWS } from '../config/rigging.js';
-import { GROUPS, GROUP_SETS, TYPES, BAR_DEPTH, powerOf } from '../config/fixtures.js';
+import { GROUPS, GROUP_SETS, TYPES, BAR_DEPTH, powerOf, AIM_NOTE } from '../config/fixtures.js';
+import { SPECS } from '../config/specs.js';
 import { createMaterials } from '../core/materials.js';
 import { StaticBatch } from '../core/geom.js';
 import { LabelManager } from '../core/labels.js';
 import { buildArchitecture, buildSeats, buildEmitters, HALL_BACK_FLOOR_Y } from '../build/architecture.js';
 import { RiggingSystem } from '../build/rigging.js';
-import { FixtureSystem } from '../build/fixtures.js';
+import { FixtureSystem, HAZE_DEFAULT } from '../build/fixtures.js';
 import { LightingSystem } from '../build/lighting.js';
-import { buildDims, buildGrid, setDimsView } from './overlays.js';
+import { buildDims, buildGrid, setDimsView, setGridView } from './overlays.js';
 import { encodeState, decodeState } from './state.js';
 import { SheetOverlay } from './blueprint.js';
 
@@ -29,7 +30,10 @@ export const VIEWS = {
   hall: { name: 'Из зала (8-й ряд)', type: 'persp', pos: [0, eyeY(7), rowFrontD(7) - 0.42], target: [0, 2.6, 4] },
   booth: { name: 'С пульта', type: 'persp', pos: [0.8, HALL_BACK_FLOOR_Y + 2.7, -DIM.hall.portalToBoothWall + 0.3], target: [0, 1.4, 3] },
   plan: { name: 'План сверху', type: 'ortho', dir: 'top', center: [0, 0, -4.2], height: 31 },
-  section: { name: 'Разрез сбоку', type: 'ortho', dir: 'side', center: [0, 3.4, -4.0], height: 14 },
+  // только коробка и авансцена, крупно; снизу остаётся полоса под экспликацию
+  planStage: { name: 'План сцены (крупно)', type: 'ortho', dir: 'top', center: [0, 0, 0.4], height: 20.5 },
+  // вся глубина здания: от задней стены сцены (9,2) до операторской (−18)
+  section: { name: 'Разрез сбоку', type: 'ortho', dir: 'side', center: [0, 3.6, -4.4], height: 19.5 },
   stageToHall: { name: 'Со сцены в зал', type: 'persp', pos: [0, 1.7, 4.5], target: [0, 1.6, -12] },
   upperGallery: { name: 'С верхней галереи', type: 'persp', pos: [-1.5, DIM.galleries.upperY + 1.6, 8.75], target: [0, 2.2, 1.0] },
   flyGallery: { name: 'Рабочая галерея (канаты)', type: 'persp', pos: [-3.6, 1.8, 0.4], target: [-8.3, 2.4, 5.2] },
@@ -41,7 +45,7 @@ export class Stage {
     this.container = container;
     this.listeners = {};
     this.selected = null;
-    this.flags = { duty: true, house: false, haze: this.profile.haze, blueprint: false, labels: true, fixtureLabels: this.profile.fixtureLabels, grid: false, dims: false };
+    this.flags = { duty: true, house: false, haze: this.profile.haze, hazeDensity: HAZE_DEFAULT, blueprint: false, labels: true, fixtureLabels: this.profile.fixtureLabels, grid: false, dims: false };
     this.layers = { hall: true, walls: true, galleries: true, rigging: true, lights: true };
     this.view = 'overview';
     this._dirty = true;
@@ -194,8 +198,10 @@ export class Stage {
     const v = VIEWS[key];
     if (!v) return;
     this.view = key;
-    setDimsView(this.dims, v.type === 'ortho' ? v.dir : null);
-    this.rigging.setLabelLayout(key === 'plan' ? 'plan' : 'normal');
+    this.viewDir = v.type === 'ortho' ? v.dir : null;
+    setDimsView(this.dims, this.viewDir);
+    setGridView(this.grid, this.viewDir);
+    this.rigging.setLabelLayout(this.viewDir === 'top' ? 'plan' : 'normal');
     this._updateRopeLabels();
     if (v.type === 'ortho') {
       this.camera = this.ortho;
@@ -324,6 +330,7 @@ export class Stage {
     for (const m of this.emitters.duty.children) if (m.userData.emitter) m.material = f.duty ? this.M[m.userData.emitter === 'duty' ? matNameFor(m) : 'houseLamp'] : this._offMat();
     for (const m of this.emitters.house.children) m.material = f.house ? this.M.houseLamp : this._offMat();
     this.fixtures.setHaze(f.haze && !f.blueprint);
+    this.fixtures.setHazeDensity(f.hazeDensity ?? HAZE_DEFAULT);
     this.fixtures.setPools(!f.blueprint);
     for (const s of this.labels.labels) {
       const k = s.userData.label.kind;
@@ -579,8 +586,24 @@ export class Stage {
       ['Линии группы', g.ds === '—' ? 'на схеме не указаны' : `${g.ds} (D — диммерные, S — свитчерные)`],
       ['Висит на', f.mount.on ? `${RIG_BY_ID[f.mount.on].name} (высота ${this.rigging.height(f.mount.on).toFixed(2).replace('.', ',')} м)` : g.name],
       ['Высота прибора', `${pos.y.toFixed(2).replace('.', ',')} м`],
-      ['Угол луча', `${t.beam}°`],
+      ['Угол луча', `${t.beam}° (в модели)`],
     ];
+    // дальность и пятно — по текущему (условному) наведению
+    const w = f.world;
+    if (w && w.onFloor) {
+      const L = w.throw, dia = 2 * L * Math.tan((t.beam * Math.PI) / 360);
+      rows.push(['До пола по лучу', `${L.toFixed(1).replace('.', ',')} м`]);
+      rows.push(['Пятно', `≈ ${dia.toFixed(1).replace('.', ',')} м в поперечнике луча`]);
+    } else if (w) rows.push(['Луч', 'упирается в стену, на пол не попадает']);
+    rows.push(['Наведение', AIM_NOTE]);
+    // паспорт производителя (может быть неполным)
+    const s = SPECS[f.type];
+    if (s) {
+      for (const [k, name] of [['source', 'Источник'], ['power', 'Мощность'], ['zoom', 'Угол / зум (паспорт)'], ['color', 'Цвет'], ['dmx', 'DMX'], ['weight', 'Вес'], ['ip', 'Защита']]) {
+        if (s[k] && s[k] !== '—') rows.push([name, s[k]]);
+      }
+      rows.push(['Паспорт', `по открытым данным производителя (опознание модели: ${s.confidence}) — уточняйте в цехе`]);
+    }
     if (t.note) rows.push([t.unknown ? 'Внимание' : 'Примечание', t.note]);
     if (f.note) rows.push(['Примечание', f.note]);
     return { title: `Прибор № ${f.no}`, kind: 'fixture', idx: f.idx, on: f.on, rows };
