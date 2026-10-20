@@ -283,8 +283,16 @@ export class Stage {
   }
   setAllStage(on) { this.fixtures.setMany(() => true, on); this._lightsChanged(); }
   stageState() {
-    const on = this.fixtures.list.filter((f) => f.on).length;
-    return on === 0 ? 'off' : on === this.fixtures.list.length ? 'on' : 'mixed';
+    const fl = this.fixtures.list.filter((f) => !f.hidden);
+    const on = fl.filter((f) => f.on).length;
+    return on === 0 ? 'off' : on === fl.length ? 'on' : 'mixed';
+  }
+  /** Переносные ETC 50°: mode 'off' | 'floor' | 'stand', count 6 | 8. */
+  setPortable(mode, count = this.fixtures.portable.count) {
+    this.fixtures.setPortable(mode, count);
+    this._shadowsDirty = true;
+    this._lightsChanged();
+    this.emit('portable', this.fixtures.portable);
   }
 
   setFlag(k, v) { this.flags[k] = v; this._applyFlags(); this.invalidate(); this.emit('flags', k, v); }
@@ -301,6 +309,7 @@ export class Stage {
       if (k === 'rig' || k === 'rope') s.visible = f.labels;
       if (k === 'fixture') s.visible = f.fixtureLabels;
     }
+    this.fixtures.setLabels(f.fixtureLabels); // учитывает скрытые переносные приборы
     this.grid.visible = f.grid;
     this.dims.visible = f.dims;
     this._applyBlueprint(f.blueprint);
@@ -330,7 +339,7 @@ export class Stage {
     scene.traverse((o) => {
       if (!o.isMesh) return;
       // кресла и корпуса приборов (InstancedMesh)
-      const instKey = o.name === 'seatsFabric' ? 'seatF' : o.name === 'seatsFrame' ? 'seatK' : (o.name.startsWith('fixtures:') || o.name === 'fixtureBases' || o.name === 'fixtureClamps') ? 'fixture' : null;
+      const instKey = o.name === 'seatsFabric' ? 'seatF' : o.name === 'seatsFrame' ? 'seatK' : (o.name.startsWith('fixtures:') || o.name === 'fixtureBases' || o.name === 'fixtureClamps' || o.name.startsWith('portable')) ? 'fixture' : null;
       if (instKey) {
         if (on) { o.userData.matOrig ||= o.material; o.material = this._bp[instKey]; }
         else if (o.userData.matOrig) o.material = o.userData.matOrig;
@@ -564,6 +573,7 @@ export class Stage {
       fixturesOn: this.fixtures.list.map((f) => f.on),
       flags: { ...this.flags },
       layers: { ...this.layers },
+      portable: { ...this.fixtures.portable },
       view: this.view,
     };
   }
@@ -577,6 +587,7 @@ export class Stage {
     if (!st) return false;
     for (const [id, h] of Object.entries(st.heights || {})) this.rigging.setHeight(id, h);
     if (st.fixturesOn) { this.fixtures.list.forEach((f, i) => { f.on = !!st.fixturesOn[i]; }); this.fixtures.updateAll(); this._lightsChanged(); }
+    if (st.portable) this.setPortable(st.portable.mode, st.portable.count);
     if (st.flags) { Object.assign(this.flags, st.flags); this._applyFlags(); }
     if (st.layers) { Object.assign(this.layers, st.layers); this._applyLayers(); }
     if (st.view && VIEWS[st.view]) this.setView(st.view, { instant: true });

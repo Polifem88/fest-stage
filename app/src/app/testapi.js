@@ -20,6 +20,8 @@ export function exposeTestApi(stage) {
     setHeight: (id, m) => stage.setHeight(id, m),
     height: (id) => stage.rigging.height(id),
     light: (setId, on) => (setId === 'all' ? stage.setAllStage(on) : stage.setGroupSet(setId, on)),
+    /** Переносные ETC 50°: mode 'off' | 'floor' | 'stand', count 6 | 8. */
+    portable: (mode, count) => stage.setPortable(mode, count),
     flag: (k, v) => stage.setFlag(k, v),
     layer: (k, v) => stage.setLayer(k, v),
     select: (sel) => stage.select(sel),

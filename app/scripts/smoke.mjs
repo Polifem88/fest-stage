@@ -33,6 +33,10 @@ for (const v of views) {
       if (m === 'house') f.flag('house', true);
       if (m === 'noduty') f.flag('duty', false);
       if (m === 'nums') f.flag('fixtureLabels', true);
+      if (m === 'pfloor') f.portable('floor', 8);
+      if (m === 'pstand') f.portable('stand', 8);
+      if (m === 'p6') f.portable(f.stage.fixtures.portable.mode, 6);
+      if (m === 'wing') f.setCamera([5.5, 2.6, -1.2], [5.6, 0.8, 4.5], 55); // из-за портала вдоль правой кулисы
       if (m === 'nohaze') f.flag('haze', false);
       if (m === 'nopools') f.stage.fixtures.setPools(false);
       if (m === 'flat') f.stage.lighting.setStage(0);

@@ -1,6 +1,6 @@
 // Общие компоненты интерфейса (используются и в десктопной, и в мобильной версии).
 import { RIGGING } from '../config/rigging.js';
-import { GROUP_SETS, GROUPS, TYPES } from '../config/fixtures.js';
+import { GROUP_SETS, GROUPS, TYPES, PORTABLE } from '../config/fixtures.js';
 import { VIEWS } from '../app/stage.js';
 
 export const fmt = (v, n = 2) => Number(v).toFixed(n).replace('.', ',');
@@ -94,12 +94,28 @@ export function lightPanel(stage, { compact = false } = {}) {
       return T(`${s.name} · ${n}`, () => { const st = stage.groupSetState(s.id); return st === 'on' ? true : st === 'mixed' ? 'mixed' : false; }, (v) => stage.setGroupSet(s.id, v), { id: `g-${s.id}` });
     }),
   );
+  // переносные ETC 50° (прострелы по планшету): нет / на полу / на штативах, 6 или 8 шт.
+  const portBtns = [];
+  const PB = (label, isOn, act) => { const b = h('button', { class: 'btn', onclick: act }, label); b._isOn = isOn; portBtns.push(b); return b; };
+  const P = () => stage.fixtures.portable;
+  const portable = h('div', {},
+    h('div', { class: 'btn-row', role: 'group', 'aria-label': 'Как стоят переносные приборы' },
+      PB('Нет', () => P().mode === 'off', () => stage.setPortable('off')),
+      PB('На полу', () => P().mode === 'floor', () => stage.setPortable('floor')),
+      PB('На штативах', () => P().mode === 'stand', () => stage.setPortable('stand')),
+    ),
+    h('div', { class: 'btn-row', role: 'group', 'aria-label': 'Сколько переносных приборов' },
+      PORTABLE.counts.map((n) => PB(`${n} шт.`, () => P().count === n, () => stage.setPortable(P().mode === 'off' ? 'floor' : P().mode, n))),
+    ),
+  );
+  const updPortable = () => { for (const b of portBtns) { const on = b._isOn(); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); } };
   // поиск прибора
   const search = h('input', { type: 'search', class: 'search', placeholder: 'Найти прибор №…', inputmode: 'numeric', 'aria-label': 'Найти прибор по номеру' });
   const doFind = () => {
     const q = search.value.trim();
     const f = stage.fixtures.byNo.get(q) || stage.fixtures.byNo.get(q.toUpperCase());
     if (!f) { toast(`Прибор № ${q} не найден`); return; }
+    if (f.hidden) { toast(`№ ${f.no} — переносной прибор, сейчас не показан. Включите его в разделе «Переносные ETC 50°»`, 3500); return; }
     stage.select({ kind: 'fixture', idx: f.idx });
     stage.focusFixture?.(f.idx);
   };
@@ -118,16 +134,19 @@ export function lightPanel(stage, { compact = false } = {}) {
     }));
     return h('details', { class: 'grp' }, h('summary', {}, `${g.name}`, h('small', {}, ` ${fl.length} шт. · ${g.ds}`)), wrap);
   });
-  const updChips = () => { for (const [i, c] of chips) { const f = stage.fixtures.list[i]; c.classList.toggle('off', !f.on); c.classList.toggle('sel', !!f.selected); c.classList.toggle('unk', !!TYPES[f.type].unknown); } };
-  const updAll = () => { toggles.forEach((t) => t._upd()); updChips(); };
+  const updChips = () => { for (const [i, c] of chips) { const f = stage.fixtures.list[i]; c.hidden = !!f.hidden; c.classList.toggle('off', !f.on); c.classList.toggle('sel', !!f.selected); c.classList.toggle('unk', !!TYPES[f.type].unknown); } };
+  const updAll = () => { toggles.forEach((t) => t._upd()); updChips(); updPortable(); };
   stage.on('lights', updAll);
   stage.on('flags', updAll);
   stage.on('state', updAll);
+  stage.on('portable', updAll);
   stage.on('select', updChips);
   updChips();
+  updPortable();
   return h('div', { class: 'panel-light' },
     h('h4', {}, 'Свет'), master,
     h('h4', {}, 'Группы приборов'), groups,
+    h('h4', {}, 'Переносные ETC 50° (прострелы по планшету)'), portable,
     h('h4', {}, 'Приборы'), h('div', { class: 'search-row' }, search, findBtn),
     compact ? h('div', { class: 'hint' }, 'Тап по номеру — выбрать прибор.') : h('div', { class: 'hint' }, 'Щелчок по номеру — выбрать, двойной — вкл/выкл. Фиолетовые — тип не указан в легенде.'),
     details,

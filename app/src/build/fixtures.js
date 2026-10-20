@@ -2,7 +2,7 @@
 // лучи («дымка») и световые пятна на полу. Включение/выключение по одному и группами.
 import * as THREE from 'three';
 import { DIM, BOX_HALF, HALL_HALF, hallFloorY } from '../config/dimensions.js';
-import { FIXTURES, TYPES, BAR_DEPTH } from '../config/fixtures.js';
+import { FIXTURES, TYPES, BAR_DEPTH, PORTABLE, portablePlacement } from '../config/fixtures.js';
 import { radialTexRGB } from '../core/materials.js';
 
 const POOL_GAIN = 0.55; // яркость одного пятна на полу (подбирается по скриншотам)
@@ -122,12 +122,15 @@ export class FixtureSystem {
     this.opts = opts;
     this.root = new THREE.Group();
     this.root.name = 'fixtures';
-    this.list = FIXTURES.map((f, i) => ({ ...f, idx: i, on: true, selected: false }));
+    this.list = FIXTURES.map((f, i) => ({ ...f, idx: i, on: true, selected: false, hidden: false }));
     this.byNo = new Map(this.list.map((f) => [String(f.no), f]));
     this._m = new THREE.Matrix4();
     this._q = new THREE.Quaternion();
     this._s = new THREE.Vector3();
+    this._labelsOn = true;
+    this.portable = { ...PORTABLE.defaults };
     this._build();
+    this._placePortable();
     this.updateAll();
   }
 
@@ -191,6 +194,20 @@ export class FixtureSystem {
       im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       im.userData.layer = 'lights';
     }
+    // переносные: штативы и напольные подставки (по одной на каждый переносной прибор)
+    this.portableList = this.list.filter((f) => f.portable);
+    const np = this.portableList.length;
+    this.stands = new THREE.InstancedMesh(standGeometry(), M.steel, np);
+    this.floorStands = new THREE.InstancedMesh(floorStandGeometry(), M.steel, np);
+    this.stands.name = 'portableStands';
+    this.floorStands.name = 'portableFloorStands';
+    for (const im of [this.stands, this.floorStands]) {
+      im.castShadow = true;
+      im.frustumCulled = false;
+      im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      im.userData.layer = 'lights';
+      this.root.add(im);
+    }
     // номера приборов
     if (this.opts.labels) {
       for (const f of this.list) {
@@ -229,6 +246,14 @@ export class FixtureSystem {
   }
 
   _update(f) {
+    if (f.hidden) {
+      const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+      this.shapes[f.shapeKey].setMatrixAt(f.shapeIdx, zero);
+      for (const im of [this.bases, this.clamps, this.lenses, this.beams, this.pools]) im.setMatrixAt(f.idx, zero);
+      if (f.label) f.label.visible = false;
+      return;
+    }
+    if (f.label) f.label.visible = this._labelsOn;
     const mount = this.mountPos(f);
     const onBar = !!f.mount.on;
     const hang = onBar || f.group.startsWith('BR');
@@ -304,7 +329,67 @@ export class FixtureSystem {
 
   setHaze(v) { this.beams.visible = v; }
   setPools(v) { this.pools.visible = v; }
-  setLabels(v) { for (const f of this.list) if (f.label) f.label.visible = v; }
+  setLabels(v) { this._labelsOn = v; for (const f of this.list) if (f.label) f.label.visible = v && !f.hidden; }
+
+  /** Переносные приборы: mode 'off' | 'floor' | 'stand', count — сколько всего (6 или 8). */
+  setPortable(mode, count) {
+    if (!['off', 'floor', 'stand'].includes(mode)) mode = 'off';
+    if (!PORTABLE.counts.includes(count)) count = PORTABLE.defaults.count;
+    this.portable = { mode, count };
+    this._placePortable();
+    for (const f of this.portableList) this._update(f);
+    this._flush();
+  }
+
+  _placePortable() {
+    const { mode, count } = this.portable;
+    const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+    const m = new THREE.Matrix4();
+    this.portableList.forEach((f, j) => {
+      const p = portablePlacement(f.portable.side, f.portable.k, mode, count);
+      f.mount = p.mount;
+      f.aim = p.aim;
+      f.hidden = !p.visible;
+      // подставка повёрнута так, чтобы вилка стояла поперёк луча
+      const dx = p.aim.x - p.mount.x, dz = -(p.aim.d - p.mount.d);
+      m.makeRotationY(Math.atan2(-dx, -dz)).setPosition(p.mount.x, 0, -p.mount.d);
+      this.stands.setMatrixAt(j, p.visible && mode === 'stand' ? m : zero);
+      this.floorStands.setMatrixAt(j, p.visible && mode === 'floor' ? m : zero);
+    });
+    this.stands.instanceMatrix.needsUpdate = true;
+    this.floorStands.instanceMatrix.needsUpdate = true;
+  }
+}
+
+/** Штатив: три ноги, стойка и вилка сверху (центр прибора — на высоте PORTABLE.standY). */
+function standGeometry() {
+  const parts = [];
+  const add = (g) => parts.push(g.index ? g.toNonIndexed() : g);
+  const top = PORTABLE.standY - 0.15;
+  add(new THREE.CylinderGeometry(0.018, 0.022, top, 8).translate(0, top / 2, 0)); // стойка
+  for (let i = 0; i < 3; i++) { // ноги
+    const a = (i / 3) * Math.PI * 2;
+    const r = 0.5, hy = 0.6;
+    const len = Math.hypot(r, hy);
+    const leg = new THREE.CylinderGeometry(0.012, 0.012, len, 6).translate(0, -len / 2, 0);
+    leg.rotateZ(Math.atan2(r, hy)).rotateY(a).translate(0, hy, 0);
+    add(leg);
+  }
+  add(new THREE.BoxGeometry(0.28, 0.025, 0.03).translate(0, top, 0)); // перекладина вилки
+  add(new THREE.BoxGeometry(0.02, 0.17, 0.03).translate(-0.13, top + 0.085, 0));
+  add(new THREE.BoxGeometry(0.02, 0.17, 0.03).translate(0.13, top + 0.085, 0));
+  return merge(parts);
+}
+
+/** Напольная подставка: плита и вилка (центр прибора — на высоте PORTABLE.floorY). */
+function floorStandGeometry() {
+  const parts = [];
+  const add = (g) => parts.push(g.index ? g.toNonIndexed() : g);
+  const y = PORTABLE.floorY;
+  add(new THREE.BoxGeometry(0.34, 0.02, 0.26).translate(0, 0.01, 0));
+  add(new THREE.BoxGeometry(0.02, y, 0.04).translate(-0.13, y / 2, 0));
+  add(new THREE.BoxGeometry(0.02, y, 0.04).translate(0.13, y / 2, 0));
+  return merge(parts);
 }
 
 function poolColor(f) {

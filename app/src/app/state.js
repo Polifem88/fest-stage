@@ -4,6 +4,7 @@ import { FIXTURES } from '../config/fixtures.js';
 
 const FLAGS = ['duty', 'house', 'haze', 'blueprint', 'labels', 'fixtureLabels', 'grid', 'dims'];
 const LAYERS = ['hall', 'walls', 'galleries', 'rigging', 'lights'];
+const PORT_MODES = ['off', 'floor', 'stand'];
 
 /** state: { heights:{id:h}, fixturesOn:boolean[], flags:{}, layers:{}, view } */
 export function encodeState(st) {
@@ -16,6 +17,7 @@ export function encodeState(st) {
   let l = 0;
   LAYERS.forEach((k, i) => { if (st.layers[k] !== false) l |= 1 << i; });
   const obj = { v: 1, h, fx: b64(bytes), f, l, view: st.view || '' };
+  if (st.portable && st.portable.mode !== 'off') obj.p = [PORT_MODES.indexOf(st.portable.mode), st.portable.count];
   return b64(new TextEncoder().encode(JSON.stringify(obj)));
 }
 
@@ -31,7 +33,8 @@ export function decodeState(str) {
     FLAGS.forEach((k, i) => { flags[k] = !!(obj.f & (1 << i)); });
     const layers = {};
     LAYERS.forEach((k, i) => { layers[k] = !!(obj.l & (1 << i)); });
-    return { heights, fixturesOn, flags, layers, view: obj.view };
+    const portable = Array.isArray(obj.p) ? { mode: PORT_MODES[obj.p[0]] || 'off', count: obj.p[1] } : { mode: 'off', count: 8 };
+    return { heights, fixturesOn, flags, layers, portable, view: obj.view };
   } catch {
     return null;
   }

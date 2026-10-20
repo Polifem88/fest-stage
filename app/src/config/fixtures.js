@@ -37,6 +37,7 @@ export const TYPES = {
   ETC26: { name: 'ETC Source Four 26°', shape: 'profile', beam: 26, lamp: true, scale: 0.85 },
   ETC19: { name: 'ETC Source Four 19° (линза сменная: 14° / 26°)', shape: 'profile', beam: 19, lamp: true, scale: 0.85 },
   ETCJR50: { name: 'ETC Source Four Jr 50°', shape: 'profile', beam: 50, lamp: true, scale: 0.7 },
+  ETC50: { name: 'ETC Source Four 50° (переносной)', shape: 'profile', beam: 50, lamp: true, scale: 0.85, note: 'прострел по планшету; число и места меняются от спектакля к спектаклю' },
   // тип пока не уточнён
   GAL_LAMP: { name: 'ETC Source Four 26° или PAR-64', shape: 'profile', beam: 26, lamp: true, scale: 0.85, unknown: true, note: 'на каждой боковой галерее 2 из 6 — ETC 26°, остальные PAR-64; какие именно — уточняется' },
 };
@@ -56,7 +57,7 @@ export const INVENTORY = {
   boxesEachSide: { PROF_CW: 3, PROF_RGB: 2, BROPAR: 1, COMPC: 6 },
   towerEach: { PROF_CW: 1, PAR64: 1, WASH760: 1 },
   galleries: { ETC26: 6, PAR64: 8 }, // по завцеху: ETC — по 2 на левой и правой, 2 на задней (в середине)
-  floor: { ETC50: '6–8' }, // прострелы по планшету, количество меняется; в модели пока нет
+  floor: { ETC50: '6–8' }, // прострелы по планшету, количество меняется; в модели — PORTABLE (вкл. в панели «Свет»)
 };
 
 /** Группы для управления и линии со схемы: D — диммерные линии, S — свитчерные (постоянное питание). */
@@ -77,6 +78,8 @@ export const GROUPS = {
   TOW_L: { name: 'Левый прострел', ds: 'D138, 139 / S17', set: 'towers' },
   TOW_R: { name: 'Правый прострел', ds: 'D140, 141 / S18', set: 'towers' },
   FOH: { name: 'Пульт', ds: '—', set: 'foh' },
+  PORT_L: { name: 'Переносные слева (планшет)', ds: 'на планшете: 12 диммерных / 7 свитчерных линий', set: 'portable' },
+  PORT_R: { name: 'Переносные справа (планшет)', ds: 'на планшете: 12 диммерных / 7 свитчерных линий', set: 'portable' },
 };
 
 /** Наборы групп для кнопок управления. */
@@ -90,7 +93,39 @@ export const GROUP_SETS = [
   { id: 'boxes', name: 'Ложи', groups: ['BOX_L1', 'BOX_L2', 'BOX_R1', 'BOX_R2'] },
   { id: 'towers', name: 'Прострелы', groups: ['TOW_L', 'TOW_R'] },
   { id: 'foh', name: 'Пушка', groups: ['FOH'] },
+  { id: 'portable', name: 'Переносные', groups: ['PORT_L', 'PORT_R'] },
 ];
+
+/**
+ * Переносные ETC 50° — прострелы по планшету (по завцеху 6–8 шт., число меняется).
+ * Ставятся по обеим сторонам сцены вдоль кулис и светят поперёк сцены.
+ * mode: 'off' — не показывать, 'floor' — прямо на полу (на напольной подставке), 'stand' — на штативах.
+ */
+export const PORTABLE = {
+  max: 8,
+  counts: [6, 8],
+  defaults: { mode: 'off', count: 8 },
+  x: 6.6, // от оси сцены, м (между концами штанкетов и галереями)
+  dFrom: 1.4, dTo: 7.0, // глубина первой и последней пары, м
+  floorY: 0.24, // центр прибора на напольной подставке
+  standY: 1.9, // центр прибора на штативе
+};
+
+/** Положение и наведение переносного прибора (side: -1 слева, +1 справа; k — номер пары спереди назад). */
+export function portablePlacement(side, k, mode, count) {
+  const perSide = count / 2;
+  const visible = mode !== 'off' && k < perSide;
+  const kk = Math.min(k, perSide - 1);
+  const d = perSide > 1 ? PORTABLE.dFrom + ((PORTABLE.dTo - PORTABLE.dFrom) * kk) / (perSide - 1) : PORTABLE.dFrom;
+  const x = side * PORTABLE.x;
+  const stand = mode === 'stand';
+  return {
+    visible,
+    mount: { on: null, x, y: stand ? PORTABLE.standY : PORTABLE.floorY, d },
+    // с пола — почти горизонтально через всю сцену; со штатива — чуть сверху, к дальней половине
+    aim: stand ? { x: -side * 2.0, y: 0.5, d } : { x: -side * 4.5, y: 0, d },
+  };
+}
 
 // --- Раскладка по софитам (слева направо) ----------------------------------
 const BARS = {
@@ -204,6 +239,14 @@ function build() {
   }
   // --- «пушка» у пульта (в операторской, за стеклом): по завцеху — Profile Q400 WW+CW
   list.push({ no: 'П', type: 'PROF_CW', group: 'FOH', note: '«пушка» у пульта', mount: { on: null, x: 0.8, y: 3.7, d: -(DIM.hall.portalToBoothWall + 0.8) }, aim: { x: 0, y: 1.6, d: 1.5 } });
+  // --- переносные ETC 50° (в конце списка, чтобы не сбить номера в сохранённых ссылках).
+  // Н1, Н3, Н5, Н7 — слева спереди назад; Н2, Н4, Н6, Н8 — справа.
+  for (let k = 0; k < PORTABLE.max / 2; k++) {
+    for (const side of [-1, 1]) {
+      const p = portablePlacement(side, k, 'floor', PORTABLE.max);
+      list.push({ no: `Н${k * 2 + (side < 0 ? 1 : 2)}`, type: 'ETC50', group: side < 0 ? 'PORT_L' : 'PORT_R', portable: { side, k }, mount: p.mount, aim: p.aim });
+    }
+  }
   return list;
 }
 
@@ -218,6 +261,7 @@ export function countByType(groups) {
 
 /** Питание прибора: ламповые — своя диммерная линия (номер на схеме), остальные — свитчерные линии группы. */
 export function powerOf(f) {
+  if (f.portable) return 'диммерная линия на планшете (D)';
   return TYPES[f.type].lamp ? `диммерная линия D${f.no}` : 'свитчерная линия (S) группы';
 }
 

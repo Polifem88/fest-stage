@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DIM, BOX_HALF, GALLERY_INNER_X, BACK_GALLERY_FRONT_D } from '../../src/config/dimensions.js';
 import { RIGGING, SPACING, DEPTHS, LEFT_RAIL_ORDER, RIG_BY_ID, ropeDepth, DUTY_ROWS } from '../../src/config/rigging.js';
-import { FIXTURES, TYPES, GROUPS, INVENTORY, countByType } from '../../src/config/fixtures.js';
+import { FIXTURES, TYPES, GROUPS, INVENTORY, countByType, PORTABLE, portablePlacement } from '../../src/config/fixtures.js';
 
 describe('Размеры и глубины', () => {
   it('сумма расстояний + галерея + портал + авансцена = 12 м (±5 см)', () => {
@@ -109,7 +109,7 @@ describe('Приборы', () => {
 
   it('ламповые приборы — это ровно трёхзначные номера (= диммерные линии)', () => {
     for (const f of FIXTURES) {
-      if (f.group === 'FOH') continue;
+      if (f.group === 'FOH' || f.portable) continue;
       expect(!!TYPES[f.type].lamp, String(f.no)).toBe(Number(f.no) >= 100);
     }
   });
@@ -126,5 +126,24 @@ describe('Приборы', () => {
       expect(Math.abs(f.mount.x), String(f.no)).toBeLessThanOrEqual(DIM.hall.width / 2);
       if (!f.mount.on) expect(f.mount.y, String(f.no)).toBeLessThan(DIM.box.ceiling);
     }
+  });
+
+  it('переносные ETC 50°: в конце списка, видно ровно выбранное число, стоят на сцене у кулис', () => {
+    const port = FIXTURES.filter((f) => f.portable);
+    expect(port.length).toBe(PORTABLE.max);
+    expect(FIXTURES.slice(-PORTABLE.max).every((f) => f.portable)).toBe(true); // не сбивает старые ссылки
+    for (const mode of ['floor', 'stand']) {
+      for (const count of PORTABLE.counts) {
+        const pl = port.map((f) => portablePlacement(f.portable.side, f.portable.k, mode, count));
+        expect(pl.filter((p) => p.visible).length, `${mode} ${count}`).toBe(count);
+        for (const p of pl.filter((q) => q.visible)) {
+          expect(Math.abs(p.mount.x)).toBeLessThan(DIM.box.width / 2 - DIM.galleries.width);
+          expect(p.mount.d).toBeGreaterThan(DIM.portal.thickness);
+          expect(p.mount.d).toBeLessThan(DIM.box.backWallD - 1);
+          expect(Math.sign(p.aim.x)).toBe(-Math.sign(p.mount.x)); // светят поперёк сцены
+        }
+      }
+    }
+    expect(port.map((f) => portablePlacement(f.portable.side, f.portable.k, 'off', 8)).some((p) => p.visible)).toBe(false);
   });
 });

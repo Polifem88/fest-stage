@@ -22,6 +22,8 @@ const PLAN = {
     { id: 'BOXL', members: ['BOX_L1', 'BOX_L2', 'TOW_L'] },
     { id: 'BOXR', members: ['BOX_R1', 'BOX_R2', 'TOW_R'] },
     { id: 'FOH', members: ['FOH'] },
+    { id: 'PORT_L', members: ['PORT_L'], shadow: false },
+    { id: 'PORT_R', members: ['PORT_R'], shadow: false },
   ],
   lite: [
     { id: 'FRONT', members: ['C0', 'C1'] },
@@ -108,7 +110,7 @@ export class LightingSystem {
       for (const f of fl) {
         c.add(this.fx.mountPos(f, new THREE.Vector3()));
         a.add(new THREE.Vector3(f.aim.x, f.aim.y, -f.aim.d));
-        if (f.on) on++;
+        if (f.on && !f.hidden) on++;
       }
       c.multiplyScalar(1 / fl.length);
       a.multiplyScalar(1 / fl.length);
