@@ -13,17 +13,21 @@ function dimList() {
     [[-PW2 - 0.35, 0, -0.05], [-PW2 - 0.35, DIM.portal.height, -0.05], `${fmt(DIM.portal.height)}`, 0.35], // подпись ниже «Деко-потолка»
     [[-W, 0.03, DIM.box.backWallD - 0.4], [W, 0.03, DIM.box.backWallD - 0.4], `Коробка ${fmt(DIM.box.width)}`],
     [[0, 0.03, -FS.depth], [0, 0.03, DIM.box.backWallD], `До задней стены ${fmt(FS.depth + DIM.box.backWallD)} (≈12)`],
-    [[FS.frontWidth / 2 - 0.4, 0.03, -FS.depth], [FS.frontWidth / 2 - 0.4, 0.03, 0], `Авансцена ${fmt(FS.depth)}`], // справа: слева подпись С0
+    // глубина авансцены: справа за концом С0 (не по приборам) и ниже пола зала (на разрезе не ложится на ступени)
+    [[7.4, -FS.height - 0.45, -FS.depth], [7.4, -FS.height - 0.45, 0], `Авансцена ${fmt(FS.depth)}`],
     [[-FS.frontWidth / 2, -FS.height + 0.02, -FS.depth - 0.25], [FS.frontWidth / 2, -FS.height + 0.02, -FS.depth - 0.25], `Перед авансцены ${fmt(FS.frontWidth)}`],
     [[W - 1.2, 0, 5.0], [W - 1.2, DIM.box.ceiling, 5.0], `Потолок ${fmt(DIM.box.ceiling)}`],
-    [[-W + 1.2, 0, DIM.rigel.d], [-W + 1.2, DIM.rigel.bottomY, DIM.rigel.d], `Ригель ${fmt(DIM.rigel.bottomY)}`],
+    [[-W + 1.2, 0, DIM.rigel.d], [-W + 1.2, DIM.rigel.bottomY, DIM.rigel.d], `Ригель ${fmt(DIM.rigel.bottomY)}`, 0.7],
     [[-W + 0.45, 0, 6.2], [-W + 0.45, DIM.galleries.upperY, 6.2], `Галерея ${fmt(DIM.galleries.upperY)}`],
     [[-1.5, 0, DIM.box.backWallD - 0.45], [-1.5, DIM.galleries.lowerY, DIM.box.backWallD - 0.45], `Нижняя галерея ${fmt(DIM.galleries.lowerY)}`],
-    [[PW2 + 0.6, -FS.height, -1.0], [PW2 + 0.6, 0, -1.0], `Сцена ${fmt(FS.height)}`],
+    // высота сцены: у переднего края авансцены по оси (не на боковых ступенях)
+    [[-3.5, -FS.height, -FS.depth - 0.1], [-3.5, 0, -FS.depth - 0.1], `Сцена ${fmt(FS.height)}`],
     [[2.5, -FS.height + 0.03, -FS.depth], [2.5, -FS.height + 0.03, rowFrontD(0)], `До 1-го ряда ${fmt(DIM.hall.firstRowGap)}`],
     [[-HALL_HALF, HALL_BACK_FLOOR_Y + 0.05, -DIM.hall.portalToBoothWall + 0.6], [HALL_HALF, HALL_BACK_FLOOR_Y + 0.05, -DIM.hall.portalToBoothWall + 0.6], `Зал ${fmt(DIM.hall.width)}`],
-    [[-HALL_HALF + 0.5, -FS.height + 0.05, 0], [-HALL_HALF + 0.5, -FS.height + 0.05, -DIM.hall.portalToBoothWall], `Портал — операторская ${fmt(DIM.hall.portalToBoothWall)}`],
-    [[-PW2 + 0.5, 0, 0.0], [-PW2 + 0.5, DIM.decoCeilingY, 0.0], `Деко-потолок ${fmt(DIM.decoCeilingY)}`],
+    // за стеной зала, чтобы не ложилась на приборы лож
+    [[-HALL_HALF - 0.7, -FS.height + 0.05, 0], [-HALL_HALF - 0.7, -FS.height + 0.05, -DIM.hall.portalToBoothWall], `Портал — операторская ${fmt(DIM.hall.portalToBoothWall)}`],
+    // над авансценой, в 1 м от портала: на разрезе не сливается с высотой портала
+    [[-PW2 + 0.5, 0, -1.0], [-PW2 + 0.5, DIM.decoCeilingY, -1.0], `Деко-потолок ${fmt(DIM.decoCeilingY)}`],
   ];
 }
 
@@ -78,7 +82,7 @@ export function setDimsView(g, dir) {
   for (const [axis, grp] of Object.entries(g.userData.axes)) grp.visible = axis !== hide;
 }
 
-export function buildGrid() {
+export function buildGrid(labels) {
   const g = new THREE.Group();
   g.name = 'grid';
   const v = [];
@@ -93,5 +97,19 @@ export function buildGrid() {
   const ax = new THREE.BufferGeometry();
   ax.setAttribute('position', new THREE.Float32BufferAttribute([0, 0.01, -d0, 0, 0.01, -d1, -W, 0.01, 0, W, 0.01, 0], 3));
   g.add(new THREE.LineSegments(ax, new THREE.LineBasicMaterial({ color: 0xff5a36 })));
+  // оцифровка: поперёк — от оси сцены (через 2 м, перед авансценой), вглубь — от линии портала (слева за стеной)
+  if (labels) {
+    const mk = (text, x, d, opts = {}) => {
+      const s = labels.make(text, { px: 11, color: '#c8352a', bg: 'rgba(255,255,255,0.85)', kind: 'grid', depthTest: false, ...opts });
+      s.position.set(x, 0.02, -d);
+      s.renderOrder = 11;
+      g.add(s);
+    };
+    const num = (n) => String(n).replace('-', '−');
+    for (let x = -8; x <= 8; x += 2) mk(num(x), x, d0 - 0.45);
+    for (let d = Math.ceil(d0); d <= Math.floor(d1); d++) mk(num(d), -W - 0.45, d);
+    mk('м от оси сцены', W + 1.6, d0 - 0.45, { color: '#555' });
+    mk('м от портала', -W - 0.45, d1 + 0.6, { color: '#555' });
+  }
   return g;
 }

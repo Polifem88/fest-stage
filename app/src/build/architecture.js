@@ -48,8 +48,8 @@ export function hallCeilingY(d) {
 const lastRowBackD = rowFrontD(DIM.hall.rows - 1) - DIM.hall.rowPitch;
 export const HALL_BACK_FLOOR_Y = -FSH + (DIM.hall.rows - 1) * DIM.hall.rowPitch * RAKE;
 
-/** Перила вдоль отрезка (x,d)→(x,d) на высоте пола y. gaps: [[t0,t1]] в долях длины. */
-function railing(out, x0, d0, x1, d1, y, { h = DIM.galleries.railH, postStep = 1.5, gaps = [], toe = true } = {}) {
+/** Перила вдоль отрезка (x,d)→(x,d) на высоте пола y. gaps: [[t0,t1]] в долях длины. k — множитель сечения труб. */
+function railing(out, x0, d0, x1, d1, y, { h = DIM.galleries.railH, postStep = 1.5, gaps = [], toe = true, k = 1 } = {}) {
   const len = Math.hypot(x1 - x0, d1 - d0);
   const segs = [];
   let t = 0;
@@ -57,22 +57,22 @@ function railing(out, x0, d0, x1, d1, y, { h = DIM.galleries.railH, postStep = 1
   if (t < 1) segs.push([t, 1]);
   const at = (s, yy) => P(x0 + (x1 - x0) * s, yy, d0 + (d1 - d0) * s);
   for (const [s0, s1] of segs) {
-    out.push(cylBetween(at(s0, y + h), at(s1, y + h), 0.021));
-    out.push(cylBetween(at(s0, y + h * 0.5), at(s1, y + h * 0.5), 0.016));
-    if (toe) out.push(cylBetween(at(s0, y + 0.05), at(s1, y + 0.05), 0.012, 4));
+    out.push(cylBetween(at(s0, y + h), at(s1, y + h), 0.021 * k));
+    out.push(cylBetween(at(s0, y + h * 0.5), at(s1, y + h * 0.5), 0.016 * k));
+    if (toe) out.push(cylBetween(at(s0, y + 0.05), at(s1, y + 0.05), 0.012 * k, 4));
     const n = Math.max(1, Math.round(((s1 - s0) * len) / postStep));
-    for (let i = 0; i <= n; i++) out.push(cylBetween(at(s0 + ((s1 - s0) * i) / n, y), at(s0 + ((s1 - s0) * i) / n, y + h), 0.02, 5));
+    for (let i = 0; i <= n; i++) out.push(cylBetween(at(s0 + ((s1 - s0) * i) / n, y), at(s0 + ((s1 - s0) * i) / n, y + h), 0.02 * k, 5));
   }
 }
 
-/** Вертикальная лестница: плоскость лестницы вдоль оси 'd' или 'x'. */
-function ladder(out, cx, cd, y0, y1, width, along = 'd') {
+/** Вертикальная лестница: плоскость лестницы вдоль оси 'd' или 'x'. k — множитель сечения. */
+function ladder(out, cx, cd, y0, y1, width, along = 'd', k = 1) {
   const h = width / 2;
   const a = along === 'd' ? [P(cx, y0, cd - h), P(cx, y1, cd - h)] : [P(cx - h, y0, cd), P(cx - h, y1, cd)];
   const b = along === 'd' ? [P(cx, y0, cd + h), P(cx, y1, cd + h)] : [P(cx + h, y0, cd), P(cx + h, y1, cd)];
-  out.push(cylBetween(a[0], a[1], 0.022, 5), cylBetween(b[0], b[1], 0.022, 5));
+  out.push(cylBetween(a[0], a[1], 0.022 * k, 5), cylBetween(b[0], b[1], 0.022 * k, 5));
   for (let y = y0 + 0.3; y < y1 - 0.05; y += 0.3) {
-    out.push(along === 'd' ? cylBetween(P(cx, y, cd - h), P(cx, y, cd + h), 0.014, 4) : cylBetween(P(cx - h, y, cd), P(cx + h, y, cd), 0.014, 4));
+    out.push(along === 'd' ? cylBetween(P(cx, y, cd - h), P(cx, y, cd + h), 0.014 * k, 4) : cylBetween(P(cx - h, y, cd), P(cx + h, y, cd), 0.014 * k, 4));
   }
 }
 
@@ -167,12 +167,20 @@ export function buildArchitecture(batch, M) {
     rect('d', sdoor.fromD + sdoor.width, W, W + 0.08, -pit.depth, -pit.depth + sdoor.height, -1),
     rect('y', -pit.depth + sdoor.height, W, W + 0.08, sdoor.fromD, sdoor.fromD + sdoor.width, -1),
   ]);
-  // задняя стена: ворота и дверь
+  // задняя стена: ворота и дверь. Под нижней галереей (до её настила: 2.2, над воротами — 2.9)
+  // кирпич закрашен матовым чёрным, выше — обычная кладка.
   const backHoles = [
     { a0: GATE_X0, a1: GATE_X1, b0: -0.01, b1: gate.height },
     { a0: bdoor.centerX - bdoor.width / 2, a1: bdoor.centerX + bdoor.width / 2, b0: -0.01, b1: bdoor.height },
   ];
-  batch.add('walls', M.brickBack, wallWithHoles('d', BACK, -W, W, 0, CEIL, -1, backHoles), { tag: 'wallB' });
+  const LOW_X0 = GATE_X0 - 0.6, LOW_X1 = GATE_X1; // участок нижней галереи на 2.9 (см. ниже UP_X0/UP_X1)
+  const lowBands = [[-W, LOW_X0, LOWY], [LOW_X0, LOW_X1, GATEY], [LOW_X1, W, LOWY]];
+  const brickHoles = [...backHoles, ...lowBands.map(([a0, a1, h]) => ({ a0, a1, b0: -0.01, b1: h }))];
+  batch.add('walls', M.brickBack, wallWithHoles('d', BACK, -W, W, 0, CEIL, -1, brickHoles), { tag: 'wallB' });
+  for (const [a0, a1, h] of lowBands) {
+    const holes = backHoles.filter((h) => h.a1 > a0 && h.a0 < a1); // wallWithHoles не отсекает проёмы вне [a0, a1]
+    batch.add('walls', M.brickBlack, wallWithHoles('d', BACK, a0, a1, 0, h, -1, holes), { tag: 'wallB' });
+  }
   // створки ворот (закрыты) и дверь — в глубине проёма
   batch.add('walls', M.gate, [
     rect('d', BACK + 0.2, GATE_X0, gate.centerX - 0.01, 0, gate.height, -1),
@@ -278,17 +286,19 @@ export function buildArchitecture(batch, M) {
   // ===========================================================================
   //  УЗЕЛ ПОДЪЁМА (задний правый угол)
   // ===========================================================================
+  // трубы ограждения и лестниц узла — в 1.5 раза толще галерейных (на фото узел заметно массивнее)
+  const LIFT_K = 1.5;
   deck.push(box(PAD_X0, W, pad.padY - 0.08, pad.padY, PAD_D0, BACK));
-  railing(steel, PAD_X0, PAD_D0, W, PAD_D0, pad.padY, { gaps: [[0.72, 1]] }); // проход с технической лестницы у стены
-  railing(steel, PAD_X0, PAD_D0, PAD_X0, GB, pad.padY, { gaps: [[0.55, 1]] }); // проход к вертикальной лестнице
+  railing(steel, PAD_X0, PAD_D0, W, PAD_D0, pad.padY, { gaps: [[0.72, 1]], k: LIFT_K }); // проход с технической лестницы у стены
+  railing(steel, PAD_X0, PAD_D0, PAD_X0, GB, pad.padY, { gaps: [[0.55, 1]], k: LIFT_K }); // проход к вертикальной лестнице
   // стойки площадки
   steel.push(box(PAD_X0 - 0.03, PAD_X0 + 0.03, 0, pad.padY - 0.08, PAD_D0 - 0.03, PAD_D0 + 0.03));
   steel.push(box(W - 0.06, W, 0, pad.padY - 0.08, PAD_D0 - 0.03, PAD_D0 + 0.03));
   // техническая (приставная) лестница к правой стене перед площадкой — лезут лицом к стене
   const slD = PAD_D0 - 0.05 - pad.sideLadder.width / 2;
-  ladder(steel, W - 0.12, slD, 0, pad.padY + 1.0, pad.sideLadder.width, 'd');
+  ladder(steel, W - 0.12, slD, 0, pad.padY + 1.0, pad.sideLadder.width, 'd', LIFT_K);
   // вертикальная лестница без ограждения: с площадки на заднюю верхнюю галерею, лицом к сцене
-  ladder(steel, vlX, vlD, pad.padY, UPY + 1.0, pad.vertLadder.width, 'd');
+  ladder(steel, vlX, vlD, pad.padY, UPY + 1.0, pad.vertLadder.width, 'd', LIFT_K);
 
   // ===========================================================================
   //  РЕШЁТКА НАД ПРИЯМКОМ (правая стена): 0.9 × 5.7 × 3 м, «этажи» 2.1 и 4.5
@@ -464,37 +474,77 @@ function trussBox(out, x0, x1, y, d, s) {
   }
 }
 
-/** Кресла: два InstancedMesh (ткань + каркас) — 390 мест за 2 вызова отрисовки. */
+/**
+ * Кресла: два InstancedMesh (обивка + каркас) — 390 мест за 2 вызова отрисовки.
+ * Кресло: сиденье, спинка со скруглённым верхом (наклон назад), боковина с подлокотником.
+ * Боковина общая для соседних кресел; спинки и сиденья разделены зазорами, чтобы ряд читался креслами.
+ * Невидимые грани (низ сиденья, низ боковины) не строятся — ~54 треугольника на кресло.
+ */
 export function buildSeats(M) {
   const H = DIM.hall;
+  const SW = H.seatWidth; // шаг кресел
   const fabric = [], frame = [];
-  // одно кресло в локальных координатах (смотрит на сцену = в −Z)
-  const w = H.seatWidth - 0.04;
-  fabric.push(new THREE.BoxGeometry(w, 0.1, 0.46).translate(0, 0.44, -0.05));
-  fabric.push(new THREE.BoxGeometry(w, 0.56, 0.08).rotateX(-0.12).translate(0, 0.78, 0.2));
-  frame.push(new THREE.BoxGeometry(0.05, 0.62, 0.5).translate(-H.seatWidth / 2 + 0.02, 0.31, 0.02));
-  frame.push(new THREE.BoxGeometry(w, 0.3, 0.06).translate(0, 0.2, 0.22));
+  // одно кресло в локальных координатах (смотрит на сцену = в −Z, спинка — в +Z)
+  // сиденье: без нижней и задней граней (сзади его закрывает спинка)
+  fabric.push(cuboid(-SW / 2 + 0.045, SW / 2 - 0.045, 0.4, 0.48, -0.27, 0.15, ['-y', '+z']));
+  // спинка: контур со скруглёнными верхними углами, толщина 8 см, наклон назад ~10°
+  const bw = SW / 2 - 0.04, bh = 0.6;
+  const outline = [[-bw, 0], [bw, 0], [bw, 0.48], [bw - 0.025, 0.565], [bw - 0.09, bh], [-bw + 0.09, bh], [-bw + 0.025, 0.565], [-bw, 0.48]];
+  const back = new THREE.ExtrudeGeometry(new THREE.Shape(outline.map(([x, y]) => new THREE.Vector2(x, y))), { depth: 0.08, bevelEnabled: false });
+  back.translate(0, 0, -0.04).rotateX(0.17).translate(0, 0.4, 0.19);
+  fabric.push(back);
+  // боковина (на левой границе места) и подлокотник поверх неё
+  const sx = -SW / 2;
+  frame.push(cuboid(sx - 0.025, sx + 0.025, 0, 0.62, -0.2, 0.22, ['-y', '+y']));
+  frame.push(cuboid(sx - 0.03, sx + 0.03, 0.62, 0.67, -0.3, 0.16, ['-y']));
   const gF = mergeAll(fabric), gK = mergeAll(frame);
   const n = H.rows * H.seatsPerRow;
   const iF = new THREE.InstancedMesh(gF, M.seatFabric, n);
-  const iK = new THREE.InstancedMesh(gK, M.seatFrame, n);
+  const iK = new THREE.InstancedMesh(gK, M.seatFrame, n + H.rows); // + замыкающая боковина в конце каждого ряда
   const m = new THREE.Matrix4();
-  let k = 0;
+  let k = 0, e = n;
   for (let r = 0; r < H.rows; r++) {
     const y = -FSH + r * H.rowPitch * RAKE;
     const d = rowFrontD(r) - 0.42;
     for (let s = 0; s < H.seatsPerRow; s++) {
-      const x = (s - (H.seatsPerRow - 1) / 2) * H.seatWidth;
+      const x = (s - (H.seatsPerRow - 1) / 2) * SW;
       m.makeTranslation(x, y, -d);
       iF.setMatrixAt(k, m);
       iK.setMatrixAt(k, m);
       k++;
     }
+    m.makeTranslation(((H.seatsPerRow + 1) / 2) * SW, y, -d);
+    iK.setMatrixAt(e++, m);
   }
-  for (const im of [iF, iK]) { im.castShadow = true; im.receiveShadow = true; im.userData.layer = 'hall'; im.userData.seats = true; }
+  for (const im of [iF, iK]) { im.castShadow = true; im.receiveShadow = true; im.userData.layer = 'hall'; im.userData.seats = true; im.computeBoundingSphere(); }
   iF.name = 'seatsFabric';
   iK.name = 'seatsFrame';
   return [iF, iK];
+}
+
+/** Параллелепипед (локальные x, y, z) без лишних граней: skip — список из '+x','-x','+y','-y','+z','-z'. */
+function cuboid(x0, x1, y0, y1, z0, z1, skip = []) {
+  const pos = [], nor = [];
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const faces = {
+    '+x': [V(1, 0, 0), [V(x1, y0, z0), V(x1, y1, z0), V(x1, y1, z1), V(x1, y0, z1)]],
+    '-x': [V(-1, 0, 0), [V(x0, y0, z0), V(x0, y1, z0), V(x0, y1, z1), V(x0, y0, z1)]],
+    '+y': [V(0, 1, 0), [V(x0, y1, z0), V(x1, y1, z0), V(x1, y1, z1), V(x0, y1, z1)]],
+    '-y': [V(0, -1, 0), [V(x0, y0, z0), V(x1, y0, z0), V(x1, y0, z1), V(x0, y0, z1)]],
+    '+z': [V(0, 0, 1), [V(x0, y0, z1), V(x1, y0, z1), V(x1, y1, z1), V(x0, y1, z1)]],
+    '-z': [V(0, 0, -1), [V(x0, y0, z0), V(x1, y0, z0), V(x1, y1, z0), V(x0, y1, z0)]],
+  };
+  for (const [key, [nrm, q]] of Object.entries(faces)) {
+    if (skip.includes(key)) continue;
+    // порядок обхода — против часовой стрелки, если смотреть снаружи
+    const c = q[1].clone().sub(q[0]).cross(q[2].clone().sub(q[0]));
+    const [a, b, cc, d] = c.dot(nrm) > 0 ? q : [q[0], q[3], q[2], q[1]];
+    for (const p of [a, b, cc, a, cc, d]) { pos.push(p.x, p.y, p.z); nor.push(nrm.x, nrm.y, nrm.z); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  return g;
 }
 
 function mergeAll(list) {

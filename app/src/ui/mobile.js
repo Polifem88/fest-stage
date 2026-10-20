@@ -1,7 +1,7 @@
 // Мобильная версия: полноэкранная сцена, выдвижная шторка снизу, крупные кнопки.
 import './style.css';
 import { Stage } from '../app/stage.js';
-import { h, rigPanel, lightPanel, layersPanel, viewsPanel, infoCard, quickBar, toast } from './common.js';
+import { h, rigPanel, lightPanel, layersPanel, viewsPanel, infoCard, quickBar, toast, shareLink, dragBadge } from './common.js';
 import { exposeTestApi } from '../app/testapi.js';
 
 export function startMobile() {
@@ -46,19 +46,31 @@ export function startMobile() {
   });
   sheet.append(handle, h('nav', { class: 'mtabs' }, tabBtns), content);
 
+  // «Поделиться»: PNG и ссылка — частые действия на телефоне, поэтому в шапке
+  const shareMenu = h('div', { class: 'share-menu', hidden: true, role: 'menu' },
+    h('button', { class: 'btn', role: 'menuitem', onclick: () => { shareMenu.hidden = true; shareLink(stage); } }, '🔗 Ссылка на это состояние'),
+    h('button', { class: 'btn', role: 'menuitem', onclick: () => { shareMenu.hidden = true; stage.screenshot(); toast('Скриншот сохранён'); } }, '📷 Скриншот в PNG'),
+  );
+  const shareBtn = h('button', { class: 'tgl share-btn', 'aria-label': 'Поделиться: ссылка или скриншот', title: 'Поделиться', onclick: (e) => { e.stopPropagation(); shareMenu.hidden = !shareMenu.hidden; } }, h('span', { class: 'ico' }, '📤'));
+  document.addEventListener('pointerdown', (e) => { if (!shareMenu.hidden && !shareMenu.contains(e.target) && e.target !== shareBtn && !shareBtn.contains(e.target)) shareMenu.hidden = true; });
+
   const top = h('header', { class: 'mtop' },
     h('div', { class: 'brand' }, h('b', {}, 'ФЭСТ'), h('span', {}, ' Большая сцена')),
-    quickBar(stage, { withLabels: false }),
+    h('div', { class: 'mtop-right' }, quickBar(stage, { withLabels: false }), shareBtn),
   );
   const card = infoCard(stage);
   const hint = h('div', { class: 'mhint' }, 'Один палец — вращать · два — масштаб и сдвиг · тап — выбрать, потом тянуть');
-  setTimeout(() => hint.classList.add('hide'), 6000);
-  document.body.append(top, card, sheet, hint);
+  // подсказка уходит при первом касании или через 3 с
+  const hideHint = () => hint.classList.add('hide');
+  setTimeout(hideHint, 3000);
+  window.addEventListener('pointerdown', hideHint, { once: true });
+  document.body.append(top, shareMenu, card, sheet, hint, dragBadge(stage));
   setSheet('peek');
 
-  stage.on('select', (sel) => {
+  stage.on('select', (sel, req) => {
     if (sel?.kind === 'rig') toast(`${stage.describe().title}: теперь можно тянуть пальцем`, 1800);
-    if (sel) setSheet('peek');
+    // выбор из панели «Свет» (фишки приборов) шторку не сворачивает
+    if (sel && !req?.keepSheet) setSheet('peek');
   });
   exposeTestApi(stage);
   return stage;

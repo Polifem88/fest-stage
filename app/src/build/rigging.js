@@ -67,8 +67,9 @@ export class RiggingSystem {
       } else {
         visual = new THREE.Mesh(new THREE.CylinderGeometry(pipeR, pipeR, DIM.pipe.length, 10).rotateZ(Math.PI / 2), mat);
         visual.position.set(0, 0, -r.d);
-        hit = new THREE.Mesh(new THREE.BoxGeometry(DIM.pipe.length, 0.3, r.kind === 'light' ? 0.6 : 0.3), hitMat());
-        hit.position.set(0, r.kind === 'light' ? -0.2 : 0, -r.d);
+        // зона захвата: у софита захватывает и трубу, и висящие под ней приборы
+        hit = new THREE.Mesh(new THREE.BoxGeometry(DIM.pipe.length, r.kind === 'light' ? 0.36 : 0.24, r.kind === 'light' ? 0.5 : 0.22), hitMat());
+        hit.position.set(0, r.kind === 'light' ? -0.12 : 0, -r.d);
       }
       visual.castShadow = true;
       hit.userData.pick = { kind: 'rig', id: r.id };
@@ -90,6 +91,8 @@ export class RiggingSystem {
         label = this.opts.labels.make(r.name, { px: 15, color: r.kind === 'light' ? '#ffd28a' : '#cfe3ff', kind: 'rig' });
         if (r.kind === 'side') label.position.set(r.x, 0.22, -r.dFrom - 0.2);
         else label.position.set((i % 2 ? 1 : -1) * (DIM.pipe.length / 2 + 0.25), 0.18, -r.d); // через один — слева/справа, чтобы не слипались
+        label.userData.home = label.position.clone();
+        label.userData.order = i;
         g.add(label);
       }
 
@@ -183,6 +186,7 @@ export class RiggingSystem {
         const left = r.control === 'left';
         const s = this.opts.labels.make(r.name, { px: 12, color: '#f3e6c8', bg: 'rgba(40,30,15,0.8)', kind: 'rope' });
         s.position.set(left ? -W + 0.62 : W - 0.62, 1.35, -ropeDepth(r.id));
+        s.userData.rigId = r.id;
         this.root.add(s);
       }
     }
@@ -219,10 +223,44 @@ export class RiggingSystem {
     this.arbors.instanceMatrix.needsUpdate = true;
   }
 
-  highlight(id) {
+  highlight(id) { this._sel = id; this._paint(); }
+  /** Подсветка при наведении курсора (слабее, чем у выбранного). */
+  hover(id) { if (this._hov === id) return false; this._hov = id; this._paint(); return true; }
+  _paint() {
     for (const [k, it] of this.items) {
-      it.mat.emissive.set(k === id ? this.highlightColor : 0x000000);
-      it.mat.emissiveIntensity = k === id ? 0.8 : 0;
+      const sel = k === this._sel, hov = !sel && k === this._hov;
+      it.mat.emissive.set(sel || hov ? this.highlightColor : 0x000000);
+      it.mat.emissiveIntensity = sel ? 0.8 : hov ? 0.35 : 0;
+    }
+  }
+
+  /** Ось трубы в мировых координатах (для выбора ближайшей к курсору). */
+  axis(id) {
+    const it = this.items.get(id), r = it.cfg, y = it.h;
+    if (r.kind === 'side') return [new THREE.Vector3(r.x, y, -r.dFrom), new THREE.Vector3(r.x, y, -r.dTo)];
+    const L = (r.kind === 'track' ? DIM.pipe.trackLength : DIM.pipe.length) / 2;
+    return [new THREE.Vector3(-L, y, -r.d), new THREE.Vector3(L, y, -r.d)];
+  }
+
+  /**
+   * Раскладка подписей: 'plan' — на плане сверху подписи у каждого края выносятся «лесенкой»
+   * в две колонки (шаг 30 см между трубами меньше высоты подписи) и рисуются поверх всего;
+   * иначе — обычная (через одну слева/справа, у трубы).
+   */
+  setLabelLayout(mode) {
+    for (const it of this.items.values()) {
+      const s = it.label;
+      if (!s) continue;
+      s.position.copy(s.userData.home);
+      s.material.depthTest = mode !== 'plan';
+      s.renderOrder = mode === 'plan' ? 12 : 10;
+      if (it.cfg.kind === 'side') {
+        // боковой штанкет идёт под колонками подписей — на плане подпись к середине, ближе к центру
+        if (mode === 'plan') s.position.set(it.cfg.x - Math.sign(it.cfg.x) * 0.8, s.position.y, -(it.cfg.dFrom + it.cfg.dTo) / 2);
+        continue;
+      }
+      const far = mode === 'plan' && Math.floor(s.userData.order / 2) % 2 === 1;
+      if (far) s.position.x += Math.sign(s.position.x) * 0.95;
     }
   }
 

@@ -38,7 +38,8 @@ function brickTex(base, mortar, vary) {
   });
 }
 
-// Доски планшета: 1 × 1 м, доски 125 мм вдоль глубины
+// Доски планшета: 1 × 1 м, доски 125 мм вдоль глубины.
+// Тёмно-серая краска, потёртая: доски чуть различаются тоном, по краске — светлые затёртости.
 function boardsTex() {
   return canvasTex(512, (g, S) => {
     const r = rng(3);
@@ -47,19 +48,23 @@ function boardsTex() {
       let y = 0;
       while (y < S) {
         const len = S * (0.6 + r() * 0.9);
-        const c = new THREE.Color('#3b3936').offsetHSL(0, 0, (r() - 0.5) * 0.025);
+        const c = new THREE.Color('#222527').offsetHSL(0, 0, (r() - 0.5) * 0.03);
         g.fillStyle = `#${c.getHexString()}`;
         g.fillRect(i * w, y, w, len);
-        g.fillStyle = 'rgba(0,0,0,0.55)';
+        g.fillStyle = 'rgba(0,0,0,0.6)';
         g.fillRect(i * w, y, w, 2);
         y += len;
       }
-      g.fillStyle = 'rgba(0,0,0,0.6)';
+      g.fillStyle = 'rgba(0,0,0,0.65)';
       g.fillRect(i * w, 0, 2, S);
-      // потёртости
-      for (let k = 0; k < 18; k++) {
-        g.fillStyle = `rgba(200,190,160,${0.04 + r() * 0.06})`;
-        g.fillRect(i * w + r() * w, r() * S, 1 + r() * 4, 1 + r() * 10);
+      // потёртости: продольные затёртые полосы и мелкие сколы краски
+      for (let k = 0; k < 4; k++) {
+        g.fillStyle = `rgba(150,152,150,${0.03 + r() * 0.04})`;
+        g.fillRect(i * w + 3 + r() * (w - 12), r() * S, 2 + r() * 8, S * (0.1 + r() * 0.3));
+      }
+      for (let k = 0; k < 26; k++) {
+        g.fillStyle = `rgba(175,175,168,${0.05 + r() * 0.08})`;
+        g.fillRect(i * w + r() * w, r() * S, 1 + r() * 3, 1 + r() * 8);
       }
     }
   });
@@ -139,23 +144,26 @@ export function radialTexRGB() {
 export function createMaterials() {
   const std = (o) => new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0, ...o });
   const m = {
-    floor: std({ map: boardsTex(), roughness: 0.75 }),
+    floor: std({ map: boardsTex(), roughness: 0.9 }),
     blackWall: std({ color: 0x141414, roughness: 0.95 }),
     brickBack: std({ map: brickTex('#353535', '#232323', 0.05), roughness: 0.95 }),
+    // низ задней стены под нижней галереей: кирпич, закрашенный матовым чёрным (кладка едва угадывается)
+    brickBlack: std({ map: brickTex('#101010', '#0b0b0b', 0.012), roughness: 1 }),
     brickSide: std({ map: brickTex('#262626', '#181818', 0.04), roughness: 0.95 }),
     portal: std({ color: 0x0e0e0e, roughness: 0.9 }),
     stageEdge: std({ color: 0x1c1b1a, roughness: 0.9 }),
     steel: std({ color: 0x2a2c30, metalness: 0.55, roughness: 0.55 }),
     steelGray: std({ color: 0x5e6166, metalness: 0.3, roughness: 0.7 }),
-    fascia: std({ color: 0x6a6c70, roughness: 0.85 }),
+    fascia: std({ color: 0x2a2c30, metalness: 0.2, roughness: 0.85 }), // отбойный щит нижней галереи — тёмный графитовый металл
     pipe: std({ color: 0x1f2023, metalness: 0.7, roughness: 0.4 }),
     track: std({ color: 0x2d2f33, metalness: 0.6, roughness: 0.5 }),
     rigel: std({ color: 0x1a1a1a, roughness: 0.9 }),
     counterweight: std({ color: 0x3b3430, roughness: 0.8, metalness: 0.2 }),
     rope: std({ color: 0xc9b48a, roughness: 1 }),
     mesh: std({ color: 0x55575a, alphaMap: meshTex(), transparent: true, alphaTest: 0.4, side: THREE.DoubleSide, metalness: 0.4 }),
-    door: std({ color: 0x1b1b1d, roughness: 0.7 }),
-    gate: std({ color: 0x161618, roughness: 0.6, metalness: 0.2 }),
+    // двери и ворота чуть светлее чёрного низа задней стены, чтобы оставались различимыми
+    door: std({ color: 0x222225, roughness: 0.7 }),
+    gate: std({ color: 0x232427, roughness: 0.6, metalness: 0.3 }),
     // зал
     hallFloor: std({ color: 0x3a3c44, roughness: 1 }),
     hallWood: std({ map: woodPanelTex(), roughness: 0.7 }),
@@ -179,6 +187,7 @@ export function createMaterials() {
   // масштаб повтора текстур (метров на повтор)
   m.floor.userData.uvScale = 1;
   m.brickBack.userData.uvScale = 1;
+  m.brickBlack.userData.uvScale = 1;
   m.brickSide.userData.uvScale = 1;
   m.hallCeiling.userData.uvScale = 1.2;
   m.decoCeiling.userData.uvScale = 1.2;

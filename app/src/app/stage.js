@@ -14,6 +14,7 @@ import { FixtureSystem } from '../build/fixtures.js';
 import { LightingSystem } from '../build/lighting.js';
 import { buildDims, buildGrid, setDimsView } from './overlays.js';
 import { encodeState, decodeState } from './state.js';
+import { SheetOverlay } from './blueprint.js';
 
 export const PROFILES = {
   desktop: { name: 'desktop', dpr: 2, antialias: true, shadows: true, ropes: true, ropeLabels: true, haze: true, beamSegments: 22, lightPlan: 'full', fixtureLabels: false, dragRequiresSelect: false },
@@ -109,7 +110,7 @@ export class Stage {
     scene.add(this.lighting.root);
 
     this.dims = buildDims(this.labels);
-    this.grid = buildGrid();
+    this.grid = buildGrid(this.labels);
     scene.add(this.dims, this.grid);
 
     // механика двигает приборы и групповой свет
@@ -125,6 +126,9 @@ export class Stage {
     this.measure = { active: false, points: [], group: new THREE.Group() };
     this.measure.group.name = 'measure';
     scene.add(this.measure.group);
+
+    // лист чертежа: экспликация и масштаб (на телефоне экспликация — только в PNG)
+    this.sheet = new SheetOverlay(this, { legendOnScreen: P.name !== 'mobile' });
 
     this._applyFlags();
     this._applyLayers();
@@ -179,6 +183,7 @@ export class Stage {
     if (this._shadowsDirty && this.renderer.shadowMap.enabled) { this.renderer.shadowMap.needsUpdate = true; this._shadowsDirty = false; }
     this.labels.update(this.camera, this.renderer.domElement.clientHeight || 1);
     this.renderer.render(this.scene, this.camera);
+    this.sheet?.draw();
     this._frames = (this._frames || 0) + 1;
   }
 
@@ -190,6 +195,8 @@ export class Stage {
     if (!v) return;
     this.view = key;
     setDimsView(this.dims, v.type === 'ortho' ? v.dir : null);
+    this.rigging.setLabelLayout(key === 'plan' ? 'plan' : 'normal');
+    this._updateRopeLabels();
     if (v.type === 'ortho') {
       this.camera = this.ortho;
       this.controls.object = this.ortho;
@@ -207,6 +214,9 @@ export class Stage {
       this.ortho.lookAt(c);
       this.controls.target.copy(c);
       this.controls.enableRotate = false;
+      // на плане и разрезе вращать нечего: левая кнопка и один палец — сдвиг
+      this.controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+      this.controls.touches.ONE = THREE.TOUCH.PAN;
       this._updateOrtho();
       this._anim = null;
     } else {
@@ -214,6 +224,8 @@ export class Stage {
       this.camera = this.persp;
       this.controls.object = this.persp;
       this.controls.enableRotate = true;
+      this.controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+      this.controls.touches.ONE = THREE.TOUCH.ROTATE;
       this.persp.up.set(0, 1, 0);
       const pos = new THREE.Vector3(v.pos[0], v.pos[1], -v.pos[2]);
       const tgt = new THREE.Vector3(v.target[0], v.target[1], -v.target[2]);
@@ -283,6 +295,14 @@ export class Stage {
     return on === 0 ? 'off' : on === fl.length ? 'on' : 'mixed';
   }
   setAllStage(on) { this.fixtures.setMany(() => true, on); this._lightsChanged(); }
+  /** «Соло»: включена только эта группа сценического света, остальной сценический свет гаснет. */
+  soloGroupSet(setId) {
+    const set = GROUP_SETS.find((s) => s.id === setId);
+    if (!set) return;
+    this.fixtures.setMany(() => true, false);
+    this.fixtures.setMany((f) => set.groups.includes(f.group), true);
+    this._lightsChanged();
+  }
   stageState() {
     const fl = this.fixtures.list.filter((f) => !f.hidden);
     const on = fl.filter((f) => f.on).length;
@@ -307,15 +327,31 @@ export class Stage {
     this.fixtures.setPools(!f.blueprint);
     for (const s of this.labels.labels) {
       const k = s.userData.label.kind;
-      if (k === 'rig' || k === 'rope') s.visible = f.labels;
+      if (k === 'rig') s.visible = f.labels;
       if (k === 'fixture') s.visible = f.fixtureLabels;
     }
+    this._updateRopeLabels();
     this.fixtures.setLabels(f.fixtureLabels); // учитывает скрытые переносные приборы
+    this.fixtures.setColorByType(f.blueprint); // в чертеже корпуса окрашены по типу (см. экспликацию)
     this.grid.visible = f.grid;
     this.dims.visible = f.dims;
     this._applyBlueprint(f.blueprint);
   }
   _offMat() { return (this._off ||= new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.6 })); }
+
+  /**
+   * Подписи канатов на левой стене: 16 подписей через 30 см читаются только вблизи.
+   * Показываем все — в виде «Рабочая галерея», в остальных — только у выбранного штанкета.
+   */
+  _updateRopeLabels() {
+    if (!this.labels) return;
+    const all = this.view === 'flyGallery';
+    const selId = this.selected?.kind === 'rig' ? this.selected.id : null;
+    for (const s of this.labels.labels) {
+      if (s.userData.label.kind !== 'rope') continue;
+      s.visible = !!this.flags?.labels && (all || s.userData.rigId === selId);
+    }
+  }
 
   setLayer(k, v) { this.layers[k] = v; this._applyLayers(); this.invalidate(); this.emit('layers', k, v); }
   _applyLayers() { for (const [k, g] of Object.entries(this.layerGroups)) g.visible = this.layers[k] !== false; this._shadowsDirty = true; }
@@ -333,7 +369,8 @@ export class Stage {
         walls: basic(0xfbfbfa), hall: basic(0xf2f1ee), galleries: basic(0xe2e5ea), rigging: basic(0xe2e5ea), lights: basic(0x8a8f98),
         glass: basic(0xe9eef5), edges: new THREE.LineBasicMaterial({ color: 0x3b4048 }),
         batten: new THREE.MeshBasicMaterial({ color: 0x2f6fde }), light: new THREE.MeshBasicMaterial({ color: 0xe8590c }), track: new THREE.MeshBasicMaterial({ color: 0x8b3fd6 }), side: new THREE.MeshBasicMaterial({ color: 0x1a9e6a }),
-        seatF: new THREE.MeshLambertMaterial({ color: 0xf3cfb0, emissive: 0x6b4a33 }), seatK: basic(0xbfbfbf), fixture: new THREE.MeshLambertMaterial({ color: 0x9aa0aa, emissive: 0x3a3e46 }),
+        // кресла — светлые (на печати не «грязное пятно»), корпуса приборов — цвет по типу (instanceColor)
+        seatF: new THREE.MeshLambertMaterial({ color: 0xf7f4ef, emissive: 0x8a8580 }), seatK: basic(0x9a9a9a), fixture: new THREE.MeshBasicMaterial({ color: 0xffffff }),
       };
     }
     scene.background = on ? new THREE.Color(0xffffff) : this.bgDark;
@@ -427,6 +464,7 @@ export class Stage {
         if (this.ray.ray.intersectPlane(down.drag.plane, p)) {
           this.rigging.setHeight(down.drag.id, down.drag.startH + (p.y - down.drag.startY));
           if (!this.selected || this.selected.id !== down.drag.id) this.select({ kind: 'rig', id: down.drag.id });
+          this.emit('drag', { id: down.drag.id, h: this.rigging.height(down.drag.id), x: e.clientX, y: e.clientY, touch: e.pointerType !== 'mouse' });
         }
       }
     });
@@ -434,7 +472,7 @@ export class Stage {
       if (!down || e.pointerId !== down.id) return;
       const d = down;
       down = null;
-      if (d.drag) { this.controls.enabled = true; this._shadowsDirty = true; this.invalidate(); }
+      if (d.drag) { this.controls.enabled = true; this._shadowsDirty = true; this.invalidate(); this.emit('dragend'); }
       if (d.moved) return;
       // клик/тап
       if (this.measure.active) { this._measureClick(toNdc(e)); return; }
@@ -442,15 +480,23 @@ export class Stage {
       this.select(hit);
     };
     el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', (e) => { if (down?.drag) this.controls.enabled = true; down = null; });
+    el.addEventListener('pointercancel', (e) => { if (down?.drag) { this.controls.enabled = true; this.emit('dragend'); } down = null; });
+    el.addEventListener('pointerleave', () => { if (this.rigging.hover(null)) this.invalidate(); });
   }
 
   _hover(ndc) {
     const hit = this.pick(ndc);
     this.renderer.domElement.style.cursor = this.measure.active ? 'crosshair' : hit ? (hit.kind === 'rig' ? 'ns-resize' : 'pointer') : 'grab';
+    // подсветка штанкета под курсором — видно, что именно схватится
+    if (this.rigging.hover(!this.measure.active && hit?.kind === 'rig' ? hit.id : null)) this.invalidate();
   }
 
-  /** Луч из точки экрана → что под курсором: механика или прибор. */
+  /**
+   * Луч из точки экрана → что под курсором: механика или прибор.
+   * Штанкеты висят через 30 см, и луч часто проходит через зоны захвата нескольких труб —
+   * из них выбираем ту, чья ось ближе всего к курсору НА ЭКРАНЕ. Прибор в приоритете,
+   * если луч попал в его корпус.
+   */
   pick(ndc) {
     this.ray.setFromCamera(ndc, this.camera);
     const targets = [];
@@ -458,11 +504,35 @@ export class Stage {
     if (this.layers.lights) targets.push(...Object.values(this.fixtures.shapes));
     const hits = this.ray.intersectObjects(targets, false);
     if (!hits.length) return null;
-    // приоритет: прибор, если он почти так же близко, как штанкет
     const fx = hits.find((h) => h.object.userData.pickInstanced);
-    const rig = hits.find((h) => h.object.userData.pick);
-    if (fx && (!rig || fx.distance < rig.distance + 0.25)) {
-      return { kind: 'fixture', idx: fx.object.userData.pickInstanced.map[fx.instanceId], point: fx.point };
+    const rigHits = hits.filter((h) => h.object.userData.pick);
+    let rig = null, scored = [], best = Infinity;
+    if (rigHits.length) {
+      const el = this.renderer.domElement;
+      const W = el.clientWidth, H = el.clientHeight;
+      const cx = ((ndc.x + 1) / 2) * W, cy = ((1 - ndc.y) / 2) * H;
+      const toPx = (v) => { const p = v.clone().project(this.camera); return [((p.x + 1) / 2) * W, ((1 - p.y) / 2) * H, p.z]; };
+      for (const h of rigHits) {
+        const [a, b] = this.rigging.axis(h.object.userData.pick.id);
+        const A = toPx(a), B = toPx(b);
+        if (A[2] > 1 || B[2] > 1) { scored.push([h, 1e6 + h.distance]); continue; } // ось за камерой
+        const dx = B[0] - A[0], dy = B[1] - A[1];
+        const t = Math.max(0, Math.min(1, ((cx - A[0]) * dx + (cy - A[1]) * dy) / (dx * dx + dy * dy || 1)));
+        const dist = Math.hypot(cx - (A[0] + t * dx), cy - (A[1] + t * dy));
+        scored.push([h, dist]);
+        best = Math.min(best, dist);
+      }
+      // трубы, совпавшие на экране (±1 px), — берём ближнюю к камере (rigHits отсортированы по дальности)
+      rig = (scored.find(([, d]) => d <= best + 1) || scored[0])[0];
+    }
+    if (fx) {
+      // прибор выигрывает, если курсор не лежит на чужой трубе перед ним
+      // (зона захвата своего софита охватывает висящие на нём приборы — её не считаем;
+      //  невидимые зоны захвата близких к камере штанкетов тоже не мешают, если трубы под курсором нет)
+      const idx = fx.object.userData.pickInstanced.map[fx.instanceId];
+      const bar = this.fixtures.list[idx].mount.on;
+      const blocked = scored.some(([h, d]) => h.object.userData.pick.id !== bar && h.distance < fx.distance - 0.05 && d <= 3);
+      if (!blocked) return { kind: 'fixture', idx, point: fx.point };
     }
     if (rig) return { kind: 'rig', id: rig.object.userData.pick.id, point: rig.point };
     return null;
@@ -472,8 +542,9 @@ export class Stage {
     this.selected = sel ? { kind: sel.kind, id: sel.id, idx: sel.idx } : null;
     this.rigging.highlight(sel && sel.kind === 'rig' ? sel.id : null);
     this.fixtures.select(sel && sel.kind === 'fixture' ? sel.idx : -1);
+    this._updateRopeLabels();
     this.invalidate();
-    this.emit('select', this.selected);
+    this.emit('select', this.selected, sel); // 2-й аргумент — исходный запрос (например, keepSheet)
   }
 
   /** Описание выбранного объекта для карточки. */
@@ -560,7 +631,19 @@ export class Stage {
   // ---------------------------------------------------------------------------
   screenshot(filename = 'fest-stage.png') {
     this.render();
-    const url = this.renderer.domElement.toDataURL('image/png');
+    const src = this.renderer.domElement;
+    let url;
+    if (this.flags.blueprint) {
+      // чертёж: поверх 3D — экспликация и масштаб (на телефоне экспликация только здесь)
+      const c = document.createElement('canvas');
+      c.width = src.width; c.height = src.height;
+      const g = c.getContext('2d');
+      g.drawImage(src, 0, 0);
+      const k = src.width / (src.clientWidth || src.width);
+      g.setTransform(k, 0, 0, k, 0, 0);
+      this.sheet.paint(g, src.clientWidth || src.width, src.clientHeight || src.height, { legend: true });
+      url = c.toDataURL('image/png');
+    } else url = src.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;

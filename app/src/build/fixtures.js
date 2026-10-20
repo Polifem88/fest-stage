@@ -5,13 +5,18 @@ import { DIM, BOX_HALF, HALL_HALF, hallFloorY } from '../config/dimensions.js';
 import { FIXTURES, TYPES, BAR_DEPTH, PORTABLE, portablePlacement } from '../config/fixtures.js';
 import { radialTexRGB } from '../core/materials.js';
 
-const POOL_GAIN = 0.55; // яркость одного пятна на полу (подбирается по скриншотам)
+const POOL_GAIN = 0.4; // яркость одного пятна на полу (подбирается по скриншотам)
 
 const WARM = new THREE.Color(1.0, 0.8, 0.55);
 const LENS_OFF = new THREE.Color(0.05, 0.05, 0.055);
 const BODY = new THREE.Color(0x1a1b1e);
 const BODY_SEL = new THREE.Color(0xff8a1f);
 const BODY_UNKNOWN = new THREE.Color(0x3a2a40);
+// режим «чертёж»: корпус прибора окрашен по типу (экспликация — app/blueprint.js)
+const TYPE_PALETTE = ['#e6194b', '#3cb44b', '#f58231', '#4363d8', '#911eb4', '#0fa3b1', '#f032e6', '#9a6324', '#469990', '#800000', '#808000', '#000075', '#d4a000', '#6b6b6b', '#7b5cd6', '#c2185b', '#2e7d32'];
+export const TYPE_COLORS = Object.fromEntries(Object.keys(TYPES).map((k, i) => [k, TYPE_PALETTE[i % TYPE_PALETTE.length]]));
+const TYPE_COLOR_OBJ = Object.fromEntries(Object.entries(TYPE_COLORS).map(([k, c]) => [k, new THREE.Color(c)]));
+const BODY_SEL_BP = new THREE.Color(0x111111);
 
 // Геометрия «головы» для каждого вида (линза смотрит в +Z, центр в начале координат)
 function headGeometry(shape) {
@@ -271,7 +276,9 @@ export class FixtureSystem {
     const sc = TYPES[f.type].scale || 1;
     this._m.compose(head, q, this._s.set(sc, sc, sc));
     this.shapes[f.shapeKey].setMatrixAt(f.shapeIdx, this._m);
-    this.shapes[f.shapeKey].setColorAt(f.shapeIdx, f.selected ? BODY_SEL : TYPES[f.type].unknown ? BODY_UNKNOWN : BODY);
+    this.shapes[f.shapeKey].setColorAt(f.shapeIdx, this.colorByType
+      ? (f.selected ? BODY_SEL_BP : TYPE_COLOR_OBJ[f.type])
+      : f.selected ? BODY_SEL : TYPES[f.type].unknown ? BODY_UNKNOWN : BODY);
     // основание (у «голов») или струбцина
     const zero = new THREE.Matrix4().makeScale(0, 0, 0);
     if (f.hasBase && hang) {
@@ -337,6 +344,8 @@ export class FixtureSystem {
 
   setHaze(v) { this.beams.visible = v; }
   setPools(v) { this.pools.visible = v; }
+  /** Окраска корпусов по типу прибора (для режима «чертёж»). */
+  setColorByType(v) { if (this.colorByType === v) return; this.colorByType = v; this.updateAll(); }
   setLabels(v) { this._labelsOn = v; for (const f of this.list) if (f.label) f.label.visible = v && !f.hidden; }
 
   /** Переносные приборы: mode 'off' | 'floor' | 'stand', count — сколько всего (6 или 8). */

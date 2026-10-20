@@ -11,7 +11,8 @@ const ROUND = process.env.ROUND || 'r1-self';
 /** Все готовые виды + «сюжетные» снимки для проверки света, механики и чертежа. */
 const SHOTS = [
   'overview', 'hall', 'booth', 'plan', 'section', 'stageToHall', 'upperGallery', 'flyGallery',
-  'plan+bp+dims',       // чертёж для райдера
+  'plan+bp+dims',       // чертёж для райдера (экспликация, масштаб)
+  'plan+bp+grid',       // чертёж с оцифрованной сеткой 1 м
   'section+bp+dims',    // разрез: высоты штанкетов
   'hall+off',           // сценический свет выключен, горит дежурка
   'hall+off+noduty+house', // только зальный свет
@@ -58,18 +59,29 @@ test('снимки всех видов', async ({ page }, info) => {
     });
   }
 
-  // на телефоне: кнопки не мельче 44 px (рекомендация Apple / WCAG 2.5.5)
+  // на телефоне: кнопки не мельче 44 px (рекомендация Apple / WCAG 2.5.5) — во всех вкладках и в карточках
   if (mobile) {
     await test.step('размер кнопок', async () => {
-      await page.locator('.mtab[data-tab="light"]').click(); // шторка открыта на «Свете»
-      await page.waitForTimeout(300);
-      const small = await page.evaluate(() => [...document.querySelectorAll('button, [role=button], input[type=range], select')]
-        .filter((el) => el.offsetParent && el.getClientRects().length)
+      const measure = () => page.evaluate(() => [...document.querySelectorAll('button, [role=button], input, select, summary')]
+        .filter((el) => el.offsetParent && el.getClientRects().length && !el.closest('[hidden]'))
         .map((el) => ({ r: el.getBoundingClientRect(), t: (el.getAttribute('aria-label') || el.textContent || el.className).trim().slice(0, 30) }))
-        .filter(({ r }) => r.width > 0 && Math.min(r.width, r.height) < 44 && r.bottom > 0 && r.top < innerHeight)
+        .filter(({ r }) => r.width > 0 && Math.min(r.width, r.height) < 44 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth)
         .map(({ r, t }) => `${t} (${Math.round(r.width)}×${Math.round(r.height)})`));
-      report.smallTargets = small;
-      expect.soft(small, 'кнопки мельче 44 px').toEqual([]);
+      const small = new Set();
+      for (const tab of tabs) {
+        await page.locator(`.mtab[data-tab="${tab}"]`).click();
+        if (!(await page.locator('.sheet[data-state=open]').count())) await page.locator(`.mtab[data-tab="${tab}"]`).click();
+        await page.evaluate(() => document.querySelectorAll('details.grp').forEach((d, i) => { d.open = i === 0; }));
+        await page.waitForTimeout(300);
+        for (const s of await measure()) small.add(`[${tab}] ${s}`);
+      }
+      await page.locator('.handle').click(); // свернуть шторку
+      for (const sel of ['selSh5', 'sel53']) {
+        await applyShot(page, `overview+${sel}`);
+        for (const s of await measure()) small.add(`[карточка ${sel}] ${s}`);
+      }
+      report.smallTargets = [...small];
+      expect.soft([...small], 'кнопки мельче 44 px').toEqual([]);
     });
   }
 

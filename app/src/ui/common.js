@@ -19,13 +19,23 @@ export function h(tag, attrs = {}, ...children) {
   return el;
 }
 
-export function toast(text, ms = 2200) {
+/** Всплывающее сообщение; action = { label, fn } — кнопка в сообщении (например, «Отменить»). */
+export function toast(text, ms = 2200, { action } = {}) {
   let box = document.querySelector('.toasts');
   if (!box) { box = h('div', { class: 'toasts', 'aria-live': 'polite' }); document.body.append(box); }
-  const t = h('div', { class: 'toast' }, text);
+  const t = h('div', { class: `toast${action ? ' act' : ''}` }, text);
+  if (action) t.append(h('button', { class: 'btn toast-btn', onclick: () => { action.fn(); t.remove(); } }, action.label));
   box.append(t);
   setTimeout(() => t.classList.add('hide'), ms);
   setTimeout(() => t.remove(), ms + 400);
+}
+
+/** «Всё вверх / вниз / исходное» с возможностью отменить в течение 4 с. */
+function allToWithUndo(stage, which) {
+  const before = stage.rigging.snapshot();
+  stage.allTo(which);
+  const label = { up: 'Всё поднято', down: 'Всё опущено', rest: 'Исходные высоты' }[which];
+  toast(label, 4000, { action: { label: '↺ Отменить', fn: () => { for (const [id, v] of Object.entries(before)) stage.setHeight(id, v); } } });
 }
 
 const KIND = { batten: 'Ш', light: 'С', track: 'З', side: 'Б' };
@@ -36,7 +46,7 @@ export function rigPanel(stage, { compact = false } = {}) {
   const list = h('div', { class: 'rig-list' });
   for (const r of RIGGING) {
     const val = h('input', { type: 'number', class: 'num', min: r.min, max: r.max, step: '0.05', value: r.rest, 'aria-label': `Высота ${r.name}, м` });
-    const slider = h('input', { type: 'range', min: r.min, max: r.max, step: '0.01', value: r.rest, 'aria-label': `Высота ${r.name}` });
+    const slider = h('input', { type: 'range', min: r.min, max: r.max, step: compact ? '0.05' : '0.01', value: r.rest, 'aria-label': `Высота ${r.name}` });
     const name = h('button', { class: `rig-name k-${r.kind}`, title: 'Выбрать и показать', onclick: () => stage.select({ kind: 'rig', id: r.id }) }, r.name);
     slider.addEventListener('input', () => stage.setHeight(r.id, +slider.value));
     val.addEventListener('change', () => stage.setHeight(r.id, +String(val.value).replace(',', '.')));
@@ -57,9 +67,9 @@ export function rigPanel(stage, { compact = false } = {}) {
     if (sel?.kind === 'rig') rows.get(sel.id)?.row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   });
   const bar = h('div', { class: 'btn-row' },
-    h('button', { class: 'btn', onclick: () => stage.allTo('up') }, '⤒ Всё вверх'),
-    h('button', { class: 'btn', onclick: () => stage.allTo('down') }, '⤓ Всё вниз'),
-    h('button', { class: 'btn', onclick: () => stage.allTo('rest') }, '↺ Исходное'),
+    h('button', { class: 'btn', onclick: () => allToWithUndo(stage, 'up') }, '⤒ Всё вверх'),
+    h('button', { class: 'btn', onclick: () => allToWithUndo(stage, 'down') }, '⤓ Всё вниз'),
+    h('button', { class: 'btn', onclick: () => allToWithUndo(stage, 'rest') }, '↺ Исходное'),
   );
   const legend = h('div', { class: 'legend' },
     h('span', { class: 'k-batten' }, 'Ш — штанкет'), h('span', { class: 'k-light' }, 'С — софит'),
@@ -88,10 +98,15 @@ export function lightPanel(stage, { compact = false } = {}) {
     T('Свет в зале', () => stage.flags.house, (v) => stage.setFlag('house', v), { icon: '🏛', id: 'house' }),
     T('Лучи (дымка)', () => stage.flags.haze, (v) => stage.setFlag('haze', v), { icon: '🌫', id: 'haze' }),
   );
-  const groups = h('div', { class: 'grid-3' },
+  const groups = h('div', { class: 'grid-2 groups' },
     GROUP_SETS.map((s) => {
       const n = stage.fixtures.list.filter((f) => s.groups.includes(f.group)).length;
-      return T(`${s.name} · ${n}`, () => { const st = stage.groupSetState(s.id); return st === 'on' ? true : st === 'mixed' ? 'mixed' : false; }, (v) => stage.setGroupSet(s.id, v), { id: `g-${s.id}` });
+      const full = `${[...new Set(s.groups.map((g) => GROUPS[g]?.name).filter(Boolean))].join(', ')} — ${n} приб.`;
+      const t = T(`${s.name} · ${n}`, () => { const st = stage.groupSetState(s.id); return st === 'on' ? true : st === 'mixed' ? 'mixed' : false; }, (v) => stage.setGroupSet(s.id, v), { id: `g-${s.id}` });
+      t.title = `${full}. Нажмите — вкл/выкл группу`;
+      // «Соло»: только эта группа, остальной сценический свет гаснет
+      const solo = h('button', { class: 'solo', 'data-id': `solo-${s.id}`, title: `Только ${s.name}: остальной сценический свет выключить`, 'aria-label': `Соло: только ${s.name}`, onclick: () => { stage.soloGroupSet(s.id); toast(`Горит только: ${s.name}`); } }, 'соло');
+      return h('div', { class: 'grp-cell' }, t, solo);
     }),
   );
   // переносные ETC 50° (прострелы по планшету): нет / на полу / на штативах, 6 или 8 шт.
@@ -110,29 +125,31 @@ export function lightPanel(stage, { compact = false } = {}) {
   );
   const updPortable = () => { for (const b of portBtns) { const on = b._isOn(); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); } };
   // поиск прибора
-  const search = h('input', { type: 'search', class: 'search', placeholder: 'Найти прибор №…', inputmode: 'numeric', 'aria-label': 'Найти прибор по номеру' });
-  const doFind = () => {
-    const q = search.value.trim();
-    const f = stage.fixtures.byNo.get(q) || stage.fixtures.byNo.get(q.toUpperCase());
-    if (!f) { toast(`Прибор № ${q} не найден`); return; }
-    if (f.hidden) { toast(`№ ${f.no} — переносной прибор, сейчас не показан. Включите его в разделе «Переносные ETC 50°»`, 3500); return; }
-    stage.select({ kind: 'fixture', idx: f.idx });
-    stage.focusFixture?.(f.idx);
-  };
-  search.addEventListener('keydown', (e) => { if (e.key === 'Enter') doFind(); });
-  const findBtn = h('button', { class: 'btn', onclick: doFind }, 'Найти');
+  const searchRow = fixtureSearch(stage);
   // приборы по группам (фишки)
   const chips = new Map();
+  const groupDetails = new Map();
   const details = Object.entries(GROUPS).map(([gid, g]) => {
     const fl = stage.fixtures.list.filter((f) => f.group === gid);
     const wrap = h('div', { class: 'chips' }, fl.map((f) => {
-      const c = h('button', { class: 'chip', title: `${TYPES[f.type].name} — нажмите, чтобы выбрать; двойной щелчок — вкл/выкл` }, String(f.no));
-      c.addEventListener('click', () => stage.select({ kind: 'fixture', idx: f.idx }));
-      c.addEventListener('dblclick', () => stage.setFixture(f.idx, !f.on));
+      const c = h('button', { class: 'chip', title: compact ? `${TYPES[f.type].name} — тап: выбрать; долгое нажатие: вкл/выкл` : `${TYPES[f.type].name} — нажмите, чтобы выбрать; двойной щелчок — вкл/выкл` }, String(f.no));
+      if (compact) {
+        // телефон: тап — выбрать (шторка остаётся открытой), долгое нажатие — вкл/выкл
+        let timer = null, long = false;
+        c.addEventListener('pointerdown', () => { long = false; timer = setTimeout(() => { long = true; stage.setFixture(f.idx, !f.on); navigator.vibrate?.(15); toast(`№ ${f.no} ${f.on ? 'включён' : 'выключен'}`, 1200); }, 500); });
+        for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) c.addEventListener(ev, () => clearTimeout(timer));
+        c.addEventListener('contextmenu', (e) => e.preventDefault());
+        c.addEventListener('click', () => { if (long) return; stage.select({ kind: 'fixture', idx: f.idx, keepSheet: true }); toast(`№ ${f.no} выбран · долгое нажатие — вкл/выкл`, 1600); });
+      } else {
+        c.addEventListener('click', () => stage.select({ kind: 'fixture', idx: f.idx }));
+        c.addEventListener('dblclick', () => stage.setFixture(f.idx, !f.on));
+      }
       chips.set(f.idx, c);
       return c;
     }));
-    return h('details', { class: 'grp' }, h('summary', {}, `${g.name}`, h('small', {}, ` ${fl.length} шт. · ${g.ds}`)), wrap);
+    const d = h('details', { class: 'grp' }, h('summary', {}, `${g.name}`, h('small', {}, ` ${fl.length} шт. · ${g.ds}`)), wrap);
+    groupDetails.set(gid, d);
+    return d;
   });
   const updChips = () => { for (const [i, c] of chips) { const f = stage.fixtures.list[i]; c.hidden = !!f.hidden; c.classList.toggle('off', !f.on); c.classList.toggle('sel', !!f.selected); c.classList.toggle('unk', !!TYPES[f.type].unknown); } };
   const updAll = () => { toggles.forEach((t) => t._upd()); updChips(); updPortable(); };
@@ -140,17 +157,48 @@ export function lightPanel(stage, { compact = false } = {}) {
   stage.on('flags', updAll);
   stage.on('state', updAll);
   stage.on('portable', updAll);
-  stage.on('select', updChips);
+  stage.on('select', (sel) => {
+    updChips();
+    // выбранный прибор показываем в его группе: раскрываем и прокручиваем к нему
+    if (sel?.kind !== 'fixture') return;
+    const f = stage.fixtures.list[sel.idx];
+    const d = groupDetails.get(f.group);
+    if (d) d.open = true;
+    chips.get(f.idx)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
   updChips();
   updPortable();
   return h('div', { class: 'panel-light' },
+    h('h4', {}, 'Найти прибор'), searchRow,
     h('h4', {}, 'Свет'), master,
     h('h4', {}, 'Группы приборов'), groups,
+    h('div', { class: 'hint' }, compact ? 'Кнопка группы — вкл/выкл, «соло» — горит только она.' : 'Кнопка группы — вкл/выкл; «соло» — горит только эта группа, остальной сценический свет гаснет.'),
     h('h4', {}, 'Переносные ETC 50° (прострелы по планшету)'), portable,
-    h('h4', {}, 'Приборы'), h('div', { class: 'search-row' }, search, findBtn),
-    compact ? h('div', { class: 'hint' }, 'Тап по номеру — выбрать прибор.') : h('div', { class: 'hint' }, 'Щелчок по номеру — выбрать, двойной — вкл/выкл. Фиолетовые — тип не указан в легенде.'),
+    h('h4', {}, 'Приборы по группам'),
+    compact ? h('div', { class: 'hint' }, 'Тап по номеру — выбрать, долгое нажатие — вкл/выкл.') : h('div', { class: 'hint' }, 'Щелчок по номеру — выбрать, двойной — вкл/выкл. Фиолетовые — тип не указан в легенде.'),
     details,
   );
+}
+
+/** Поиск прибора по номеру: поле + кнопка (в панели «Свет» и в верхней панели десктопа). */
+export function fixtureSearch(stage, { compact = false } = {}) {
+  const search = h('input', { type: 'search', class: 'search', placeholder: compact ? '№ прибора' : 'Найти прибор №…', inputmode: 'numeric', enterkeyhint: 'search', 'aria-label': 'Найти прибор по номеру' });
+  const doFind = () => {
+    const q = search.value.trim();
+    if (!q) { search.focus(); return; }
+    const f = stage.fixtures.byNo.get(q) || stage.fixtures.byNo.get(q.toUpperCase());
+    if (!f) { toast(`Прибор № ${q} не найден`); return; }
+    if (f.hidden) { toast(`№ ${f.no} — переносной прибор, сейчас не показан. Включите его в разделе «Переносные ETC 50°»`, 3500); return; }
+    search.blur();
+    stage.select({ kind: 'fixture', idx: f.idx });
+    stage.focusFixture?.(f.idx);
+  };
+  search.addEventListener('keydown', (e) => { if (e.key === 'Enter') doFind(); });
+  // телефон: экранная клавиатура не должна закрывать поле и кнопку
+  search.addEventListener('focus', () => setTimeout(() => search.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300));
+  const findBtn = h('button', { class: 'btn', onclick: doFind }, compact ? '🔍' : 'Найти');
+  if (compact) findBtn.setAttribute('aria-label', 'Найти');
+  return h('div', { class: 'search-row' }, search, findBtn);
 }
 
 /** Слои и инструменты. */
@@ -176,7 +224,7 @@ export function layersPanel(stage) {
 export function viewsPanel(stage, { onPicked } = {}) {
   const btns = new Map();
   const grid = h('div', { class: 'grid-2' }, Object.entries(VIEWS).map(([k, v]) => {
-    const b = h('button', { class: 'btn view', onclick: () => { stage.setView(k); onPicked?.(k); } }, v.name);
+    const b = h('button', { class: `btn view${k === stage.view ? ' on' : ''}`, onclick: () => { stage.setView(k); onPicked?.(k); } }, v.name);
     btns.set(k, b);
     return b;
   }));
@@ -230,10 +278,12 @@ export function infoCard(stage, { onClose } = {}) {
       val = h('output', { class: 'big' }, `${fmt(d.value)} м`);
       slider.addEventListener('input', () => stage.setHeight(d.id, +slider.value));
       card.append(h('div', { class: 'card-slider' }, slider, val));
-      card.append(h('div', { class: 'btn-row' },
-        h('button', { class: 'btn', onclick: () => stage.setHeight(d.id, d.max) }, `⤒ ${fmt(d.max, 1)}`),
-        h('button', { class: 'btn', onclick: () => stage.setHeight(d.id, stage.rigging.get(d.id).cfg.rest) }, '↺'),
-        h('button', { class: 'btn', onclick: () => stage.setHeight(d.id, d.min) }, `⤓ ${fmt(d.min, 1)}`),
+      card.append(h('div', { class: 'btn-row card-btns' },
+        h('button', { class: 'btn', title: 'Поднять до верха', onclick: () => stage.setHeight(d.id, d.max) }, `⤒ ${fmt(d.max, 1)}`),
+        h('button', { class: 'btn', title: 'Выше на 10 см', onclick: () => stage.setHeight(d.id, stage.rigging.height(d.id) + 0.1) }, '+0,1'),
+        h('button', { class: 'btn', title: 'Исходная высота', 'aria-label': 'Исходная высота', onclick: () => stage.setHeight(d.id, stage.rigging.get(d.id).cfg.rest) }, '↺'),
+        h('button', { class: 'btn', title: 'Ниже на 10 см', onclick: () => stage.setHeight(d.id, stage.rigging.height(d.id) - 0.1) }, '−0,1'),
+        h('button', { class: 'btn', title: 'Опустить до низа', onclick: () => stage.setHeight(d.id, d.min) }, `⤓ ${fmt(d.min, 1)}`),
       ));
     } else {
       const t = toggle('Включён', () => stage.fixtures.list[d.idx].on, (v) => stage.setFixture(d.idx, v), { icon: '💡' });
@@ -264,4 +314,19 @@ export function quickBar(stage, { withLabels = true } = {}) {
   const upd = () => ts.forEach((t) => t._upd());
   stage.on('flags', upd); stage.on('lights', upd); stage.on('state', upd);
   return bar;
+}
+
+/** Плашка с высотой рядом с курсором/пальцем, пока штанкет тянут в 3D. */
+export function dragBadge(stage) {
+  const b = h('div', { class: 'drag-badge', hidden: true, 'aria-hidden': 'true' });
+  stage.on('drag', ({ id, h: v, x, y, touch }) => {
+    b.hidden = false;
+    b.textContent = `${stage.rigging.get(id).cfg.name}: ${fmt(v)} м`;
+    // над пальцем (чтобы не закрывал) или справа от курсора
+    b.style.left = `${touch ? x : x + 18}px`;
+    b.style.top = `${touch ? y - 70 : y - 14}px`;
+    b.classList.toggle('touch', !!touch);
+  });
+  stage.on('dragend', () => { b.hidden = true; });
+  return b;
 }
