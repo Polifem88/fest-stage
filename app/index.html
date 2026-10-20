@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ФЭСТ — Большая сцена: 3D-планировка</title>
+</head>
+<body class="index">
+  <main>
+    <h1><b>ФЭСТ</b> · Большая сцена</h1>
+    <p>Интерактивная 3D-планировка: зал, сценическая коробка, галереи, механика и свет.</p>
+    <div class="choices">
+      <a class="choice" id="desk" href="desktop.html"><span class="big-ico">🖥</span><b>Компьютер</b><span>Полная версия: тени, канаты и противовесы, все инструменты</span></a>
+      <a class="choice" id="mob" href="mobile.html"><span class="big-ico">📱</span><b>Телефон / планшет</b><span>Облегчённая графика, управление пальцами</span></a>
+    </div>
+    <p id="rec"></p>
+  </main>
+  <script type="module">
+    import './src/ui/style.css';
+    const touch = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+    const pick = touch ? 'mob' : 'desk';
+    document.getElementById(pick).classList.add('rec');
+    document.getElementById('rec').textContent = touch ? 'Похоже, вы с телефона — рекомендуем мобильную версию.' : 'Похоже, вы с компьютера — рекомендуем полную версию.';
+    // ссылка с состоянием (#s=...) передаётся дальше
+    if (location.hash) for (const a of document.querySelectorAll('a.choice')) a.href += location.hash;
+  </script>
+</body>
+</html>

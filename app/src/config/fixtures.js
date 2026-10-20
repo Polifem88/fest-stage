@@ -170,8 +170,8 @@ function build() {
       list.push({ no, type, group, mount: { on: null, x: wallX, y, d: t.d }, aim: { x: -t.side * 4.5, y: 1.0, d: 0.6 } });
     });
   }
-  // --- пушка у пульта (в операторской)
-  list.push({ no: 'П', type: 'FOLLOW', group: 'FOH', mount: { on: null, x: 0.8, y: 3.4, d: -(DIM.hall.portalToBoothWall - 0.6) }, aim: { x: 0, y: 1.6, d: 1.5 } });
+  // --- пушка у пульта (в операторской, за стеклом)
+  list.push({ no: 'П', type: 'FOLLOW', group: 'FOH', mount: { on: null, x: 0.8, y: 3.7, d: -(DIM.hall.portalToBoothWall + 0.8) }, aim: { x: 0, y: 1.6, d: 1.5 } });
   return list;
 }
 

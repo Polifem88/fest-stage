@@ -73,7 +73,7 @@ export const DIM = {
 
   // --- Проёмы ------------------------------------------------------------------
   openings: {
-    gate: { width: 3.0, height: 2.6, centerX: 4.9, assumption: true }, // сзади справа, 2 створки
+    gate: { width: 3.0, height: 2.6, centerX: 4.6, assumption: true }, // сзади справа, 2 створки
     backDoor: { width: 0.9, height: 2.1, centerX: -4.4, assumption: true }, // сзади слева
     // правая боковая дверь в приямке на 1 м ниже планшета, ~1 м за порталом
     sideDoor: { width: 0.9, height: 2.1, fromD: 1.1, assumption: true },
@@ -147,7 +147,7 @@ export function hallFloorY(d) {
   const floor0 = -DIM.forestage.height;
   const firstRowD = -(DIM.forestage.depth + h.firstRowGap);
   if (d >= firstRowD) return floor0;
-  const row = Math.min(h.rows, Math.floor((firstRowD - d) / h.rowPitch));
+  const row = Math.min(h.rows - 1, Math.floor((firstRowD - d) / h.rowPitch));
   return floor0 + row * h.rowPitch * RAKE;
 }
 
