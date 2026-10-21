@@ -32,7 +32,13 @@ export const DIM = {
     frontWidth: 11.25, // ширина переда авансцены
     backWidth: 12.5, // у портала = ширина портала
     height: 0.75, // над полом зрительного зала
-    stairs: { longSide: 3.75, steps: 4, tread: 0.3 }, // 2 трапеции по углам
+    // бока авансцены: от переднего края строго под прямым углом на sideStraight вглубь,
+    // далее — скос к внутреннему углу портала (±backWidth/2, d = 0)
+    sideStraight: 1.9,
+    // 2 трапециевидные лестницы в нишах между порталом и боками авансцены:
+    // верхнее основание — скос авансцены, нижнее — параллельно ему от переднего угла
+    // авансцены до портала. steps — число подъёмов (последний — на планшет).
+    stairs: { steps: 5 },
   },
   decoCeilingY: 6.1, // декоративный потолок над авансценой
 
@@ -140,6 +146,15 @@ export const PORTAL_BACK_D = DIM.portal.thickness;
 export const GALLERY_INNER_X = BOX_HALF - DIM.galleries.width; // перила боковых галерей
 export const BACK_GALLERY_FRONT_D = DIM.box.backWallD - DIM.galleries.width; // 8.30
 export const RAKE = Math.tan((DIM.hall.rakeDeg * Math.PI) / 180);
+
+/** Полуширина авансцены на глубине d (−depth ≤ d ≤ 0): прямой участок, затем скос к порталу. */
+export function forestageHalfWidth(d) {
+  const fs = DIM.forestage;
+  const fw2 = fs.frontWidth / 2, bw2 = fs.backWidth / 2;
+  const breakD = -fs.depth + fs.sideStraight;
+  if (d <= breakD) return fw2;
+  return fw2 + ((d - breakD) / -breakD) * (bw2 - fw2);
+}
 
 /** Пол зрительного зала (Y) в точке глубины d (d < 0). Ступенчатый по рядам. */
 export function hallFloorY(d) {

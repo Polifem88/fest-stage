@@ -98,9 +98,12 @@ export function buildArchitecture(batch, M) {
   batch.add('walls', M.floor, floorParts, { tag: 'stageFloor' });
 
   // ===========================================================================
-  //  АВАНСЦЕНА (трапеция) и боковые ступени
+  //  АВАНСЦЕНА: перед + бока под прямым углом на sideStraight, далее скос к порталу;
+  //  в нишах между скосом, прямым боком и порталом — трапециевидные лестницы
   // ===========================================================================
-  const fsPts = [[-PW2, 0], [-FS.frontWidth / 2, -FS.depth], [FS.frontWidth / 2, -FS.depth], [PW2, 0]];
+  const FW2 = FS.frontWidth / 2;
+  const BREAK_D = -FS.depth + FS.sideStraight; // точка «излома» бока
+  const fsPts = [[-PW2, 0], [-FW2, BREAK_D], [-FW2, -FS.depth], [FW2, -FS.depth], [FW2, BREAK_D], [PW2, 0]];
   // верх
   const top = prism(fsPts, -0.02, 0);
   batch.add('walls', M.floor, top, { tag: 'stageFloor' });
@@ -108,30 +111,28 @@ export function buildArchitecture(batch, M) {
   batch.add('walls', M.stageEdge, prism(fsPts, -FSH, -0.02));
 
   for (const side of [-1, 1]) {
-    // внутренняя кромка = боковина авансцены
-    const A = new THREE.Vector2(side * PW2, 0), B = new THREE.Vector2(side * FS.frontWidth / 2, -FS.depth);
-    const e = B.clone().sub(A);
-    const innerLen = e.length();
-    const eu = e.clone().normalize();
-    // наружная нормаль
-    let n = new THREE.Vector2(-eu.y, eu.x);
+    // верхнее основание трапеции = скос авансцены: внутренний угол портала A → излом B
+    const A = new THREE.Vector2(side * PW2, 0), B = new THREE.Vector2(side * FW2, BREAK_D);
+    const eu = B.clone().sub(A).normalize();
+    // нормаль наружу (от авансцены, в сторону зала/стены)
+    const n = new THREE.Vector2(-eu.y, eu.x);
     if (n.x * side < 0) n.negate();
-    const steps = FS.stairs.steps - 1; // 3 проступи + сам планшет = 4 подъёма
-    const total = steps * FS.stairs.tread;
-    for (let k = 0; k < steps; k++) {
-      const s0 = k * FS.stairs.tread, s1 = (k + 1) * FS.stairs.tread;
-      const yTop = -FSH + FSH * (1 - (k + 1) / FS.stairs.steps);
-      const lineAt = (s) => {
-        // точка на линии смещения s, пересечённая с плоскостью портала (d = 0)
-        const base = A.clone().add(n.clone().multiplyScalar(s));
-        const t0 = -base.y / eu.y; // параметр, где d = 0
-        const start = base.clone().add(eu.clone().multiplyScalar(t0));
-        const len = innerLen + (FS.stairs.longSide - innerLen) * (s / total) - t0;
-        return [start, start.clone().add(eu.clone().multiplyScalar(len))];
-      };
-      const [a0, a1] = lineAt(s0), [b0, b1] = lineAt(s1);
-      let pts = [[a0.x, a0.y], [a1.x, a1.y], [b1.x, b1.y], [b0.x, b0.y]];
-      if (side > 0) pts = pts.reverse();
+    // нижнее основание параллельно скосу и проходит через передний угол авансцены
+    const C = new THREE.Vector2(side * FW2, -FS.depth);
+    const total = C.clone().sub(A).dot(n); // полная ширина марша
+    const rises = FS.stairs.steps; // последний подъём — на саму авансцену
+    const tread = total / (rises - 1);
+    // точки линии со смещением s: пересечение с плоскостью портала (d = 0) и с прямым боком (x = ±FW2)
+    const lineAt = (s) => {
+      const base = A.clone().add(n.clone().multiplyScalar(s));
+      const atD0 = base.clone().add(eu.clone().multiplyScalar(-base.y / eu.y));
+      const atSide = base.clone().add(eu.clone().multiplyScalar((side * FW2 - base.x) / eu.x));
+      return [atD0, atSide];
+    };
+    for (let k = 0; k < rises - 1; k++) {
+      const yTop = -FSH * (k + 1) / rises;
+      const [a0, a1] = lineAt(k * tread), [b0, b1] = lineAt((k + 1) * tread);
+      const pts = [[a0.x, a0.y], [a1.x, a1.y], [b1.x, b1.y], [b0.x, b0.y]];
       batch.add('walls', M.stageEdge, prism(pts, -FSH, yTop));
     }
   }

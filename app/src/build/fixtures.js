@@ -1,7 +1,7 @@
 // Приборы: упрощённые модели по типам (InstancedMesh), светящиеся линзы,
 // лучи («дымка») и световые пятна на полу. Включение/выключение по одному и группами.
 import * as THREE from 'three';
-import { DIM, BOX_HALF, HALL_HALF, hallFloorY } from '../config/dimensions.js';
+import { DIM, BOX_HALF, HALL_HALF, hallFloorY, forestageHalfWidth } from '../config/dimensions.js';
 import { FIXTURES, TYPES, BAR_DEPTH, PORTABLE, portablePlacement } from '../config/fixtures.js';
 import { radialTexRGB } from '../core/materials.js';
 
@@ -440,7 +440,7 @@ function clipPoolsToFloor(mat) {
   float ax = abs(vPoolW.x);
   if (vZone < 0.5) {
     if (pd > ${c(DIM.box.backWallD)} || ax > ${c(BOX_HALF)} || pd < ${c(-fs.depth)}) discard;
-    if (pd < 0.0 && ax > ${c(fs.frontWidth / 2)} + (pd + ${c(fs.depth)}) / ${c(fs.depth)} * ${c((fs.backWidth - fs.frontWidth) / 2)}) discard;
+    if (pd < 0.0 && ax > max(${c(fs.frontWidth / 2)}, ${c(fs.frontWidth / 2)} + (pd - ${c(fs.sideStraight - fs.depth)}) / ${c(fs.depth - fs.sideStraight)} * ${c((fs.backWidth - fs.frontWidth) / 2)})) discard;
   } else if (ax > ${c(HALL_HALF)}) discard;`);
   };
   mat.customProgramCacheKey = () => 'pool-clip';
@@ -456,7 +456,7 @@ export function traceToFloor(p, dir) {
     const q = p.clone().addScaledVector(dir, t);
     const d = -q.z;
     const onStage = d >= 0 && d <= DIM.box.backWallD && Math.abs(q.x) <= BOX_HALF;
-    const onFs = d < 0 && d >= -DIM.forestage.depth && Math.abs(q.x) <= DIM.forestage.frontWidth / 2 + ((d + DIM.forestage.depth) / DIM.forestage.depth) * ((DIM.forestage.backWidth - DIM.forestage.frontWidth) / 2);
+    const onFs = d < 0 && d >= -DIM.forestage.depth && Math.abs(q.x) <= forestageHalfWidth(d);
     if ((onStage || onFs) && t < best.dist) best = { dist: t, floor: true, point: q };
     else if (!onStage && !onFs) {
       // пол зала (ступенчатый) — несколько итераций
