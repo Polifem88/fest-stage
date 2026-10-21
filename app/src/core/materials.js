@@ -19,8 +19,8 @@ function rng(seed) {
   return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
 }
 
-// Кирпич: текстура = 1 × 1 м (кирпич 250 × 65 мм + шов 10 мм)
-function brickTex(base, mortar, vary) {
+// Кирпич: текстура = 1 × 1 м (кирпич 250 × 65 мм + шов 10 мм), однотонный чёрный кирпич
+function brickTex(base, mortar, vary = 0) {
   return canvasTex(512, (g, S) => {
     const r = rng(7);
     g.fillStyle = mortar;
@@ -29,43 +29,42 @@ function brickTex(base, mortar, vary) {
     for (let y = 0; y < rows; y++) {
       const off = (y % 2) * bw * 0.5;
       for (let x = -1; x < 5; x++) {
-        const v = (r() - 0.5) * vary;
+        const v = vary ? (r() - 0.5) * vary : 0;
         const c = new THREE.Color(base).offsetHSL(0, 0, v);
         g.fillStyle = `#${c.getHexString()}`;
-        g.fillRect(x * bw + off + 2, y * bh + 2, bw - 4, bh - 4);
+        g.fillRect(x * bw + off + 3, y * bh + 3, bw - 6, bh - 6);
+        // лёгкий объём верхней грани кирпича, чтобы кладка читалась в чёрном цвете
+        g.fillStyle = 'rgba(255,255,255,0.035)';
+        g.fillRect(x * bw + off + 3, y * bh + 3, bw - 6, 2);
       }
     }
   });
 }
 
-// Доски планшета: 1 × 1 м, доски 125 мм вдоль глубины.
-// Тёмно-серая краска, потёртая: доски чуть различаются тоном, по краске — светлые затёртости.
+// Доски планшета: 2 × 2 м (5 досок шириной по 400 мм вдоль глубины).
+// Тёмный графит (почти чёрный), однотонный, без разноцветных пятен и пёстрых затёртостей.
 function boardsTex() {
   return canvasTex(512, (g, S) => {
     const r = rng(3);
-    const n = 8, w = S / n;
+    const n = 5, w = S / n;
+    g.fillStyle = '#181a1d';
+    g.fillRect(0, 0, S, S);
+    // тонкая продольная фактура древесины в том же графитовом тоне
     for (let i = 0; i < n; i++) {
-      let y = 0;
-      while (y < S) {
-        const len = S * (0.6 + r() * 0.9);
-        const c = new THREE.Color('#222527').offsetHSL(0, 0, (r() - 0.5) * 0.03);
-        g.fillStyle = `#${c.getHexString()}`;
-        g.fillRect(i * w, y, w, len);
-        g.fillStyle = 'rgba(0,0,0,0.6)';
-        g.fillRect(i * w, y, w, 2);
-        y += len;
+      for (let k = 0; k < 22; k++) {
+        g.fillStyle = k % 2 ? 'rgba(255,255,255,0.022)' : 'rgba(0,0,0,0.22)';
+        g.fillRect(i * w + 5 + r() * (w - 10), 0, 1 + r() * 2, S);
       }
-      g.fillStyle = 'rgba(0,0,0,0.65)';
-      g.fillRect(i * w, 0, 2, S);
-      // потёртости: продольные затёртые полосы и мелкие сколы краски
-      for (let k = 0; k < 4; k++) {
-        g.fillStyle = `rgba(150,152,150,${0.03 + r() * 0.04})`;
-        g.fillRect(i * w + 3 + r() * (w - 12), r() * S, 2 + r() * 8, S * (0.1 + r() * 0.3));
-      }
-      for (let k = 0; k < 26; k++) {
-        g.fillStyle = `rgba(175,175,168,${0.05 + r() * 0.08})`;
-        g.fillRect(i * w + r() * w, r() * S, 1 + r() * 3, 1 + r() * 8);
-      }
+      // поперечные стыки досок
+      const yJoint = Math.round(((i * 0.37 + 0.25) % 1) * S);
+      g.fillStyle = '#070809';
+      g.fillRect(i * w, yJoint, w, 3);
+      // продольный шов между досками (40 см) и лёгкая фаска кромки
+      const xEdge = Math.round(i * w);
+      g.fillStyle = '#060708';
+      g.fillRect(xEdge, 0, 4, S);
+      g.fillStyle = 'rgba(255,255,255,0.04)';
+      g.fillRect(xEdge + 4, 0, 2, S);
     }
   });
 }
@@ -146,10 +145,10 @@ export function createMaterials() {
   const m = {
     floor: std({ map: boardsTex(), roughness: 0.9 }),
     blackWall: std({ color: 0x141414, roughness: 0.95 }),
-    brickBack: std({ map: brickTex('#353535', '#232323', 0.05), roughness: 0.95 }),
-    // низ задней стены под нижней галереей: кирпич, закрашенный матовым чёрным (кладка едва угадывается)
-    brickBlack: std({ map: brickTex('#101010', '#0b0b0b', 0.012), roughness: 1 }),
-    brickSide: std({ map: brickTex('#262626', '#181818', 0.04), roughness: 0.95 }),
+    brickBack: std({ map: brickTex('#161618', '#08080a', 0), roughness: 0.95 }),
+    // низ задней стены под нижней галереей: чёрный кирпич
+    brickBlack: std({ map: brickTex('#121214', '#070709', 0), roughness: 1 }),
+    brickSide: std({ map: brickTex('#161618', '#08080a', 0), roughness: 0.95 }),
     portal: std({ color: 0x0e0e0e, roughness: 0.9 }),
     stageEdge: std({ color: 0x1c1b1a, roughness: 0.9 }),
     steel: std({ color: 0x2a2c30, metalness: 0.55, roughness: 0.55 }),
@@ -185,7 +184,7 @@ export function createMaterials() {
     blueLed: new THREE.MeshBasicMaterial({ color: 0x2a3cff }),
   };
   // масштаб повтора текстур (метров на повтор)
-  m.floor.userData.uvScale = 1;
+  m.floor.userData.uvScale = 2;
   m.brickBack.userData.uvScale = 1;
   m.brickBlack.userData.uvScale = 1;
   m.brickSide.userData.uvScale = 1;
