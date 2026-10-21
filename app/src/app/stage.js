@@ -619,7 +619,7 @@ export class Stage {
     const g = this.measure.group;
     for (const c of [...g.children]) { g.remove(c); c.geometry?.dispose?.(); }
     this.labels.labels = this.labels.labels.filter((s) => s.parent);
-    this.measure.points = [];
+    this.measure.points.length = 0; // очищаем на месте: _measureClick держит ссылку на этот массив
     this.invalidate();
   }
   _measureClick(ndc) {
