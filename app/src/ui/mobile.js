@@ -103,6 +103,9 @@ export async function startMobile() {
     });
   };
   stage.on('venue', mountVenue);
+  // панели прежней площадки отписываются до её разбора: события новой площадки
+  // (select/state/lights) не должны доходить до панелей со старым списком приборов
+  stage.on('venueloading', () => { unmount?.(); unmount = null; });
 
   const { notice } = await stage.boot();
   loading.remove();
