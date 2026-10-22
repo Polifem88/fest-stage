@@ -1,8 +1,8 @@
 // Приборы: упрощённые модели по типам (InstancedMesh), светящиеся линзы,
 // лучи («дымка») и световые пятна на полу. Включение/выключение по одному и группами.
+// Общая система для всех площадок: список приборов, типы, пол (куда падает луч)
+// и переносные приборы приходят из модуля площадки (venue.fixtures).
 import * as THREE from 'three';
-import { DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, hallFloorY, forestageHalfWidth } from '../config/dimensions.js';
-import { FIXTURES, TYPES, BAR_DEPTH, PORTABLE, portablePlacement } from '../config/fixtures.js';
 import { radialTexRGB } from '../core/materials.js';
 
 const POOL_GAIN = 0.4; // яркость одного пятна на полу (подбирается по скриншотам)
@@ -12,10 +12,12 @@ const LENS_OFF = new THREE.Color(0.05, 0.05, 0.055);
 const BODY = new THREE.Color(0x1a1b1e);
 const BODY_SEL = new THREE.Color(0xff8a1f);
 const BODY_UNKNOWN = new THREE.Color(0x3a2a40);
-// режим «чертёж»: корпус прибора окрашен по типу (экспликация — app/blueprint.js)
+// режим «чертёж»: корпус прибора окрашен по типу (экспликация — engine/blueprint.js)
 const TYPE_PALETTE = ['#e6194b', '#3cb44b', '#f58231', '#4363d8', '#911eb4', '#0fa3b1', '#f032e6', '#9a6324', '#469990', '#800000', '#808000', '#000075', '#d4a000', '#6b6b6b', '#7b5cd6', '#c2185b', '#2e7d32'];
-export const TYPE_COLORS = Object.fromEntries(Object.keys(TYPES).map((k, i) => [k, TYPE_PALETTE[i % TYPE_PALETTE.length]]));
-const TYPE_COLOR_OBJ = Object.fromEntries(Object.entries(TYPE_COLORS).map(([k, c]) => [k, new THREE.Color(c)]));
+/** Цвета типов по порядку ключей (справочник театра + собственные типы площадки в конце). */
+export function typeColors(types) {
+  return Object.fromEntries(Object.keys(types).map((k, i) => [k, TYPE_PALETTE[i % TYPE_PALETTE.length]]));
+}
 const BODY_SEL_BP = new THREE.Color(0x111111);
 // плотность дымки: uStrength = HAZE_MIN + HAZE_RANGE × (0…1); по умолчанию 0,3 → ≈ 0,019
 const HAZE_MIN = 0.004, HAZE_RANGE = 0.05;
@@ -123,20 +125,32 @@ function beamMaterial() {
 }
 
 export class FixtureSystem {
-  /** opts: { beams: bool (видимость по умолчанию), beamSegments, labels: LabelManager|null } */
-  constructor(M, rigging, opts) {
+  /**
+   * @param M материалы, @param rigging механика площадки (или null — приборы только на неподвижных местах)
+   * @param opts { beams: bool (видимость по умолчанию), beamSegments, labels: LabelManager|null }
+   * @param cfg  данные площадки (venue.fixtures):
+   *   { list, types, barDepth, portable: { ...PORTABLE, placement(side,k,mode,count) } | null,
+   *     floor: { trace(p, dir) → {dist, floor, point}, zone(point) → 0|1, clip(material) },
+   *     hangs(f) → прибор висит (на трубе/мосту), poolK(f) → яркость пятна }
+   */
+  constructor(M, rigging, opts, cfg) {
     this.M = M;
     this.rigging = rigging;
     this.opts = opts;
+    this.cfg = cfg;
+    this.types = cfg.types;
+    this.typeColors = typeColors(cfg.types);
+    this._typeColorObj = Object.fromEntries(Object.entries(this.typeColors).map(([k, c]) => [k, new THREE.Color(c)]));
     this.root = new THREE.Group();
     this.root.name = 'fixtures';
-    this.list = FIXTURES.map((f, i) => ({ ...f, idx: i, on: true, selected: false, hidden: false }));
+    this.list = cfg.list.map((f, i) => ({ ...f, idx: i, on: true, selected: false, hidden: false }));
     this.byNo = new Map(this.list.map((f) => [String(f.no), f]));
     this._m = new THREE.Matrix4();
     this._q = new THREE.Quaternion();
     this._s = new THREE.Vector3();
     this._labelsOn = true;
-    this.portable = { ...PORTABLE.defaults };
+    this.portableCfg = cfg.portable || null;
+    this.portable = this.portableCfg ? { ...this.portableCfg.defaults } : { mode: 'off', count: 0 };
     this._build();
     this._placePortable();
     this.updateAll();
@@ -144,6 +158,7 @@ export class FixtureSystem {
 
   _build() {
     const M = this.M;
+    const TYPES = this.types;
     const byShape = {};
     for (const f of this.list) (byShape[TYPES[f.type].shape] ||= []).push(f);
     this.shapes = {};
@@ -198,7 +213,7 @@ export class FixtureSystem {
     this.poolZone = new THREE.InstancedBufferAttribute(new Float32Array(n), 1);
     this.poolZone.setUsage(THREE.DynamicDrawUsage);
     poolGeo.setAttribute('aZone', this.poolZone);
-    clipPoolsToFloor(this.poolMat);
+    this.cfg.floor.clip(this.poolMat);
     this.pools.name = 'pools';
     this.pools.frustumCulled = false;
     this.pools.renderOrder = 4;
@@ -210,8 +225,9 @@ export class FixtureSystem {
     // переносные: штативы и напольные подставки (по одной на каждый переносной прибор)
     this.portableList = this.list.filter((f) => f.portable);
     const np = this.portableList.length;
-    this.stands = new THREE.InstancedMesh(standGeometry(), M.steel, np);
-    this.floorStands = new THREE.InstancedMesh(floorStandGeometry(), M.steel, np);
+    const pc = this.portableCfg;
+    this.stands = new THREE.InstancedMesh(pc ? standGeometry(pc.standY) : new THREE.BufferGeometry(), M.steel, np);
+    this.floorStands = new THREE.InstancedMesh(pc ? floorStandGeometry(pc.floorY) : new THREE.BufferGeometry(), M.steel, np);
     this.stands.name = 'portableStands';
     this.floorStands.name = 'portableFloorStands';
     for (const im of [this.stands, this.floorStands]) {
@@ -236,7 +252,7 @@ export class FixtureSystem {
     const m = f.mount;
     if (m.on) {
       const h = this.rigging.height(m.on);
-      return out.set(m.x, h + m.y, -(BAR_DEPTH[m.on] + m.d));
+      return out.set(m.x, h + m.y, -(this.cfg.barDepth[m.on] + m.d));
     }
     return out.set(m.x, m.y, -m.d);
   }
@@ -267,9 +283,9 @@ export class FixtureSystem {
       return;
     }
     if (f.label) f.label.visible = this._labelsOn;
+    const TYPES = this.types;
     const mount = this.mountPos(f);
-    const onBar = !!f.mount.on;
-    const hang = onBar || f.group.startsWith('BR');
+    const hang = this.cfg.hangs(f);
     // центр головы
     const head = mount.clone();
     if (hang) head.y -= f.hasBase ? 0.32 : 0.22;
@@ -280,7 +296,7 @@ export class FixtureSystem {
     this._m.compose(head, q, this._s.set(sc, sc, sc));
     this.shapes[f.shapeKey].setMatrixAt(f.shapeIdx, this._m);
     this.shapes[f.shapeKey].setColorAt(f.shapeIdx, this.colorByType
-      ? (f.selected ? BODY_SEL_BP : TYPE_COLOR_OBJ[f.type])
+      ? (f.selected ? BODY_SEL_BP : this._typeColorObj[f.type])
       : f.selected ? BODY_SEL : TYPES[f.type].unknown ? BODY_UNKNOWN : BODY);
     // основание (у «голов») или струбцина
     const zero = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -300,7 +316,7 @@ export class FixtureSystem {
     this.lenses.setColorAt(f.idx, f.on ? WARM : LENS_OFF);
     // луч и пятно
     const half = THREE.MathUtils.degToRad(TYPES[f.type].beam / 2);
-    const hit = traceToFloor(lensPos, dir);
+    const hit = this.cfg.floor.trace(lensPos, dir);
     const L = hit.dist;
     const r = Math.tan(half);
     if (f.on) {
@@ -315,11 +331,10 @@ export class FixtureSystem {
       const qp = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ang);
       this._m.compose(hit.point.clone().setY(hit.point.y + 0.012), qp, this._s.set(rad * stretch, 1, rad));
       this.pools.setMatrixAt(f.idx, this._m);
-      const stageLevel = Math.abs(hit.point.y) < 0.02 && -hit.point.z >= -DIM.forestage.depth - 0.01;
-      this.poolZone.setX(f.idx, stageLevel ? 0 : 1);
+      this.poolZone.setX(f.idx, this.cfg.floor.zone(hit.point));
       this.poolZone.needsUpdate = true;
     } else this.pools.setMatrixAt(f.idx, zero);
-    this.pools.setColorAt(f.idx, poolColor(f));
+    this.pools.setColorAt(f.idx, WARM.clone().multiplyScalar(this.cfg.poolK(f) * POOL_GAIN));
     if (f.label) f.label.position.copy(mount).add(new THREE.Vector3(0, hang ? 0.12 : 0.3, 0));
     f.world = { head, dir, lensPos, throw: L, onFloor: hit.floor };
   }
@@ -353,10 +368,12 @@ export class FixtureSystem {
   setColorByType(v) { if (this.colorByType === v) return; this.colorByType = v; this.updateAll(); }
   setLabels(v) { this._labelsOn = v; for (const f of this.list) if (f.label) f.label.visible = v && !f.hidden; }
 
-  /** Переносные приборы: mode 'off' | 'floor' | 'stand', count — сколько всего (6 или 8). */
+  /** Переносные приборы: mode 'off' | 'floor' | 'stand', count — сколько всего (например, 6 или 8). */
   setPortable(mode, count) {
+    const pc = this.portableCfg;
+    if (!pc) return;
     if (!['off', 'floor', 'stand'].includes(mode)) mode = 'off';
-    if (!PORTABLE.counts.includes(count)) count = PORTABLE.defaults.count;
+    if (!pc.counts.includes(count)) count = pc.defaults.count;
     this.portable = { mode, count };
     this._placePortable();
     for (const f of this.portableList) this._update(f);
@@ -364,11 +381,13 @@ export class FixtureSystem {
   }
 
   _placePortable() {
+    const pc = this.portableCfg;
+    if (!pc) return;
     const { mode, count } = this.portable;
     const zero = new THREE.Matrix4().makeScale(0, 0, 0);
     const m = new THREE.Matrix4();
     this.portableList.forEach((f, j) => {
-      const p = portablePlacement(f.portable.side, f.portable.k, mode, count);
+      const p = pc.placement(f.portable.side, f.portable.k, mode, count);
       f.mount = p.mount;
       f.aim = p.aim;
       f.hidden = !p.visible;
@@ -383,11 +402,11 @@ export class FixtureSystem {
   }
 }
 
-/** Штатив: три ноги, стойка и вилка сверху (центр прибора — на высоте PORTABLE.standY). */
-function standGeometry() {
+/** Штатив: три ноги, стойка и вилка сверху (центр прибора — на высоте standY). */
+function standGeometry(standY) {
   const parts = [];
   const add = (g) => parts.push(g.index ? g.toNonIndexed() : g);
-  const top = PORTABLE.standY - 0.15;
+  const top = standY - 0.15;
   add(new THREE.CylinderGeometry(0.018, 0.022, top, 8).translate(0, top / 2, 0)); // стойка
   for (let i = 0; i < 3; i++) { // ноги
     const a = (i / 3) * Math.PI * 2;
@@ -403,89 +422,58 @@ function standGeometry() {
   return merge(parts);
 }
 
-/** Напольная подставка: плита и вилка (центр прибора — на высоте PORTABLE.floorY). */
-function floorStandGeometry() {
+/** Напольная подставка: плита и вилка (центр прибора — на высоте floorY). */
+function floorStandGeometry(floorY) {
   const parts = [];
   const add = (g) => parts.push(g.index ? g.toNonIndexed() : g);
-  const y = PORTABLE.floorY;
+  const y = floorY;
   add(new THREE.BoxGeometry(0.34, 0.02, 0.26).translate(0, 0.01, 0));
   add(new THREE.BoxGeometry(0.02, y, 0.04).translate(-0.13, y / 2, 0));
   add(new THREE.BoxGeometry(0.02, y, 0.04).translate(0.13, y / 2, 0));
   return merge(parts);
 }
 
-function poolColor(f) {
-  // пятна от приборов в зале (на сцену издалека) — слабее
-  const k = f.group.startsWith('BR') || f.group.startsWith('BOX') ? 0.35 : f.group === 'FOH' ? 0.6 : 0.5;
-  return WARM.clone().multiplyScalar(k * POOL_GAIN);
-}
-
 /**
- * Обрезка пятен по границам пола (в шейдере): вытянутое пятно у стены или края авансцены
- * не должно «висеть» за стеной коробки или в воздухе над залом.
- * aZone = 0: планшет (|x| ≤ полуширины коробки, до задней стены) и трапеция авансцены;
- * aZone = 1: зал (|x| ≤ полуширины зала). Координата d = −z.
+ * Простой пол для площадок без особенностей: прямоугольник x0…x1, d0…d1 на высоте y
+ * плюс стены по его краям (луч дальше не идёт). Площадка со сложным полом
+ * (авансцена, приямок, ступенчатый зал) даёт свои trace/zone/clip.
  */
-function clipPoolsToFloor(mat) {
-  const fs = DIM.forestage;
-  const pit = DIM.pit;
+export function rectFloor({ x0, x1, d0, d1, y = 0, maxDist = 30 }) {
   const c = (v) => v.toFixed(4);
-  mat.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float aZone;\nvarying float vZone;\nvarying vec3 vPoolW;')
-      .replace('#include <project_vertex>', '#include <project_vertex>\nvZone = aZone;\nvPoolW = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;');
-    sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying float vZone;\nvarying vec3 vPoolW;')
-      .replace('void main() {', `void main() {
-  float pd = -vPoolW.z;
-  float ax = abs(vPoolW.x);
-  if (vZone < 0.5) {
-    if (pd > ${c(DIM.box.backWallD)} || ax > ${c(BOX_HALF)} || pd < ${c(-fs.depth)}) discard;
-    if (vPoolW.x > ${c(GALLERY_INNER_X)} && pd > ${c(pit.fromD)} && pd < ${c(pit.toD)}) discard;
-    if (pd < 0.0 && ax > max(${c(fs.frontWidth / 2)}, ${c(fs.frontWidth / 2)} + (pd - ${c(fs.sideStraight - fs.depth)}) / ${c(fs.depth - fs.sideStraight)} * ${c((fs.backWidth - fs.frontWidth) / 2)})) discard;
-  } else if (ax > ${c(HALL_HALF)}) discard;`);
-  };
-  mat.customProgramCacheKey = () => 'pool-clip';
-}
-
-/** Пересечение луча с полом сцены/зала/стенами зала. */
-export function traceToFloor(p, dir) {
-  const maxD = 30;
-  let best = { dist: maxD, floor: false, point: null };
-  // планшет сцены (y = 0): коробка и авансцена
-  if (dir.y < -0.02) {
-    const t = -p.y / dir.y;
-    const q = p.clone().addScaledVector(dir, t);
-    const d = -q.z;
-    const inPit = q.x > GALLERY_INNER_X && d > DIM.pit.fromD && d < DIM.pit.toD;
-    const onStage = d >= 0 && d <= DIM.box.backWallD && Math.abs(q.x) <= BOX_HALF && !inPit;
-    const onFs = d < 0 && d >= -DIM.forestage.depth && Math.abs(q.x) <= forestageHalfWidth(d);
-    if ((onStage || onFs) && t < best.dist) best = { dist: t, floor: true, point: q };
-    else if (inPit) {
-      const tPit = (-DIM.pit.depth - p.y) / dir.y;
-      if (tPit > 0 && tPit < best.dist) best = { dist: tPit, floor: false, point: p.clone().addScaledVector(dir, tPit) };
-    } else if (d < 0 && !onFs) {
-      // пол зала (ступенчатый) — несколько итераций
-      let tt = t;
-      for (let k = 0; k < 4; k++) {
-        const qq = p.clone().addScaledVector(dir, tt);
-        const fy = hallFloorY(-qq.z);
-        tt = (fy - p.y) / dir.y;
+  return {
+    trace(p, dir) {
+      let best = { dist: maxDist, floor: false, point: null };
+      if (dir.y < -0.02) {
+        const t = (y - p.y) / dir.y;
+        const q = p.clone().addScaledVector(dir, t);
+        const d = -q.z;
+        if (t > 0 && q.x >= x0 && q.x <= x1 && d >= d0 && d <= d1) best = { dist: t, floor: true, point: q };
       }
-      const qq = p.clone().addScaledVector(dir, tt);
-      if (tt > 0 && tt < best.dist && Math.abs(qq.x) <= HALL_HALF) best = { dist: tt, floor: true, point: qq };
-    }
-  }
-  // боковые стены
-  if (Math.abs(dir.x) > 1e-3) {
-    const wx = dir.x > 0 ? HALL_HALF : -HALL_HALF;
-    const t = (wx - p.x) / dir.x;
-    if (t > 0 && t < best.dist) best = { dist: t, floor: false, point: p.clone().addScaledVector(dir, t) };
-  }
-  // задняя стена сцены
-  if (dir.z < -1e-3) {
-    const t = (-DIM.box.backWallD - p.z) / dir.z;
-    if (t > 0 && t < best.dist) best = { dist: t, floor: false, point: p.clone().addScaledVector(dir, t) };
-  }
-  return best;
+      if (!best.floor) {
+        // стены по краям пола
+        for (const [ax, v] of [['x', x0], ['x', x1], ['d', d0], ['d', d1]]) {
+          const comp = ax === 'x' ? dir.x : -dir.z;
+          if (Math.abs(comp) < 1e-3) continue;
+          const pos = ax === 'x' ? p.x : -p.z;
+          const t = (v - pos) / comp;
+          if (t > 0 && t < best.dist) best = { dist: t, floor: false, point: p.clone().addScaledVector(dir, t) };
+        }
+      }
+      return best;
+    },
+    zone: () => 0,
+    clip(mat) {
+      mat.onBeforeCompile = (sh) => {
+        sh.vertexShader = sh.vertexShader
+          .replace('#include <common>', '#include <common>\nattribute float aZone;\nvarying vec3 vPoolW;')
+          .replace('#include <project_vertex>', '#include <project_vertex>\nvPoolW = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;');
+        sh.fragmentShader = sh.fragmentShader
+          .replace('#include <common>', '#include <common>\nvarying vec3 vPoolW;')
+          .replace('void main() {', `void main() {
+  float pd = -vPoolW.z;
+  if (vPoolW.x < ${c(x0)} || vPoolW.x > ${c(x1)} || pd < ${c(d0)} || pd > ${c(d1)}) discard;`);
+      };
+      mat.customProgramCacheKey = () => `pool-rect:${x0}:${x1}:${d0}:${d1}`;
+    },
+  };
 }

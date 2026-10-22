@@ -1,7 +1,8 @@
 // Общие компоненты интерфейса (используются и в десктопной, и в мобильной версии).
-import { RIGGING } from '../config/rigging.js';
-import { GROUP_SETS, GROUPS, TYPES, PORTABLE } from '../config/fixtures.js';
-import { VIEWS } from '../app/stage.js';
+// Всё, что относится к площадке (механика, группы приборов, слои, виды, экспорт), берётся
+// из stage.venue: панели пересобираются при смене сцены (см. desktop.js / mobile.js).
+import { RIG_KINDS, kindsPresent } from '../library/rigKinds.js';
+import { THEATRE_NAME } from '../venues/registry.js';
 
 export const fmt = (v, n = 2) => Number(v).toFixed(n).replace('.', ',');
 
@@ -38,10 +39,9 @@ function allToWithUndo(stage, which) {
   toast(label, 4000, { action: { label: '↺ Отменить', fn: () => { for (const [id, v] of Object.entries(before)) stage.setHeight(id, v); } } });
 }
 
-const KIND = { batten: 'Ш', light: 'С', track: 'З', side: 'Б' };
-
-/** Панель механики: список спереди назад со слайдерами. */
+/** Панель механики: список спереди назад со слайдерами (только если на площадке есть механика). */
 export function rigPanel(stage, { compact = false } = {}) {
+  const RIGGING = stage.venue.rigging?.list || [];
   const rows = new Map();
   const list = h('div', { class: 'rig-list' });
   for (const r of RIGGING) {
@@ -72,8 +72,7 @@ export function rigPanel(stage, { compact = false } = {}) {
     h('button', { class: 'btn', onclick: () => allToWithUndo(stage, 'rest') }, '↺ Исходное'),
   );
   const legend = h('div', { class: 'legend' },
-    h('span', { class: 'k-batten' }, 'Ш — штанкет'), h('span', { class: 'k-light' }, 'С — софит'),
-    h('span', { class: 'k-track' }, 'З — дорога занавеса'), h('span', { class: 'k-side' }, 'Б — боковой'),
+    kindsPresent(RIGGING).map((k) => h('span', { class: `k-${k}` }, RIG_KINDS[k].short)),
   );
   return h('div', { class: 'panel-rig' }, bar, compact ? null : legend, h('div', { class: 'hint' }, 'Порядок — спереди назад. Высота трубы над планшетом.'), list);
 }
@@ -90,12 +89,14 @@ export function toggle(label, get, set, { icon = '', id } = {}) {
 
 /** Панель света. */
 export function lightPanel(stage, { compact = false } = {}) {
+  const V = stage.venue;
+  const { groups: GROUPS, groupSets: GROUP_SETS, types: TYPES, portable: PORT } = V.fixtures;
   const toggles = [];
   const T = (...a) => { const t = toggle(...a); toggles.push(t); return t; };
   const master = h('div', { class: 'grid-2 master' },
     T('Сценический свет', () => { const s = stage.stageState(); return s === 'on' ? true : s === 'mixed' ? 'mixed' : false; }, (v) => stage.setAllStage(v), { icon: '🎭', id: 'stage' }),
-    T('Дежурный свет', () => stage.flags.duty, (v) => stage.setFlag('duty', v), { icon: '💡', id: 'duty' }),
-    T('Свет в зале', () => stage.flags.house, (v) => stage.setFlag('house', v), { icon: '🏛', id: 'house' }),
+    V.caps.duty ? T('Дежурный свет', () => stage.flags.duty, (v) => stage.setFlag('duty', v), { icon: '💡', id: 'duty' }) : null,
+    V.caps.houseLight ? T('Свет в зале', () => stage.flags.house, (v) => stage.setFlag('house', v), { icon: '🏛', id: 'house' }) : null,
     T('Лучи (дымка)', () => stage.flags.haze, (v) => stage.setFlag('haze', v), { icon: '🌫', id: 'haze' }),
   );
   // плотность дымки: насколько видны лучи в воздухе
@@ -120,20 +121,20 @@ export function lightPanel(stage, { compact = false } = {}) {
       return h('div', { class: 'grp-cell' }, t, solo);
     }),
   );
-  // переносные ETC 50° (прострелы по планшету): нет / на полу / на штативах, 6 или 8 шт.
+  // переносные приборы (если есть на площадке): нет / на полу / на штативах, и сколько
   const portBtns = [];
   const PB = (label, isOn, act) => { const b = h('button', { class: 'btn', onclick: act }, label); b._isOn = isOn; portBtns.push(b); return b; };
   const P = () => stage.fixtures.portable;
-  const portable = h('div', {},
+  const portable = PORT ? h('div', {},
     h('div', { class: 'btn-row', role: 'group', 'aria-label': 'Как стоят переносные приборы' },
       PB('Нет', () => P().mode === 'off', () => stage.setPortable('off')),
       PB('На полу', () => P().mode === 'floor', () => stage.setPortable('floor')),
       PB('На штативах', () => P().mode === 'stand', () => stage.setPortable('stand')),
     ),
     h('div', { class: 'btn-row', role: 'group', 'aria-label': 'Сколько переносных приборов' },
-      PORTABLE.counts.map((n) => PB(`${n} шт.`, () => P().count === n, () => stage.setPortable(P().mode === 'off' ? 'floor' : P().mode, n))),
+      PORT.counts.map((n) => PB(`${n} шт.`, () => P().count === n, () => stage.setPortable(P().mode === 'off' ? 'floor' : P().mode, n))),
     ),
-  );
+  ) : null;
   const updPortable = () => { for (const b of portBtns) { const on = b._isOn(); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); } };
   // поиск прибора
   const searchRow = fixtureSearch(stage);
@@ -142,6 +143,7 @@ export function lightPanel(stage, { compact = false } = {}) {
   const groupDetails = new Map();
   const details = Object.entries(GROUPS).map(([gid, g]) => {
     const fl = stage.fixtures.list.filter((f) => f.group === gid);
+    if (!fl.length) return null;
     const wrap = h('div', { class: 'chips' }, fl.map((f) => {
       const c = h('button', { class: 'chip', title: compact ? `${TYPES[f.type].name} — тап: выбрать; долгое нажатие: вкл/выкл` : `${TYPES[f.type].name} — нажмите, чтобы выбрать; двойной щелчок — вкл/выкл` }, String(f.no));
       if (compact) {
@@ -158,7 +160,7 @@ export function lightPanel(stage, { compact = false } = {}) {
       chips.set(f.idx, c);
       return c;
     }));
-    const d = h('details', { class: 'grp' }, h('summary', {}, `${g.name}`, h('small', {}, ` ${fl.length} шт. · ${g.ds}`)), wrap);
+    const d = h('details', { class: 'grp' }, h('summary', {}, `${g.name}`, h('small', {}, ` ${fl.length} шт.${g.ds ? ` · ${g.ds}` : ''}`)), wrap);
     groupDetails.set(gid, d);
     return d;
   });
@@ -180,14 +182,15 @@ export function lightPanel(stage, { compact = false } = {}) {
   updChips();
   updPortable();
   updHaze();
+  const anyUnknown = stage.fixtures.list.some((f) => TYPES[f.type].unknown);
   return h('div', { class: 'panel-light' },
     h('h4', {}, 'Найти прибор'), searchRow,
     h('h4', {}, 'Свет'), master, hazeRow,
     h('h4', {}, 'Группы приборов'), groups,
     h('div', { class: 'hint' }, compact ? 'Кнопка группы — вкл/выкл, «соло» — горит только она.' : 'Кнопка группы — вкл/выкл; «соло» — горит только эта группа, остальной сценический свет гаснет.'),
-    h('h4', {}, 'Переносные ETC 50° (прострелы по планшету)'), portable,
+    PORT ? [h('h4', {}, PORT.title || 'Переносные приборы'), portable] : null,
     h('h4', {}, 'Приборы по группам'),
-    compact ? h('div', { class: 'hint' }, 'Тап по номеру — выбрать, долгое нажатие — вкл/выкл.') : h('div', { class: 'hint' }, 'Щелчок по номеру — выбрать, двойной — вкл/выкл. Фиолетовые — тип не указан в легенде.'),
+    compact ? h('div', { class: 'hint' }, 'Тап по номеру — выбрать, долгое нажатие — вкл/выкл.') : h('div', { class: 'hint' }, `Щелчок по номеру — выбрать, двойной — вкл/выкл.${anyUnknown ? ' Фиолетовые — тип не указан в легенде.' : ''}`),
     details,
   );
 }
@@ -200,7 +203,7 @@ export function fixtureSearch(stage, { compact = false } = {}) {
     if (!q) { search.focus(); return; }
     const f = stage.fixtures.byNo.get(q) || stage.fixtures.byNo.get(q.toUpperCase());
     if (!f) { toast(`Прибор № ${q} не найден`); return; }
-    if (f.hidden) { toast(`№ ${f.no} — переносной прибор, сейчас не показан. Включите его в разделе «Переносные ETC 50°»`, 3500); return; }
+    if (f.hidden) { toast(`№ ${f.no} — переносной прибор, сейчас не показан. Включите его в разделе «${stage.venue.fixtures.portable?.short || 'Переносные приборы'}»`, 3500); return; }
     search.blur();
     stage.select({ kind: 'fixture', idx: f.idx });
     stage.focusFixture?.(f.idx);
@@ -213,14 +216,14 @@ export function fixtureSearch(stage, { compact = false } = {}) {
   return h('div', { class: 'search-row' }, search, findBtn);
 }
 
-/** Слои и инструменты. */
+/** Слои (по площадке) и инструменты. */
 export function layersPanel(stage) {
-  const L = [['hall', 'Зрительный зал'], ['walls', 'Стены и потолок коробки'], ['galleries', 'Галереи'], ['rigging', 'Механика'], ['lights', 'Свет (приборы)']];
+  const L = stage.venue.layers;
   const ts = [];
   const T = (...a) => { const t = toggle(...a); ts.push(t); return t; };
   const layers = h('div', { class: 'grid-1' }, L.map(([k, n]) => T(n, () => stage.layers[k], (v) => stage.setLayer(k, v), { id: `l-${k}` })));
   const tools = h('div', { class: 'grid-1' },
-    T('Подписи механики', () => stage.flags.labels, (v) => stage.setFlag('labels', v), { icon: '🏷' }),
+    stage.venue.caps.rigging ? T('Подписи механики', () => stage.flags.labels, (v) => stage.setFlag('labels', v), { icon: '🏷' }) : null,
     T('Номера приборов', () => stage.flags.fixtureLabels, (v) => stage.setFlag('fixtureLabels', v), { icon: '#' }),
     T('Размеры', () => stage.flags.dims, (v) => stage.setFlag('dims', v), { icon: '📏' }),
     T('Сетка 1 м и ось сцены', () => stage.flags.grid, (v) => stage.setFlag('grid', v), { icon: '▦' }),
@@ -232,7 +235,7 @@ export function layersPanel(stage) {
   return h('div', { class: 'panel-layers' }, h('h4', {}, 'Слои'), layers, h('h4', {}, 'Инструменты'), tools);
 }
 
-/** Кнопки экспорта чертежей (.dxf) и 3D-модели (.glb): 4 на десктопе, 2 на мобильном. */
+/** Кнопки экспорта чертежей (.dxf) и 3D-модели (.glb) — те, что есть у площадки (на телефоне — только 2D). */
 export function exportButtons(stage, { onAction, role } = {}) {
   const isMobile = stage.profile?.name === 'mobile';
   const items = [
@@ -240,12 +243,14 @@ export function exportButtons(stage, { onAction, role } = {}) {
       id: 'plan-dxf',
       label: '📐 План сцены (2D .dxf)',
       title: 'Экспорт 2D-плана сцены, зала и развеса света в AutoCAD DXF',
+      fmt: 'planDXF',
       run: () => { stage.exportPlanDXF(); toast('Чертёж «План сцены» (.dxf) сохранён'); },
     },
     {
       id: 'section-dxf',
       label: '📏 Продольный разрез (2D .dxf)',
       title: 'Экспорт 2D продольного разреза с текущими высотами механики в AutoCAD DXF',
+      fmt: 'sectionDXF',
       run: () => { stage.exportSectionDXF(); toast('Чертёж «Продольный разрез» (.dxf) сохранён'); },
     },
   ];
@@ -255,12 +260,14 @@ export function exportButtons(stage, { onAction, role } = {}) {
         id: '3d-dxf',
         label: '🧊 Вся сцена в 3D (.dxf)',
         title: 'Экспорт полной трёхмерной модели сцены в 3D AutoCAD DXF (WCS)',
+        fmt: 'dxf3d',
         run: () => { stage.export3DDXF(); toast('3D-чертёж сцены (.dxf) сохранён'); },
       },
       {
         id: '3d-glb',
         label: '📦 3D-модель (.glb)',
         title: 'Экспорт полигональной 3D-модели сцены в Binary glTF 2.0 (.glb)',
+        fmt: 'glb',
         run: async () => {
           toast('Подготовка 3D-модели (.glb)…', 1400);
           await stage.exportGLB();
@@ -269,7 +276,8 @@ export function exportButtons(stage, { onAction, role } = {}) {
       },
     );
   }
-  return items.map((it) => h(
+  const can = stage.exportFormats();
+  return items.filter((it) => can[it.fmt]).map((it) => h(
     'button',
     {
       class: 'btn export-item',
@@ -288,7 +296,7 @@ export function exportButtons(stage, { onAction, role } = {}) {
 /** Виды и сохранение. */
 export function viewsPanel(stage, { onPicked } = {}) {
   const btns = new Map();
-  const grid = h('div', { class: 'grid-2' }, Object.entries(VIEWS).map(([k, v]) => {
+  const grid = h('div', { class: 'grid-2' }, Object.entries(stage.views).map(([k, v]) => {
     const b = h('button', { class: `btn view${k === stage.view ? ' on' : ''}`, onclick: () => { stage.setView(k); onPicked?.(k); } }, v.name);
     btns.set(k, b);
     return b;
@@ -298,7 +306,7 @@ export function viewsPanel(stage, { onPicked } = {}) {
   file.addEventListener('change', async () => {
     const f = file.files[0];
     if (!f) return;
-    try { stage.loadState(JSON.parse(await f.text())) ? toast('Состояние загружено') : toast('Не удалось прочитать файл'); } catch { toast('Не удалось прочитать файл'); }
+    try { (await stage.openState(JSON.parse(await f.text()))) ? toast('Состояние загружено') : toast('Не удалось прочитать файл'); } catch { toast('Не удалось прочитать файл'); }
     file.value = '';
   });
   return h('div', { class: 'panel-views' },
@@ -320,7 +328,7 @@ export async function shareLink(stage) {
   const url = stage.shareUrl();
   history.replaceState(null, '', url);
   try {
-    if (navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ title: 'ФЭСТ — Большая сцена', url }); return; }
+    if (navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ title: ` — ${stage.venue.name}`, url }); return; }
     await navigator.clipboard.writeText(url);
     toast('Ссылка скопирована');
   } catch {
@@ -367,14 +375,15 @@ export function infoCard(stage, { onClose } = {}) {
   return card;
 }
 
-/** Быстрые кнопки (верхняя панель). */
+/** Быстрые кнопки (верхняя панель); дежурный и зальный свет — если они есть на площадке. */
 export function quickBar(stage, { withLabels = true } = {}) {
+  const caps = stage.venue.caps;
   const ts = [];
   const T = (label, icon, get, set, id) => { const t = toggle(withLabels ? label : '', get, set, { icon, id }); t.title = label; t.setAttribute('aria-label', label); ts.push(t); return t; };
   const bar = h('div', { class: 'quick' },
-    T('Дежурка', '💡', () => stage.flags.duty, (v) => stage.setFlag('duty', v), 'q-duty'),
+    caps.duty ? T('Дежурка', '💡', () => stage.flags.duty, (v) => stage.setFlag('duty', v), 'q-duty') : null,
     T('Сцена', '🎭', () => { const s = stage.stageState(); return s === 'on' ? true : s === 'mixed' ? 'mixed' : false; }, (v) => stage.setAllStage(v), 'q-stage'),
-    T('Зал', '🏛', () => stage.flags.house, (v) => stage.setFlag('house', v), 'q-house'),
+    caps.houseLight ? T('Зал', '🏛', () => stage.flags.house, (v) => stage.setFlag('house', v), 'q-house') : null,
     T('Дымка', '🌫', () => stage.flags.haze, (v) => stage.setFlag('haze', v), 'q-haze'),
     T('Чертёж', '📄', () => stage.flags.blueprint, (v) => stage.setFlag('blueprint', v), 'q-bp'),
   );

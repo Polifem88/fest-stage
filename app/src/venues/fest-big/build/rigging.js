@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { DIM, BOX_HALF } from '../config/dimensions.js';
 import { RIGGING, RIG_BY_ID, ropeDepth, LEFT_RAIL_ORDER, RIGHT_FRONT_ORDER } from '../config/rigging.js';
-import { box, cylBetween, P } from '../core/geom.js';
+import { box, cylBetween, P } from '../../../core/geom.js';
 
 const W = BOX_HALF;
 const CEIL = DIM.box.ceiling;

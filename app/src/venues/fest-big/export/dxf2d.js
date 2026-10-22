@@ -12,9 +12,12 @@ import {
 } from '../config/dimensions.js';
 import { RIGGING, RIG_BY_ID, SPACING, LEFT_RAIL_ORDER, RIGHT_FRONT_ORDER, ropeDepth, DUTY_ROWS } from '../config/rigging.js';
 import { FIXTURES, TYPES, GROUPS, PORTABLE, portablePlacement, BAR_DEPTH } from '../config/fixtures.js';
-import { SPECS } from '../config/specs.js';
+import { SPECS } from '../../../library/specs.js';
 import { HALL_CEIL_PROFILE, HALL_BACK_FLOOR_Y } from '../build/architecture.js';
-import { DxfWriter } from './dxfWriter.js';
+import { DxfWriter } from '../../../export/dxfWriter.js';
+
+/** Основная надпись чертежей этой сцены. */
+const SHEET_TITLE = 'МЫТИЩИНСКИЙ ТЕАТР ДРАМЫ И КОМЕДИИ «ФЭСТ» · БОЛЬШАЯ СЦЕНА';
 
 const fmtM = (v, d = 2) => Number(v).toFixed(d).replace('.', ',');
 
@@ -513,6 +516,7 @@ export function buildPlanDXF(stage) {
 
   // Угловой штамп
   dxf.addTitleBlock(legX, curY - 2.2, {
+    title: SHEET_TITLE,
     subtitle: 'План сцены, верхней механики и развеса светового оборудования (2D)',
     extra: `Приборов на плане: ${totalFix} шт. · Переносные: ${portable.mode === 'off' ? 'нет' : `${portable.count} шт. (${portable.mode === 'stand' ? 'на штативах' : 'на полу'})`}`,
     width: 23.8,
@@ -845,6 +849,7 @@ export function buildSectionDXF(stage) {
   });
 
   dxf.addTitleBlock(tableX, tbl.bottomY - 3.0, {
+    title: SHEET_TITLE,
     subtitle: 'Продольный разрез сцены и зрительного зала по центральной оси (2D)',
     extra: 'Отметки высот от уровня чистого пола планшета сцены (±0,000)',
     width: 13.2,

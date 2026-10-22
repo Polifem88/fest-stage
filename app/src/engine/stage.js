@@ -1,46 +1,31 @@
 // Ядро приложения: сцена, камеры, виды, выбор и перетаскивание, рулетка, режим «чертёж»,
 // скриншот, состояние в ссылке. Общее для десктопа и телефона; различия — в профиле.
+// Движок не знает о конкретной сцене: всё, что относится к площадке (геометрия, механика,
+// развес, виды, экспорт), приходит из её модуля через реестр (venues/registry.js).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { DIM, rowFrontD } from '../config/dimensions.js';
-import { RIGGING, RIG_BY_ID, DUTY_ROWS } from '../config/rigging.js';
-import { GROUPS, GROUP_SETS, TYPES, BAR_DEPTH, powerOf, AIM_NOTE } from '../config/fixtures.js';
-import { SPECS } from '../config/specs.js';
+import { SPECS } from '../library/specs.js';
+import { RIG_KINDS } from '../library/rigKinds.js';
 import { createMaterials } from '../core/materials.js';
 import { StaticBatch } from '../core/geom.js';
 import { LabelManager } from '../core/labels.js';
-import { buildArchitecture, buildSeats, buildEmitters, HALL_BACK_FLOOR_Y } from '../build/architecture.js';
-import { RiggingSystem } from '../build/rigging.js';
-import { FixtureSystem, HAZE_DEFAULT } from '../build/fixtures.js';
-import { LightingSystem } from '../build/lighting.js';
-import { buildDims, buildGrid, setDimsView, setGridView } from './overlays.js';
-import { encodeState, decodeState } from './state.js';
+import { setDimsView, setGridView } from '../core/overlays.js';
+import { FixtureSystem, HAZE_DEFAULT } from '../systems/fixtures.js';
+import { LightingSystem } from '../systems/lighting.js';
+import { encodeState, decodeState, peekVenue, parseHash } from './state.js';
 import { SheetOverlay } from './blueprint.js';
+import { disposeTree, sharedSet } from './dispose.js';
 import { encodeDxfWindows1251 } from '../export/dxfWriter.js';
-import { buildPlanDXF, buildSectionDXF } from '../export/dxf2d.js';
-import { build3DDXF, buildGLB } from '../export/export3d.js';
+import { buildSceneGLB } from '../export/glbGeneric.js';
+import { DEFAULT_VENUE, venueEntry, isOpenable } from '../venues/registry.js';
 
 export const PROFILES = {
   desktop: { name: 'desktop', dpr: 2, antialias: true, shadows: true, ropes: true, ropeLabels: true, haze: true, beamSegments: 22, lightPlan: 'full', fixtureLabels: false, dragRequiresSelect: false },
   mobile: { name: 'mobile', dpr: 1.5, antialias: true, shadows: false, ropes: false, ropeLabels: false, haze: false, beamSegments: 12, lightPlan: 'lite', fixtureLabels: false, dragRequiresSelect: true },
 };
 
-const eyeY = (row) => -DIM.forestage.height + row * DIM.hall.rowPitch * Math.tan((DIM.hall.rakeDeg * Math.PI) / 180) + 1.15;
-
-/** Готовые точки обзора. type: 'persp' | 'ortho'. Координаты: [x, y, d]. */
-export const VIEWS = {
-  overview: { name: 'Общий вид', type: 'persp', pos: [15.5, 12.5, -16], target: [0, 2.2, 2.5] },
-  hall: { name: 'Из зала (8-й ряд)', type: 'persp', pos: [0, eyeY(7), rowFrontD(7) - 0.42], target: [0, 2.6, 4] },
-  booth: { name: 'С пульта', type: 'persp', pos: [0.8, HALL_BACK_FLOOR_Y + 2.7, -DIM.hall.portalToBoothWall + 0.3], target: [0, 1.4, 3] },
-  plan: { name: 'План сверху', type: 'ortho', dir: 'top', center: [0, 0, -4.2], height: 31 },
-  // только коробка и авансцена, крупно; снизу остаётся полоса под экспликацию
-  planStage: { name: 'План сцены (крупно)', type: 'ortho', dir: 'top', center: [0, 0, 0.4], height: 20.5 },
-  // вся глубина здания: от задней стены сцены (9,2) до операторской (−18)
-  section: { name: 'Разрез сбоку', type: 'ortho', dir: 'side', center: [0, 3.6, -4.4], height: 19.5 },
-  stageToHall: { name: 'Со сцены в зал', type: 'persp', pos: [0, 1.7, 4.5], target: [0, 1.6, -12] },
-  upperGallery: { name: 'С верхней галереи', type: 'persp', pos: [-1.5, DIM.galleries.upperY + 1.6, 8.75], target: [0, 2.2, 1.0] },
-  flyGallery: { name: 'Рабочая галерея (канаты)', type: 'persp', pos: [-3.6, 1.8, 0.4], target: [-8.3, 2.4, 5.2] },
-};
+// Цвета слоёв в режиме «чертёж» по умолчанию (площадка может задать свой: layers[i][2].bp)
+const BP_LAYER = { walls: 0xfbfbfa, hall: 0xf2f1ee, galleries: 0xe2e5ea, rigging: 0xe2e5ea, lights: 0x8a8f98 };
 
 export class Stage {
   constructor(container, profileName = 'desktop') {
@@ -48,19 +33,50 @@ export class Stage {
     this.container = container;
     this.listeners = {};
     this.selected = null;
+    // режимы отображения — общие для всех площадок (переносятся при смене сцены)
     this.flags = { duty: true, house: false, haze: this.profile.haze, hazeDensity: HAZE_DEFAULT, blueprint: false, labels: true, fixtureLabels: this.profile.fixtureLabels, grid: false, dims: false };
-    this.layers = { hall: true, walls: true, galleries: true, rigging: true, lights: true };
-    this.view = 'overview';
+    this.layers = {};
+    this.view = null;
+    this.venue = null;
+    this.rigging = null;
+    this._memory = new Map(); // состояние каждой площадки (механика, свет, слои, вид, камера)
     this._dirty = true;
-    this._init();
+    this._initEngine();
   }
 
-  on(ev, fn) { (this.listeners[ev] ||= []).push(fn); }
-  emit(ev, ...a) { for (const fn of this.listeners[ev] || []) fn(...a); }
+  // ---------------------------------------------------------------------------
+  //  События
+  // ---------------------------------------------------------------------------
+  on(ev, fn) {
+    (this.listeners[ev] ||= []).push(fn);
+    if (this._scope) this._scope.push([ev, fn]);
+    return () => this.off(ev, fn);
+  }
+  off(ev, fn) {
+    const a = this.listeners[ev];
+    const i = a ? a.indexOf(fn) : -1;
+    if (i >= 0) a.splice(i, 1);
+  }
+  emit(ev, ...a) { for (const fn of [...(this.listeners[ev] || [])]) fn(...a); }
+  /**
+   * Подписки, сделанные внутри fn, собираются в «область» и снимаются все разом вызовом
+   * возвращённой функции. Интерфейс пересобирает панели площадки в такой области.
+   */
+  scope(fn) {
+    const prev = this._scope;
+    const list = (this._scope = []);
+    try { fn(); } finally { this._scope = prev; }
+    return () => { for (const [ev, f] of list) this.off(ev, f); list.length = 0; };
+  }
   invalidate() { this._dirty = true; }
 
+  /** Виды текущей площадки. */
+  get views() { return this.venue?.views || {}; }
+
   // ---------------------------------------------------------------------------
-  _init() {
+  //  Движок (один раз): рендерер, камеры, управление, материалы
+  // ---------------------------------------------------------------------------
+  _initEngine() {
     const P = this.profile;
     const r = (this.renderer = new THREE.WebGLRenderer({ antialias: P.antialias, powerPreference: 'high-performance', preserveDrawingBuffer: false }));
     r.setPixelRatio(Math.min(window.devicePixelRatio || 1, P.dpr));
@@ -87,72 +103,167 @@ export class Stage {
     this.controls.maxDistance = 70;
     this.controls.addEventListener('change', () => this.invalidate());
 
-    // --- построение
     this.M = createMaterials();
+
+    // рулетка
+    this.measure = { active: false, points: [], group: new THREE.Group() };
+    this.measure.group.name = 'measure';
+
+    // лист чертежа: экспликация и масштаб (на телефоне экспликация — только в PNG)
+    this.sheet = new SheetOverlay(this, { legendOnScreen: P.name !== 'mobile' });
+
+    this._bindPointer();
+    window.addEventListener('resize', () => this.resize());
+    this.resize();
+    this._loop();
+  }
+
+  // ---------------------------------------------------------------------------
+  //  Площадки
+  // ---------------------------------------------------------------------------
+  /**
+   * Открыть площадку из реестра. Состояние текущей запоминается; у новой восстанавливается
+   * то, с каким её оставили (режимы отображения общие). opts.state — применить это состояние.
+   */
+  async loadVenue(id, { state = null } = {}) {
+    if (!isOpenable(id)) return false;
+    if (this.venue?.id === id) {
+      if (state) { this._restore(state, { flags: true }); this.emit('state'); }
+      return true;
+    }
+    const entry = venueEntry(id);
+    this.emit('venueloading', entry);
+    const venue = (await entry.load()).default;
+    if (this.venue) {
+      this._memory.set(this.venue.id, this._snapshot());
+      this._teardownVenue();
+    }
+    this._buildVenue(venue);
+    const mem = state || this._memory.get(venue.id);
+    if (mem) this._restore(mem, { flags: !!state });
+    this.emit('select', null, null); // выбор прежней площадки снят
+    this.emit('venue', venue);
+    this.emit('state');
+    this.invalidate();
+    return true;
+  }
+
+  /**
+   * Первый запуск: площадка и состояние из ссылки (#v=<id>&s=<данные>), иначе — по умолчанию.
+   * @returns {{ venue: string, notice?: string }}
+   */
+  async boot(hash = location.hash) {
+    const { v, s } = parseHash(hash);
+    let id = v || (s ? peekVenue(s) : null) || DEFAULT_VENUE;
+    let notice;
+    if (!isOpenable(id)) {
+      const e = venueEntry(id);
+      notice = e ? `«${e.name}» пока в разработке — открыта ${venueEntry(DEFAULT_VENUE).name}` : `Сцена «${id}» не найдена — открыта ${venueEntry(DEFAULT_VENUE).name}`;
+      id = DEFAULT_VENUE;
+    }
+    await this.loadVenue(id);
+    if (s && peekVenue(s) === id) this.loadState(s);
+    return { venue: id, notice };
+  }
+
+  _buildVenue(venue) {
+    this.venue = venue;
+    const P = this.profile;
+    const scene = this.scene;
+    this.controls.maxDistance = venue.camera?.maxDistance ?? 70;
     this.labels = new LabelManager();
     const batch = new StaticBatch();
-    buildArchitecture(batch, this.M);
-    this.rigging = new RiggingSystem(this.M, { ropes: P.ropes, ropeLabels: P.ropeLabels, labels: this.labels });
-    this.rigging.buildStatic(batch);
-    const layers = batch.build();
-    this.layerGroups = {};
-    for (const k of Object.keys(this.layers)) {
-      const g = new THREE.Group();
-      g.name = `L:${k}`;
-      if (layers[k]) g.add(layers[k]);
-      this.layerGroups[k] = g;
-      scene.add(g);
-    }
-    const [seatsF, seatsK] = buildSeats(this.M);
-    this.layerGroups.hall.add(seatsF, seatsK);
-    const em = buildEmitters(this.M, DUTY_ROWS);
-    this.emitters = em.groups;
-    this.layerGroups.lights.add(em.groups.duty);
-    this.layerGroups.hall.add(em.groups.house);
-    this.layerGroups.rigging.add(this.rigging.root);
+    this.layers = Object.fromEntries(venue.layers.map(([k]) => [k, true]));
+    this.layerGroups = null;
+    const commitBatch = () => {
+      if (this.layerGroups) return;
+      const built = batch.build();
+      this.layerGroups = {};
+      for (const k of Object.keys(this.layers)) {
+        const g = new THREE.Group();
+        g.name = `L:${k}`;
+        if (built[k]) g.add(built[k]);
+        this.layerGroups[k] = g;
+        scene.add(g);
+      }
+    };
+    const add = (layer, ...objs) => { commitBatch(); this.layerGroups[layer].add(...objs); };
+    const built = venue.build({ batch, M: this.M, labels: this.labels, profile: P, commitBatch, add }) || {};
+    commitBatch();
+    this.rigging = built.rigging || null;
+    this.emitters = built.emitters || null;
 
-    this.fixtures = new FixtureSystem(this.M, this.rigging, { beams: this.flags.haze, beamSegments: P.beamSegments, labels: this.labels });
+    this.fixtures = new FixtureSystem(this.M, this.rigging, { beams: this.flags.haze, beamSegments: P.beamSegments, labels: this.labels }, venue.fixtures);
     this.layerGroups.lights.add(this.fixtures.root);
-    this.lighting = new LightingSystem(this.fixtures, { plan: P.lightPlan, shadows: P.shadows, dutyPoints: em.dutyPoints, housePoints: em.housePoints, blueX: em.blueX });
+    this.lighting = new LightingSystem(this.fixtures, { plan: P.lightPlan, shadows: P.shadows, groups: venue.lightPlans?.[P.lightPlan] || [], ambient: built.ambient?.(P.lightPlan) });
     scene.add(this.lighting.root);
 
-    this.dims = buildDims(this.labels);
-    this.grid = buildGrid(this.labels);
+    const ov = built.overlays?.(this.labels) || {};
+    this.dims = ov.dims || emptyGroup('dims');
+    this.grid = ov.grid || emptyGroup('grid');
     scene.add(this.dims, this.grid);
+    scene.add(this.measure.group); // рулетка — поверх, последней в сцене
 
     // механика двигает приборы и групповой свет
-    this.rigging.onChange((id) => {
-      if (BAR_DEPTH[id] !== undefined) this.fixtures.updateBar(id);
+    this.rigging?.onChange((id) => {
+      if (venue.fixtures.barDepth?.[id] !== undefined) this.fixtures.updateBar(id);
       this.lighting.placeGroupLights();
       this._shadowsDirty = true;
       this.invalidate();
       this.emit('rig', id, this.rigging.height(id));
     });
 
-    // рулетка
-    this.measure = { active: false, points: [], group: new THREE.Group() };
-    this.measure.group.name = 'measure';
-    scene.add(this.measure.group);
-
-    // лист чертежа: экспликация и масштаб (на телефоне экспликация — только в PNG)
-    this.sheet = new SheetOverlay(this, { legendOnScreen: P.name !== 'mobile' });
-
+    this._bpOn = false;
     this._applyFlags();
     this._applyLayers();
     this.resize();
-    this.setView('overview', { instant: true });
-    this._bindPointer();
-    window.addEventListener('resize', () => this.resize());
-    this.resize();
+    this.setView(venue.defaultView, { instant: true });
     this._shadowsDirty = true;
-
-    // начальное состояние из ссылки
-    const m = location.hash.match(/s=([\w-]+)/);
-    if (m) this.loadState(m[1]);
-
-    this._loop();
   }
 
+  /** Освободить всё, что построила площадка (WebGL-контекст, камеры и материалы движка остаются). */
+  _teardownVenue() {
+    this._anim = null;
+    this.selected = null;
+    this.clearMeasure();
+    const keep = sharedSet(this.M, this._bp, { off: this._off });
+    for (const g of Object.values(this.layerGroups || {})) disposeTree(g, keep);
+    disposeTree(this.lighting?.root, keep);
+    disposeTree(this.dims, keep);
+    disposeTree(this.grid, keep);
+    this.layerGroups = null;
+    this.rigging = null;
+    this.fixtures = null;
+    this.lighting = null;
+    this.emitters = null;
+    this.labels = null;
+    this.renderer.renderLists.dispose();
+    this.venue = null;
+  }
+
+  /** Состояние площадки для памяти при переключении: механика, свет, слои, вид и точное положение камеры. */
+  _snapshot() {
+    const ortho = this.camera === this.ortho;
+    const cam = { ortho, pos: (ortho ? this.ortho : this.persp).position.toArray(), target: this.controls.target.toArray(), zoom: this.ortho.zoom };
+    return { ...this.getState(), cam };
+  }
+
+  /** Восстановить состояние площадки; режимы отображения (flags) — только если явно попросили. */
+  _restore(st, { flags = false } = {}) {
+    const s = flags ? st : { ...st, flags: undefined };
+    this.loadState(s);
+    const c = st.cam;
+    // камеру восстанавливаем, только если вид того же типа (иначе — просто готовый вид)
+    if (c && c.ortho === (this.camera === this.ortho)) {
+      (c.ortho ? this.ortho : this.persp).position.fromArray(c.pos);
+      if (c.ortho) { this.ortho.zoom = c.zoom; this.ortho.updateProjectionMatrix(); }
+      this.controls.target.fromArray(c.target);
+      this.controls.update();
+    }
+    this.invalidate();
+  }
+
+  // ---------------------------------------------------------------------------
   resize() {
     const w = this.container.clientWidth || window.innerWidth;
     const h = this.container.clientHeight || window.innerHeight;
@@ -176,6 +287,7 @@ export class Stage {
   _loop() {
     const tick = (t) => {
       requestAnimationFrame(tick);
+      if (!this.venue) return;
       if (this._anim) this._stepAnim(t);
       const changed = this.controls.update();
       if (changed) this._dirty = true;
@@ -187,6 +299,7 @@ export class Stage {
   }
 
   render() {
+    if (!this.venue) return;
     if (this._shadowsDirty && this.renderer.shadowMap.enabled) { this.renderer.shadowMap.needsUpdate = true; this._shadowsDirty = false; }
     this.labels.update(this.camera, this.renderer.domElement.clientHeight || 1);
     this.renderer.render(this.scene, this.camera);
@@ -198,13 +311,13 @@ export class Stage {
   //  Виды
   // ---------------------------------------------------------------------------
   setView(key, { instant = false } = {}) {
-    const v = VIEWS[key];
+    const v = this.views[key];
     if (!v) return;
     this.view = key;
     this.viewDir = v.type === 'ortho' ? v.dir : null;
     setDimsView(this.dims, this.viewDir);
     setGridView(this.grid, this.viewDir);
-    this.rigging.setLabelLayout(this.viewDir === 'top' ? 'plan' : 'normal');
+    this.rigging?.setLabelLayout(this.viewDir === 'top' ? 'plan' : 'normal');
     this._updateRopeLabels();
     if (v.type === 'ortho') {
       this.camera = this.ortho;
@@ -238,8 +351,8 @@ export class Stage {
       this.persp.up.set(0, 1, 0);
       const pos = new THREE.Vector3(v.pos[0], v.pos[1], -v.pos[2]);
       const tgt = new THREE.Vector3(v.target[0], v.target[1], -v.target[2]);
-      // в книжной ориентации телефона общий вид отодвигаем, чтобы влезла вся сцена
-      if (key === 'overview' && this.persp.aspect < 1) pos.sub(tgt).multiplyScalar(1 + (1 - this.persp.aspect) * 0.9).add(tgt);
+      // в книжной ориентации телефона вид отодвигаем, чтобы влезла вся сцена
+      if (v.portraitPullback && this.persp.aspect < 1) pos.sub(tgt).multiplyScalar(1 + (1 - this.persp.aspect) * 0.9).add(tgt);
       if (instant || wasOrtho) {
         this.persp.position.copy(pos);
         this.controls.target.copy(tgt);
@@ -266,25 +379,27 @@ export class Stage {
   // ---------------------------------------------------------------------------
   //  Механика
   // ---------------------------------------------------------------------------
-  setHeight(id, h) { this.rigging.setHeight(id, h); }
+  setHeight(id, h) { this.rigging?.setHeight(id, h); }
 
   /** Плавно навести камеру на прибор (поиск по номеру). */
   focusFixture(idx) {
     const f = this.fixtures.list[idx];
     const p = this.fixtures.mountPos(f);
-    if (this.camera !== this.persp) this.setView('overview', { instant: true });
+    if (this.camera !== this.persp) this.setView(this.venue.defaultView, { instant: true });
     const dir = this.persp.position.clone().sub(this.controls.target).normalize();
     const dist = Math.min(9, Math.max(4, this.persp.position.distanceTo(this.controls.target)));
     this._anim = { t0: performance.now(), dur: 800, p0: this.persp.position.clone(), p1: p.clone().addScaledVector(dir, dist), t0v: this.controls.target.clone(), t1v: p.clone() };
     this.invalidate();
   }
   allTo(which) {
-    for (const r of RIGGING) this.rigging.setHeight(r.id, which === 'up' ? r.max : which === 'down' ? r.min : r.rest);
+    if (!this.rigging) return;
+    for (const r of this.venue.rigging.list) this.rigging.setHeight(r.id, which === 'up' ? r.max : which === 'down' ? r.min : r.rest);
   }
 
   // ---------------------------------------------------------------------------
   //  Свет
   // ---------------------------------------------------------------------------
+  get groupSets() { return this.venue?.fixtures.groupSets || []; }
   _lightsChanged() {
     this.lighting.placeGroupLights();
     this.invalidate();
@@ -292,13 +407,13 @@ export class Stage {
   }
   setFixture(idx, on) { this.fixtures.setOn(idx, on); this._lightsChanged(); }
   setGroupSet(setId, on) {
-    const set = GROUP_SETS.find((s) => s.id === setId);
+    const set = this.groupSets.find((s) => s.id === setId);
     if (!set) return;
     this.fixtures.setMany((f) => set.groups.includes(f.group), on);
     this._lightsChanged();
   }
   groupSetState(setId) {
-    const set = GROUP_SETS.find((s) => s.id === setId);
+    const set = this.groupSets.find((s) => s.id === setId);
     const fl = this.fixtures.list.filter((f) => set.groups.includes(f.group));
     const on = fl.filter((f) => f.on).length;
     return on === 0 ? 'off' : on === fl.length ? 'on' : 'mixed';
@@ -306,7 +421,7 @@ export class Stage {
   setAllStage(on) { this.fixtures.setMany(() => true, on); this._lightsChanged(); }
   /** «Соло»: включена только эта группа сценического света, остальной сценический свет гаснет. */
   soloGroupSet(setId) {
-    const set = GROUP_SETS.find((s) => s.id === setId);
+    const set = this.groupSets.find((s) => s.id === setId);
     if (!set) return;
     this.fixtures.setMany(() => true, false);
     this.fixtures.setMany((f) => set.groups.includes(f.group), true);
@@ -317,8 +432,9 @@ export class Stage {
     const on = fl.filter((f) => f.on).length;
     return on === 0 ? 'off' : on === fl.length ? 'on' : 'mixed';
   }
-  /** Переносные ETC 50°: mode 'off' | 'floor' | 'stand', count 6 | 8. */
+  /** Переносные приборы (если есть на площадке): mode 'off' | 'floor' | 'stand', count — из venue.fixtures.portable.counts. */
   setPortable(mode, count = this.fixtures.portable.count) {
+    if (!this.fixtures.portableCfg) return;
     this.fixtures.setPortable(mode, count);
     this._shadowsDirty = true;
     this._lightsChanged();
@@ -330,8 +446,10 @@ export class Stage {
     const f = this.flags;
     this.lighting.setDuty(f.duty);
     this.lighting.setHouse(f.house);
-    for (const m of this.emitters.duty.children) if (m.userData.emitter) m.material = f.duty ? this.M[m.userData.emitter === 'duty' ? matNameFor(m) : 'houseLamp'] : this._offMat();
-    for (const m of this.emitters.house.children) m.material = f.house ? this.M.houseLamp : this._offMat();
+    if (this.emitters) {
+      for (const m of this.emitters.duty.children) if (m.userData.emitter) m.material = f.duty ? this.M[m.userData.emitter === 'duty' ? matNameFor(m) : 'houseLamp'] : this._offMat();
+      for (const m of this.emitters.house.children) m.material = f.house ? this.M.houseLamp : this._offMat();
+    }
     this.fixtures.setHaze(f.haze && !f.blueprint);
     this.fixtures.setHazeDensity(f.hazeDensity ?? HAZE_DEFAULT);
     this.fixtures.setPools(!f.blueprint);
@@ -350,12 +468,12 @@ export class Stage {
   _offMat() { return (this._off ||= new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.6 })); }
 
   /**
-   * Подписи канатов на левой стене: 16 подписей через 30 см читаются только вблизи.
-   * Показываем все — в виде «Рабочая галерея», в остальных — только у выбранного штанкета.
+   * Подписи канатов (если у площадки они есть) читаются только вблизи.
+   * Показываем все — в виде с allRopeLabels, в остальных — только у выбранного штанкета.
    */
   _updateRopeLabels() {
     if (!this.labels) return;
-    const all = this.view === 'flyGallery';
+    const all = !!this.views[this.view]?.allRopeLabels;
     const selId = this.selected?.kind === 'rig' ? this.selected.id : null;
     for (const s of this.labels.labels) {
       if (s.userData.label.kind !== 'rope') continue;
@@ -363,32 +481,41 @@ export class Stage {
     }
   }
 
-  setLayer(k, v) { this.layers[k] = v; this._applyLayers(); this.invalidate(); this.emit('layers', k, v); }
+  setLayer(k, v) { if (!(k in this.layers)) return; this.layers[k] = v; this._applyLayers(); this.invalidate(); this.emit('layers', k, v); }
   _applyLayers() { for (const [k, g] of Object.entries(this.layerGroups)) g.visible = this.layers[k] !== false; this._shadowsDirty = true; }
 
   // ---------------------------------------------------------------------------
   //  Режим «чертёж»
   // ---------------------------------------------------------------------------
+  _bpLayer(k) {
+    const own = this.venue.layers.find((l) => l[0] === k)?.[2]?.bp;
+    const key = own != null ? `layer:${this.venue.id}:${k}` : BP_LAYER[k] != null ? `layer:${k}` : 'layer:walls';
+    return (this._bp[key] ||= new THREE.MeshBasicMaterial({ color: own, side: THREE.FrontSide }));
+  }
   _applyBlueprint(on) {
     if (!!this._bpOn === on) return;
     this._bpOn = on;
     const scene = this.scene;
     if (!this._bp) {
+      // порядок создания материалов — как до модульной переделки (одинаковый порядок отрисовки)
       const basic = (c) => new THREE.MeshBasicMaterial({ color: c, side: THREE.FrontSide });
-      this._bp = {
-        walls: basic(0xfbfbfa), hall: basic(0xf2f1ee), galleries: basic(0xe2e5ea), rigging: basic(0xe2e5ea), lights: basic(0x8a8f98),
-        glass: basic(0xe9eef5), edges: new THREE.LineBasicMaterial({ color: 0x3b4048 }),
-        batten: new THREE.MeshBasicMaterial({ color: 0x2f6fde }), light: new THREE.MeshBasicMaterial({ color: 0xe8590c }), track: new THREE.MeshBasicMaterial({ color: 0x8b3fd6 }), side: new THREE.MeshBasicMaterial({ color: 0x1a9e6a }),
-        // кресла — светлые (на печати не «грязное пятно»), корпуса приборов — цвет по типу (instanceColor)
-        seatF: new THREE.MeshLambertMaterial({ color: 0xf7f4ef, emissive: 0x8a8580 }), seatK: basic(0x9a9a9a), fixture: new THREE.MeshBasicMaterial({ color: 0xffffff }),
-      };
+      this._bp = {};
+      for (const [k, c] of Object.entries(BP_LAYER)) this._bp[`layer:${k}`] = basic(c);
+      this._bp.glass = basic(0xe9eef5);
+      this._bp.edges = new THREE.LineBasicMaterial({ color: 0x3b4048 });
+      // механика — цветом по виду (словарь театра)
+      for (const [k, d] of Object.entries(RIG_KINDS)) this._bp[`rig:${k}`] = new THREE.MeshBasicMaterial({ color: d.color });
+      // кресла — светлые (на печати не «грязное пятно»), корпуса приборов — цвет по типу (instanceColor)
+      this._bp.seatF = new THREE.MeshLambertMaterial({ color: 0xf7f4ef, emissive: 0x8a8580 });
+      this._bp.seatK = basic(0x9a9a9a);
+      this._bp.fixture = new THREE.MeshBasicMaterial({ color: 0xffffff });
     }
     scene.background = on ? new THREE.Color(0xffffff) : this.bgDark;
     scene.traverse((o) => {
       if (!o.isMesh) return;
-      // кресла и корпуса приборов (InstancedMesh)
-      const instKey = o.name === 'seatsFabric' ? 'seatF' : o.name === 'seatsFrame' ? 'seatK' : (o.name.startsWith('fixtures:') || o.name === 'fixtureBases' || o.name === 'fixtureClamps' || o.name.startsWith('portable')) ? 'fixture' : null;
-      if (instKey) {
+      // кресла и корпуса приборов (InstancedMesh); площадка может пометить меш явно: userData.bpRole
+      const instKey = o.userData.bpRole || (o.name === 'seatsFabric' ? 'seatF' : o.name === 'seatsFrame' ? 'seatK' : (o.name.startsWith('fixtures:') || o.name === 'fixtureBases' || o.name === 'fixtureClamps' || o.name.startsWith('portable')) ? 'fixture' : null);
+      if (instKey && this._bp[instKey]) {
         if (on) { o.userData.matOrig ||= o.material; o.material = this._bp[instKey]; }
         else if (o.userData.matOrig) o.material = o.userData.matOrig;
         return;
@@ -396,7 +523,7 @@ export class Stage {
       if (o.userData.static) {
         if (on) {
           o.userData.matOrig ||= o.material;
-          o.material = o.material.transparent && o.material.name === 'glass' ? this._bp.glass : this._bp[o.userData.layer] || this._bp.walls;
+          o.material = o.material.transparent && o.material.name === 'glass' ? this._bp.glass : this._bpLayer(o.userData.layer);
           if (!o.userData.edges) {
             const e = new THREE.LineSegments(new THREE.EdgesGeometry(o.geometry, 28), this._bp.edges);
             e.matrixAutoUpdate = false;
@@ -411,14 +538,15 @@ export class Stage {
         }
       }
     });
-    // механика — цветом по виду
-    for (const it of this.rigging.items.values()) {
-      if (on) { it.visual.userData.matOrig ||= it.visual.material; it.visual.material = this._bp[it.cfg.kind] || this._bp.batten; }
-      else if (it.visual.userData.matOrig) it.visual.material = it.visual.userData.matOrig;
+    if (this.rigging) {
+      for (const it of this.rigging.items.values()) {
+        if (on) { it.visual.userData.matOrig ||= it.visual.material; it.visual.material = this._bp[`rig:${it.cfg.kind}`] || this._bp['rig:batten']; }
+        else if (it.visual.userData.matOrig) it.visual.material = it.visual.userData.matOrig;
+      }
+      this.rigging.cables?.material.color.set(on ? 0x5b6470 : 0x8d939c);
     }
     this.lighting.root.visible = !on;
     this.renderer.toneMapping = on ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
-    this.rigging.cables.material.color.set(on ? 0x5b6470 : 0x8d939c);
     // светящиеся элементы приглушаем
     for (const m of [this.fixtures.lenses]) m.visible = !on;
     this._shadowsDirty = true;
@@ -438,6 +566,7 @@ export class Stage {
       return ndc;
     };
     el.addEventListener('pointerdown', (e) => {
+      if (!this.venue) return;
       if (e.button !== 0 && e.pointerType === 'mouse') return;
       if (down) { // второй палец — отменяем перетаскивание, пусть работает масштаб
         if (down.drag) { this.controls.enabled = true; }
@@ -463,6 +592,7 @@ export class Stage {
       }
     }, { capture: true });
     el.addEventListener('pointermove', (e) => {
+      if (!this.venue) return;
       if (!down || e.pointerId !== down.id) {
         if (!down && e.pointerType === 'mouse') this._hover(toNdc(e));
         return;
@@ -482,6 +612,7 @@ export class Stage {
       if (!down || e.pointerId !== down.id) return;
       const d = down;
       down = null;
+      if (!this.venue) return;
       if (d.drag) { this.controls.enabled = true; this._shadowsDirty = true; this.invalidate(); this.emit('dragend'); }
       if (d.moved) return;
       // клик/тап
@@ -491,14 +622,14 @@ export class Stage {
     };
     el.addEventListener('pointerup', up);
     el.addEventListener('pointercancel', (e) => { if (down?.drag) { this.controls.enabled = true; this.emit('dragend'); } down = null; });
-    el.addEventListener('pointerleave', () => { if (this.rigging.hover(null)) this.invalidate(); });
+    el.addEventListener('pointerleave', () => { if (this.rigging?.hover(null)) this.invalidate(); });
   }
 
   _hover(ndc) {
     const hit = this.pick(ndc);
     this.renderer.domElement.style.cursor = this.measure.active ? 'crosshair' : hit ? (hit.kind === 'rig' ? 'ns-resize' : 'pointer') : 'grab';
     // подсветка штанкета под курсором — видно, что именно схватится
-    if (this.rigging.hover(!this.measure.active && hit?.kind === 'rig' ? hit.id : null)) this.invalidate();
+    if (this.rigging?.hover(!this.measure.active && hit?.kind === 'rig' ? hit.id : null)) this.invalidate();
   }
 
   /**
@@ -510,7 +641,7 @@ export class Stage {
   pick(ndc) {
     this.ray.setFromCamera(ndc, this.camera);
     const targets = [];
-    if (this.layers.rigging) for (const it of this.rigging.items.values()) targets.push(it.hit);
+    if (this.rigging && this.layers.rigging !== false) for (const it of this.rigging.items.values()) targets.push(it.hit);
     if (this.layers.lights) targets.push(...Object.values(this.fixtures.shapes));
     const hits = this.ray.intersectObjects(targets, false);
     if (!hits.length) return null;
@@ -550,7 +681,7 @@ export class Stage {
 
   select(sel) {
     this.selected = sel ? { kind: sel.kind, id: sel.id, idx: sel.idx } : null;
-    this.rigging.highlight(sel && sel.kind === 'rig' ? sel.id : null);
+    this.rigging?.highlight(sel && sel.kind === 'rig' ? sel.id : null);
     this.fixtures.select(sel && sel.kind === 'fixture' ? sel.idx : -1);
     this._updateRopeLabels();
     this.invalidate();
@@ -559,38 +690,34 @@ export class Stage {
 
   /** Описание выбранного объекта для карточки. */
   describe(sel = this.selected) {
-    if (!sel) return null;
+    if (!sel || !this.venue) return null;
+    const V = this.venue;
+    const fmt = (v) => v.toFixed(2).replace('.', ',');
     if (sel.kind === 'rig') {
-      const r = RIG_BY_ID[sel.id];
-      const kindName = { batten: 'Штанкет', light: 'Софит', track: 'Дорога занавеса', side: 'Боковой штанкет' }[r.kind];
-      const ctrl = { left: 'левая стена (рабочая галерея)', 'right-front': 'правый передний угол за порталом', 'right-back-pad': 'под площадкой узла подъёма' }[r.control];
+      const r = this.rigging.get(sel.id).cfg;
       const rows = [
-        ['Тип', kindName],
-        ['Высота', `${this.rigging.height(sel.id).toFixed(2).replace('.', ',')} м`],
+        ['Тип', RIG_KINDS[r.kind]?.name || r.kind],
+        ['Высота', `${fmt(this.rigging.height(sel.id))} м`],
         ['Ход', `${String(r.min).replace('.', ',')} – ${String(r.max).replace('.', ',')} м`],
-        r.kind === 'side' ? ['Положение', `${r.x < 0 ? 'слева' : 'справа'}, от ${r.dFrom.toFixed(2)} до ${r.dTo.toFixed(2)} м за порталом`] : ['От портала', `${r.d.toFixed(2).replace('.', ',')} м ${r.d < 0 ? '(перед порталом)' : 'вглубь'}`],
-        ['Подвесов', String(r.lines)],
-        ['Управление', ctrl + (r.via === 'redirect' ? ', через обводные блоки' : '')],
+        ...(V.rigging.describe?.(r, this) || []),
       ];
-      if (r.kind === 'light') {
-        const n = this.fixtures.list.filter((f) => f.group === r.id).length;
-        rows.push(['Приборов', String(n)]);
-      }
+      const n = this.fixtures.list.filter((f) => f.mount.on === r.id).length;
+      if (n) rows.push(['Приборов', String(n)]);
       return { title: `${r.name}${r.fullName ? ' — ' + r.fullName : ''}`, kind: 'rig', id: r.id, rows, min: r.min, max: r.max, value: this.rigging.height(sel.id) };
     }
+    const FX = V.fixtures;
     const f = this.fixtures.list[sel.idx];
-    const t = TYPES[f.type];
-    const g = GROUPS[f.group];
+    const t = FX.types[f.type];
+    const g = FX.groups[f.group];
     const pos = this.fixtures.mountPos(f);
-    const rows = [
-      ['Тип', t.name],
-      ['Группа', g.name],
-      ['Питание', powerOf(f)],
-      ['Линии группы', g.ds === '—' ? 'на схеме не указаны' : `${g.ds} (D — диммерные, S — свитчерные)`],
-      ['Висит на', f.mount.on ? `${RIG_BY_ID[f.mount.on].name} (высота ${this.rigging.height(f.mount.on).toFixed(2).replace('.', ',')} м)` : g.name],
-      ['Высота прибора', `${pos.y.toFixed(2).replace('.', ',')} м`],
+    const rows = [['Тип', t.name], ['Группа', g.name]];
+    if (FX.powerOf) rows.push(['Питание', FX.powerOf(f)]);
+    if (FX.lineText) rows.push(['Линии группы', FX.lineText(g)]);
+    rows.push(
+      ['Висит на', f.mount.on ? `${this.rigging.get(f.mount.on).cfg.name} (высота ${fmt(this.rigging.height(f.mount.on))} м)` : g.name],
+      ['Высота прибора', `${fmt(pos.y)} м`],
       ['Угол луча', `${t.beam}° (в модели)`],
-    ];
+    );
     // дальность и пятно — по текущему (условному) наведению
     const w = f.world;
     if (w && w.onFloor) {
@@ -598,7 +725,7 @@ export class Stage {
       rows.push(['До пола по лучу', `${L.toFixed(1).replace('.', ',')} м`]);
       rows.push(['Пятно', `≈ ${dia.toFixed(1).replace('.', ',')} м в поперечнике луча`]);
     } else if (w) rows.push(['Луч', 'упирается в стену, на пол не попадает']);
-    rows.push(['Наведение', AIM_NOTE]);
+    if (FX.aimNote) rows.push(['Наведение', FX.aimNote]);
     // паспорт производителя (может быть неполным)
     const s = SPECS[f.type];
     if (s) {
@@ -620,8 +747,8 @@ export class Stage {
   }
   clearMeasure() {
     const g = this.measure.group;
-    for (const c of [...g.children]) { g.remove(c); c.geometry?.dispose?.(); }
-    this.labels.labels = this.labels.labels.filter((s) => s.parent);
+    for (const c of [...g.children]) { g.remove(c); c.geometry?.dispose?.(); c.material?.map?.dispose?.(); c.material?.dispose?.(); }
+    if (this.labels) this.labels.labels = this.labels.labels.filter((s) => s.parent);
     this.measure.points.length = 0; // очищаем на месте: _measureClick держит ссылку на этот массив
     this.invalidate();
   }
@@ -653,9 +780,12 @@ export class Stage {
   }
 
   // ---------------------------------------------------------------------------
-  //  Скриншот, состояние
+  //  Скриншот, состояние, экспорт
   // ---------------------------------------------------------------------------
-  screenshot(filename = 'fest-stage.png') {
+  /** Префикс имён сохраняемых файлов: fest-big, fest-chamber… */
+  get filePrefix() { return `fest-${this.venue?.id || 'stage'}`; }
+
+  screenshot(filename = `${this.filePrefix}.png`) {
     this.render();
     const src = this.renderer.domElement;
     let url;
@@ -679,7 +809,8 @@ export class Stage {
 
   getState() {
     return {
-      heights: this.rigging.snapshot(),
+      venue: this.venue.id,
+      heights: this.rigging ? this.rigging.snapshot() : {},
       fixturesOn: this.fixtures.list.map((f) => f.on),
       flags: { ...this.flags },
       layers: { ...this.layers },
@@ -687,29 +818,43 @@ export class Stage {
       view: this.view,
     };
   }
-  stateString() { return encodeState(this.getState()); }
+  stateString() { return encodeState(this.getState(), this.venue); }
   shareUrl() {
     const base = location.href.split('#')[0];
-    return `${base}#s=${this.stateString()}`;
+    return `${base}#v=${this.venue.id}&s=${this.stateString()}`;
   }
+  /**
+   * Применить состояние ТЕКУЩЕЙ площадки (строка из ссылки или объект). Состояние другой
+   * площадки не применяется — для него есть openState() (переключает сцену).
+   */
   loadState(strOrObj) {
-    const st = typeof strOrObj === 'string' ? decodeState(strOrObj) : strOrObj;
+    const st = typeof strOrObj === 'string' ? decodeState(strOrObj, this.venue) : strOrObj;
     if (!st) return false;
-    for (const [id, h] of Object.entries(st.heights || {})) this.rigging.setHeight(id, h);
+    if (st.venue && st.venue !== this.venue.id) return false;
+    if (this.rigging) for (const [id, h] of Object.entries(st.heights || {})) this.rigging.setHeight(id, h);
     if (st.fixturesOn) { this.fixtures.list.forEach((f, i) => { f.on = !!st.fixturesOn[i]; }); this.fixtures.updateAll(); this._lightsChanged(); }
-    if (st.portable) this.setPortable(st.portable.mode, st.portable.count);
+    if (st.portable && this.fixtures.portableCfg) this.setPortable(st.portable.mode, st.portable.count);
     if (st.flags) { Object.assign(this.flags, st.flags); this._applyFlags(); }
-    if (st.layers) { Object.assign(this.layers, st.layers); this._applyLayers(); }
-    if (st.view && VIEWS[st.view]) this.setView(st.view, { instant: true });
+    if (st.layers) { for (const k of Object.keys(this.layers)) if (k in st.layers) this.layers[k] = st.layers[k]; this._applyLayers(); }
+    if (st.view && this.views[st.view]) this.setView(st.view, { instant: true });
     this.emit('state');
     this.invalidate();
     return true;
+  }
+  /** Применить состояние любой площадки (файл .json или строка ссылки): при необходимости сменить сцену. */
+  async openState(strOrObj) {
+    let id;
+    if (typeof strOrObj === 'string') id = peekVenue(strOrObj);
+    else id = strOrObj?.venue || 'big';
+    if (!id || !isOpenable(id)) return false;
+    if (id !== this.venue.id) await this.loadVenue(id);
+    return this.loadState(strOrObj);
   }
   downloadState() {
     const blob = new Blob([JSON.stringify(this.getState(), null, 1)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'fest-stage-state.json';
+    a.download = `${this.filePrefix}-state.json`;
     a.click();
   }
 
@@ -722,26 +867,35 @@ export class Stage {
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
 
-  exportPlanDXF(filename = 'fest-stage-plan-2d.dxf') {
-    const dxf = buildPlanDXF(this);
+  /** Какие форматы экспорта есть у площадки: planDXF, sectionDXF, dxf3d — свои; glb — свой или общий. */
+  exportFormats() {
+    const e = this.venue?.exports || {};
+    return { planDXF: !!e.planDXF, sectionDXF: !!e.sectionDXF, dxf3d: !!e.dxf3d, glb: true };
+  }
+
+  exportPlanDXF(filename = `${this.filePrefix}-plan-2d.dxf`) {
+    if (!this.venue.exports.planDXF) return null;
+    const dxf = this.venue.exports.planDXF(this);
     this._downloadBlob(new Blob([encodeDxfWindows1251(dxf)], { type: 'application/dxf' }), filename);
     return dxf;
   }
 
-  exportSectionDXF(filename = 'fest-stage-section-2d.dxf') {
-    const dxf = buildSectionDXF(this);
+  exportSectionDXF(filename = `${this.filePrefix}-section-2d.dxf`) {
+    if (!this.venue.exports.sectionDXF) return null;
+    const dxf = this.venue.exports.sectionDXF(this);
     this._downloadBlob(new Blob([encodeDxfWindows1251(dxf)], { type: 'application/dxf' }), filename);
     return dxf;
   }
 
-  export3DDXF(filename = 'fest-stage-3d.dxf') {
-    const dxf = build3DDXF(this);
+  export3DDXF(filename = `${this.filePrefix}-3d.dxf`) {
+    if (!this.venue.exports.dxf3d) return null;
+    const dxf = this.venue.exports.dxf3d(this);
     this._downloadBlob(new Blob([encodeDxfWindows1251(dxf)], { type: 'application/dxf' }), filename);
     return dxf;
   }
 
-  async exportGLB(filename = 'fest-stage-3d.glb') {
-    const buf = await buildGLB(this);
+  async exportGLB(filename = `${this.filePrefix}-3d.glb`) {
+    const buf = await (this.venue.exports.glb ? this.venue.exports.glb(this) : buildSceneGLB(this));
     this._downloadBlob(new Blob([buf], { type: 'model/gltf-binary' }), filename);
     return buf;
   }
@@ -751,6 +905,12 @@ export class Stage {
     const i = this.renderer.info;
     return { calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries, textures: i.memory.textures, frames: this._frames };
   }
+}
+
+function emptyGroup(name) {
+  const g = new THREE.Group();
+  g.name = name;
+  return g;
 }
 
 function matNameFor(m) {

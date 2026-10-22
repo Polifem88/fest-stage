@@ -1,14 +1,9 @@
 // Лист чертежа поверх 3D: экспликация (условные обозначения) и линейный масштаб.
 // Рисуется на отдельном 2D-холсте над WebGL и добавляется в PNG-скриншот.
-import { TYPES } from '../config/fixtures.js';
-import { TYPE_COLORS } from '../build/fixtures.js';
+import { RIG_KINDS, kindsPresent, cssColor } from '../library/rigKinds.js';
 
-const RIG_LEGEND = [
-  ['#2f6fde', 'Ш — штанкет'],
-  ['#e8590c', 'С — софит'],
-  ['#8b3fd6', 'З — дорога занавеса'],
-  ['#1a9e6a', 'Б — боковой штанкет'],
-];
+/** Экспликация механики: только виды, которые есть на площадке. */
+const rigLegend = (venue) => kindsPresent(venue?.rigging?.list).map((k) => [cssColor(RIG_KINDS[k].color), RIG_KINDS[k].legend]);
 
 export class SheetOverlay {
   /** @param stage ядро; legendOnScreen — показывать экспликацию на экране (на телефоне — только в PNG) */
@@ -47,7 +42,7 @@ export class SheetOverlay {
     const small = w < 600;
     // экспликация — только на плане сверху (на разрезе закрывала бы зал, в 3D — сцену)
     let legendTop = null;
-    if (legend && st.viewDir === 'top') legendTop = this._legend(g, w, h, small, st.view === 'planStage' ? 7 : null);
+    if (legend && st.viewDir === 'top') legendTop = this._legend(g, w, h, small, st.views[st.view]?.legendRows || null);
     this._scaleBar(g, w, h, small, legendTop);
   }
 
@@ -61,7 +56,8 @@ export class SheetOverlay {
     const fs = small || h < 700 ? 10 : 11, lh = Math.round(fs * 1.42), pad = small ? 6 : 8, sw = fs;
     const font = (wt = '') => `${wt}${fs}px "Segoe UI", system-ui, sans-serif`;
     // строки: [цвет, текст, вид значка]
-    const items = [...rows.map(([t, n]) => [TYPE_COLORS[t], `${TYPES[t].name} — ${n}`, 'box']), ...RIG_LEGEND.map(([c, s]) => [c, s, 'line'])];
+    const { types, typeColors } = st.fixtures;
+    const items = [...rows.map(([t, n]) => [typeColors[t], `${types[t].name} — ${n}`, 'box']), ...rigLegend(st.venue).map(([c, s]) => [c, s, 'line'])];
     // по возможности одной колонкой (уже — меньше закрывает чертёж); если не влезает по высоте — в 2–3;
     // на «Плане сцены» — широкой полосой внизу (там свободна полоса под авансценой)
     const maxRows = rowsLimit || Math.max(6, Math.floor((h * 0.85 - pad * 2 - lh * 2) / lh));

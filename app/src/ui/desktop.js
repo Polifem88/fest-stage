@@ -1,26 +1,26 @@
 // Десктопная версия: панель слева с вкладками, карточка справа, быстрые кнопки сверху.
+// Оболочка (шапка, карточка, поиск) живёт всё время; панели площадки пересобираются при смене сцены.
 import './style.css';
-import { Stage, VIEWS } from '../app/stage.js';
+import { Stage } from '../engine/stage.js';
 import { h, rigPanel, lightPanel, layersPanel, viewsPanel, infoCard, quickBar, shareLink, toast, fixtureSearch, dragBadge, exportButtons } from './common.js';
-import { exposeTestApi } from '../app/testapi.js';
+import { venueBrand } from './venuePicker.js';
+import { exposeTestApi } from '../engine/testapi.js';
 
-export function startDesktop() {
+export async function startDesktop() {
   document.body.classList.add('desktop');
   const viewport = h('div', { class: 'viewport' });
   const loading = h('div', { class: 'loading' }, 'Строим сцену…');
   document.body.append(viewport, loading);
   const stage = new Stage(viewport, 'desktop');
-  loading.remove();
 
-  const tabs = [
-    ['rig', '⚙', 'Механика', () => rigPanel(stage)],
-    ['light', '💡', 'Свет', () => lightPanel(stage)],
-    ['layers', '🗂', 'Слои', () => layersPanel(stage)],
-    ['views', '👁', 'Виды', () => viewsPanel(stage)],
-  ];
+  // --- постоянная оболочка
   const body = h('div', { class: 'side-body' });
-  const panes = {};
+  const tablist = h('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Разделы панели' });
+  let tabBtns = [];
+  let panes = {};
+  let currentTab = 'rig';
   const openTab = (id, focus = false) => {
+    currentTab = id;
     for (const b of tabBtns) {
       const on = b.dataset.tab === id;
       b.classList.toggle('on', on);
@@ -30,14 +30,6 @@ export function startDesktop() {
     }
     for (const [k, p] of Object.entries(panes)) p.hidden = k !== id;
   };
-  const tabBtns = tabs.map(([id, ico, name, make]) => {
-    panes[id] = make();
-    panes[id].hidden = id !== 'rig';
-    panes[id].setAttribute('role', 'tabpanel');
-    body.append(panes[id]);
-    return h('button', { class: `tab${id === 'rig' ? ' on' : ''}`, role: 'tab', 'aria-selected': String(id === 'rig'), tabindex: id === 'rig' ? 0 : -1, 'data-tab': id, onclick: () => openTab(id) }, h('span', { class: 'ico', 'aria-hidden': 'true' }, ico), ' ', name);
-  });
-  const tablist = h('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Разделы панели' }, tabBtns);
   // стрелки влево/вправо листают вкладки (как принято для role=tablist)
   tablist.addEventListener('keydown', (e) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -49,23 +41,16 @@ export function startDesktop() {
   const side = h('aside', { class: 'side' }, tablist, body);
   const collapse = h('button', { class: 'collapse', title: 'Скрыть/показать панель', 'aria-label': 'Скрыть/показать панель', onclick: () => { document.body.classList.toggle('side-hidden'); setTimeout(() => stage.resize(), 220); } }, '⟨');
 
+  const helpList = h('ul', {});
   const help = h('div', { class: 'help', hidden: true, role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Управление' },
     h('b', {}, 'Управление'),
-    h('ul', {},
-      h('li', {}, 'Левая кнопка мыши — вращать, правая — сдвигать, колесо — приближать.'),
-      h('li', {}, 'Наведите на штанкет или софит (он подсветится) и тяните вверх-вниз — он поедет. Стрелки ↑/↓ двигают выбранный штанкет на 5 см, с Shift — на 50 см.'),
-      h('li', {}, 'Щелчок по прибору — карточка с номером и типом, его можно выключить.'),
-      h('li', {}, 'Вкладка «Виды» — готовые ракурсы, план, разрез, сохранение и ссылка.'),
-      h('li', {}, 'Esc — снять выбор, выключить рулетку, закрыть это окно.'),
-    ),
+    helpList,
     h('button', { class: 'btn', onclick: () => setHelp(false) }, 'Понятно'),
   );
   const backdrop = h('div', { class: 'backdrop', hidden: true, onclick: () => setHelp(false) });
   const setHelp = (on) => { help.hidden = !on; backdrop.hidden = !on; if (on) help.querySelector('.btn').focus(); };
 
-  const exportMenu = h('div', { class: 'export-menu', hidden: true, role: 'menu', 'aria-label': 'Экспорт чертежей и 3D-модели' },
-    exportButtons(stage, { onAction: () => setExport(false), role: 'menuitem' }),
-  );
+  const exportMenu = h('div', { class: 'export-menu', hidden: true, role: 'menu', 'aria-label': 'Экспорт чертежей и 3D-модели' });
   const exportBackdrop = h('div', { class: 'export-backdrop', hidden: true, onpointerdown: (e) => { e.preventDefault(); e.stopPropagation(); setExport(false); } });
   const exportBtn = h('button', {
     class: 'btn export-menu-btn',
@@ -82,9 +67,10 @@ export function startDesktop() {
     exportBtn.setAttribute('aria-expanded', String(on));
   };
 
+  const quickSlot = h('div', { class: 'quick-slot' });
   const top = h('header', { class: 'topbar' },
-    h('div', { class: 'brand' }, h('b', {}, 'ФЭСТ'), h('span', {}, ' · Большая сцена')),
-    quickBar(stage),
+    venueBrand(stage, { onBefore: () => setExport(false) }),
+    quickSlot,
     h('div', { class: 'top-actions' },
       h('div', { class: 'top-search' }, fixtureSearch(stage)),
       exportBtn,
@@ -97,15 +83,53 @@ export function startDesktop() {
   // подсказка внизу зависит от вида: на плане и разрезе вращения нет
   const status = h('div', { class: 'status' });
   const updStatus = () => {
-    const ortho = VIEWS[stage.view]?.type === 'ortho';
+    const ortho = stage.views[stage.view]?.type === 'ortho';
+    const drag = stage.venue?.caps.rigging ? ` · ${stage.venue.texts?.rigDrag || 'механику можно тянуть мышью'}` : '';
     status.textContent = ortho
-      ? 'ЛКМ или ПКМ — сдвигать · колесо — масштаб · штанкет можно тянуть мышью'
-      : 'ЛКМ — вращать · ПКМ — сдвигать · колесо — масштаб · штанкет можно тянуть мышью';
+      ? `ЛКМ или ПКМ — сдвигать · колесо — масштаб${drag}`
+      : `ЛКМ — вращать · ПКМ — сдвигать · колесо — масштаб${drag}`;
   };
   stage.on('view', updStatus);
-  updStatus();
   document.body.append(top, exportBackdrop, exportMenu, side, collapse, card, backdrop, help, status, dragBadge(stage));
-  stage.resize();
+
+  // --- панели площадки (пересобираются при смене сцены)
+  let unmount = null;
+  const mountVenue = () => {
+    unmount?.();
+    unmount = stage.scope(() => {
+      const caps = stage.venue.caps;
+      const tabs = [
+        caps.rigging ? ['rig', '⚙', 'Механика', () => rigPanel(stage)] : null,
+        ['light', '💡', 'Свет', () => lightPanel(stage)],
+        ['layers', '🗂', 'Слои', () => layersPanel(stage)],
+        ['views', '👁', 'Виды', () => viewsPanel(stage)],
+      ].filter(Boolean);
+      body.replaceChildren();
+      panes = {};
+      if (!tabs.some(([id]) => id === currentTab)) currentTab = tabs[0][0];
+      tabBtns = tabs.map(([id, ico, name, make]) => {
+        panes[id] = make();
+        panes[id].setAttribute('role', 'tabpanel');
+        body.append(panes[id]);
+        return h('button', { class: 'tab', role: 'tab', 'data-tab': id, onclick: () => openTab(id) }, h('span', { class: 'ico', 'aria-hidden': 'true' }, ico), ' ', name);
+      });
+      tablist.replaceChildren(...tabBtns);
+      openTab(currentTab);
+      quickSlot.replaceChildren(quickBar(stage));
+      exportMenu.replaceChildren(...exportButtons(stage, { onAction: () => setExport(false), role: 'menuitem' }));
+      helpList.replaceChildren(
+        h('li', {}, 'Левая кнопка мыши — вращать, правая — сдвигать, колесо — приближать.'),
+        caps.rigging ? h('li', {}, 'Наведите на штанкет или софит (он подсветится) и тяните вверх-вниз — он поедет. Стрелки ↑/↓ двигают выбранный штанкет на 5 см, с Shift — на 50 см.') : null,
+        h('li', {}, 'Щелчок по прибору — карточка с номером и типом, его можно выключить.'),
+        h('li', {}, 'Вкладка «Виды» — готовые ракурсы, план, разрез, сохранение и ссылка.'),
+        h('li', {}, 'Заголовок слева вверху — выбор сцены театра.'),
+        h('li', {}, 'Esc — снять выбор, выключить рулетку, закрыть это окно.'),
+      );
+      updStatus();
+      document.title = `${stage.venue.name} · ФЭСТ (компьютер)`;
+    });
+  };
+  stage.on('venue', mountVenue);
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !exportMenu.hidden) { setExport(false); return; }
@@ -118,6 +142,11 @@ export function startDesktop() {
       stage.setHeight(sel.id, stage.rigging.height(sel.id) + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 0.5 : 0.05));
     }
   });
+
+  const { notice } = await stage.boot();
+  loading.remove();
+  stage.resize();
+  if (notice) toast(notice, 4000);
   exposeTestApi(stage);
   return stage;
 }

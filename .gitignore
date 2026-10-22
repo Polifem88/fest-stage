@@ -12,3 +12,9 @@ app/review/**/*.json
 
 # исходные фото и схема — только локально, не публикуются
 data/
+
+# эталон и сравнение модульной переделки (25 МБ DXF/GLB/PNG) — только локально
+app/review/modular/baseline/
+app/review/modular/compare/
+app/review/modular/parity-report.*
+app/review/modular/bbox.mjs

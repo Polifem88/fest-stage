@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { RIGGING } from '../../src/config/rigging.js';
-import { FIXTURES } from '../../src/config/fixtures.js';
+import { RIGGING } from '../../src/venues/fest-big/config/rigging.js';
+import { FIXTURES } from '../../src/venues/fest-big/config/fixtures.js';
 import { DxfWriter, encodeDxfWindows1251 } from '../../src/export/dxfWriter.js';
-import { buildPlanDXF, buildSectionDXF } from '../../src/export/dxf2d.js';
-import { build3DDXF, buildGLB } from '../../src/export/export3d.js';
+import { buildPlanDXF, buildSectionDXF } from '../../src/venues/fest-big/export/dxf2d.js';
+import { build3DDXF, buildGLB } from '../../src/venues/fest-big/export/export3d.js';
 
 describe('Ядро генератора DXF (DxfWriter)', () => {
   it('формирует валидные секции HEADER ($INSUNITS=6, $DWGCODEPAGE=ANSI_1251), TABLES, BLOCKS, ENTITIES, EOF и кодирует Windows-1251', () => {

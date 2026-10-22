@@ -1,15 +1,20 @@
 // Программный «пульт» для автотестов и субагентов-тестировщиков: window.__fest
 import * as THREE from 'three';
-import { VIEWS } from './stage.js';
+import { VENUES } from '../venues/registry.js';
 
 export function exposeTestApi(stage) {
   window.__fest = {
     stage,
-    views: Object.keys(VIEWS),
+    /** Ключи видов текущей площадки. */
+    get views() { return Object.keys(stage.views); },
+    /** Площадки каталога: [{ id, name, status }]. */
+    venues: VENUES.map(({ id, name, status }) => ({ id, name, status })),
+    venue: () => stage.venue?.id,
+    loadVenue: (id) => stage.loadVenue(id),
     setView: (k) => stage.setView(k, { instant: true }),
-    /** Произвольная камера: pos/target в координатах [x, y, d] (d — глубина от портала). */
+    /** Произвольная камера: pos/target в координатах [x, y, d] (d — глубина от нулевой линии площадки). */
     setCamera: (pos, target, fov = 50) => {
-      stage.setView('overview', { instant: true });
+      stage.setView(stage.venue.defaultView, { instant: true });
       stage.persp.fov = fov;
       stage.persp.updateProjectionMatrix();
       stage.persp.position.set(pos[0], pos[1], -pos[2]);
@@ -18,9 +23,9 @@ export function exposeTestApi(stage) {
       stage.invalidate();
     },
     setHeight: (id, m) => stage.setHeight(id, m),
-    height: (id) => stage.rigging.height(id),
+    height: (id) => stage.rigging?.height(id),
     light: (setId, on) => (setId === 'all' ? stage.setAllStage(on) : stage.setGroupSet(setId, on)),
-    /** Переносные ETC 50°: mode 'off' | 'floor' | 'stand', count 6 | 8. */
+    /** Переносные приборы (если есть): mode 'off' | 'floor' | 'stand', count. */
     portable: (mode, count) => stage.setPortable(mode, count),
     flag: (k, v) => stage.setFlag(k, v),
     layer: (k, v) => stage.setLayer(k, v),

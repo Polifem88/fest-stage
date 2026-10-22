@@ -9,9 +9,9 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { DIM, BOX_HALF, HALL_HALF, RAKE, rowFrontD } from '../config/dimensions.js';
 import { RIGGING, ropeDepth, DUTY_ROWS } from '../config/rigging.js';
 import { FIXTURES, TYPES, PORTABLE, portablePlacement, BAR_DEPTH } from '../config/fixtures.js';
-import { StaticBatch } from '../core/geom.js';
+import { StaticBatch } from '../../../core/geom.js';
 import { buildArchitecture, buildSeats, buildEmitters } from '../build/architecture.js';
-import { DxfWriter } from './dxfWriter.js';
+import { DxfWriter } from '../../../export/dxfWriter.js';
 
 /**
  * Перевод точки из координат Three.js (x, y_up, z = -d)

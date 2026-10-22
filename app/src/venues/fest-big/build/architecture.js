@@ -2,7 +2,7 @@
 // приямок с решёткой, ригель, зрительный зал, конструкции для света в зале.
 import * as THREE from 'three';
 import { DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, BACK_GALLERY_FRONT_D, RAKE, rowFrontD } from '../config/dimensions.js';
-import { box, rect, wallWithHoles, cylBetween, P, prism } from '../core/geom.js';
+import { box, rect, wallWithHoles, cylBetween, P, prism } from '../../../core/geom.js';
 
 const W = BOX_HALF; // 8.5
 const HW = HALL_HALF; // 9

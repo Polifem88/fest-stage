@@ -430,7 +430,7 @@ export class DxfWriter {
     this.addLine(x0, y0 + h * 0.3, x0 + width, y0 + h * 0.3, { layer });
     this.addLine(x0 + width * 0.68, y0, x0 + width * 0.68, y0 + h * 0.62, { layer });
 
-    this.addText(x0 + width * 0.5, y0 + h * 0.81, title || 'МЫТИЩИНСКИЙ ТЕАТР ДРАМЫ И КОМЕДИИ «ФЭСТ» · БОЛЬШАЯ СЦЕНА', {
+    this.addText(x0 + width * 0.5, y0 + h * 0.81, title || 'МЫТИЩИНСКИЙ ТЕАТР ДРАМЫ И КОМЕДИИ «ФЭСТ»', {
       layer, height: 0.24, align: 'center', valign: 'middle',
     });
     this.addText(x0 + width * 0.34, y0 + h * 0.46, subtitle || 'Технический чертёж сцены', {
