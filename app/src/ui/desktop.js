@@ -1,7 +1,7 @@
 // Десктопная версия: панель слева с вкладками, карточка справа, быстрые кнопки сверху.
 import './style.css';
 import { Stage, VIEWS } from '../app/stage.js';
-import { h, rigPanel, lightPanel, layersPanel, viewsPanel, infoCard, quickBar, shareLink, toast, fixtureSearch, dragBadge } from './common.js';
+import { h, rigPanel, lightPanel, layersPanel, viewsPanel, infoCard, quickBar, shareLink, toast, fixtureSearch, dragBadge, exportButtons } from './common.js';
 import { exposeTestApi } from '../app/testapi.js';
 
 export function startDesktop() {
@@ -63,11 +63,31 @@ export function startDesktop() {
   const backdrop = h('div', { class: 'backdrop', hidden: true, onclick: () => setHelp(false) });
   const setHelp = (on) => { help.hidden = !on; backdrop.hidden = !on; if (on) help.querySelector('.btn').focus(); };
 
+  const exportMenu = h('div', { class: 'export-menu', hidden: true, role: 'menu', 'aria-label': 'Экспорт чертежей и 3D-модели' },
+    exportButtons(stage, { onAction: () => setExport(false), role: 'menuitem' }),
+  );
+  const exportBackdrop = h('div', { class: 'export-backdrop', hidden: true, onpointerdown: (e) => { e.preventDefault(); e.stopPropagation(); setExport(false); } });
+  const exportBtn = h('button', {
+    class: 'btn export-menu-btn',
+    title: 'Экспорт чертежей (.dxf) и 3D-модели (.glb)',
+    'aria-label': 'Экспорт в CAD и 3D',
+    'aria-haspopup': 'menu',
+    'aria-expanded': 'false',
+    onclick: () => setExport(exportMenu.hidden),
+  }, '📐 Экспорт ▾');
+  const setExport = (on) => {
+    exportMenu.hidden = !on;
+    exportBackdrop.hidden = !on;
+    exportBtn.classList.toggle('on', on);
+    exportBtn.setAttribute('aria-expanded', String(on));
+  };
+
   const top = h('header', { class: 'topbar' },
     h('div', { class: 'brand' }, h('b', {}, 'ФЭСТ'), h('span', {}, ' · Большая сцена')),
     quickBar(stage),
     h('div', { class: 'top-actions' },
       h('div', { class: 'top-search' }, fixtureSearch(stage)),
+      exportBtn,
       h('button', { class: 'btn', title: 'Скриншот в PNG', onclick: () => { stage.screenshot(); toast('Скриншот сохранён в «Загрузки»'); } }, '📷 PNG'),
       h('button', { class: 'btn', title: 'Скопировать ссылку с текущим состоянием', onclick: () => shareLink(stage) }, '🔗 Ссылка'),
       h('button', { class: 'btn', title: 'Подсказка по управлению', 'aria-label': 'Подсказка по управлению', onclick: () => setHelp(help.hidden) }, '?'),
@@ -84,10 +104,11 @@ export function startDesktop() {
   };
   stage.on('view', updStatus);
   updStatus();
-  document.body.append(top, side, collapse, card, backdrop, help, status, dragBadge(stage));
+  document.body.append(top, exportBackdrop, exportMenu, side, collapse, card, backdrop, help, status, dragBadge(stage));
   stage.resize();
 
   window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !exportMenu.hidden) { setExport(false); return; }
     if (e.key === 'Escape' && !help.hidden) { setHelp(false); return; }
     if (e.target.matches('input, textarea')) return;
     if (e.key === 'Escape') { stage.select(null); if (stage.measure.active) stage.setMeasure(false); }

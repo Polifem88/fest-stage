@@ -30,6 +30,10 @@ export function exposeTestApi(stage) {
     describe: () => stage.describe(),
     stats: () => stage.stats(),
     renderNow: () => stage.render(),
+    exportPlanDXF: () => stage.exportPlanDXF(),
+    exportSectionDXF: () => stage.exportSectionDXF(),
+    export3DDXF: () => stage.export3DDXF(),
+    exportGLB: () => stage.exportGLB(),
     /** Замер FPS за ms миллисекунд (с принудительной перерисовкой каждый кадр). */
     fps: (ms = 3000) => new Promise((res) => {
       let n = 0;

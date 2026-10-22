@@ -232,6 +232,59 @@ export function layersPanel(stage) {
   return h('div', { class: 'panel-layers' }, h('h4', {}, 'Слои'), layers, h('h4', {}, 'Инструменты'), tools);
 }
 
+/** Кнопки экспорта чертежей (.dxf) и 3D-модели (.glb): 4 на десктопе, 2 на мобильном. */
+export function exportButtons(stage, { onAction, role } = {}) {
+  const isMobile = stage.profile?.name === 'mobile';
+  const items = [
+    {
+      id: 'plan-dxf',
+      label: '📐 План сцены (2D .dxf)',
+      title: 'Экспорт 2D-плана сцены, зала и развеса света в AutoCAD DXF',
+      run: () => { stage.exportPlanDXF(); toast('Чертёж «План сцены» (.dxf) сохранён'); },
+    },
+    {
+      id: 'section-dxf',
+      label: '📏 Продольный разрез (2D .dxf)',
+      title: 'Экспорт 2D продольного разреза с текущими высотами механики в AutoCAD DXF',
+      run: () => { stage.exportSectionDXF(); toast('Чертёж «Продольный разрез» (.dxf) сохранён'); },
+    },
+  ];
+  if (!isMobile) {
+    items.push(
+      {
+        id: '3d-dxf',
+        label: '🧊 Вся сцена в 3D (.dxf)',
+        title: 'Экспорт полной трёхмерной модели сцены в 3D AutoCAD DXF (WCS)',
+        run: () => { stage.export3DDXF(); toast('3D-чертёж сцены (.dxf) сохранён'); },
+      },
+      {
+        id: '3d-glb',
+        label: '📦 3D-модель (.glb)',
+        title: 'Экспорт полигональной 3D-модели сцены в Binary glTF 2.0 (.glb)',
+        run: async () => {
+          toast('Подготовка 3D-модели (.glb)…', 1400);
+          await stage.exportGLB();
+          toast('3D-модель (.glb) сохранена');
+        },
+      },
+    );
+  }
+  return items.map((it) => h(
+    'button',
+    {
+      class: 'btn export-item',
+      'data-export': it.id,
+      title: it.title,
+      role,
+      onclick: async () => {
+        onAction?.(it.id);
+        await it.run();
+      },
+    },
+    it.label,
+  ));
+}
+
 /** Виды и сохранение. */
 export function viewsPanel(stage, { onPicked } = {}) {
   const btns = new Map();
@@ -250,6 +303,8 @@ export function viewsPanel(stage, { onPicked } = {}) {
   });
   return h('div', { class: 'panel-views' },
     h('h4', {}, 'Точки обзора'), grid,
+    h('h4', {}, 'Экспорт в CAD / 3D'),
+    h('div', { class: 'grid-1 export-panel' }, exportButtons(stage)),
     h('h4', {}, 'Сохранить / поделиться'),
     h('div', { class: 'grid-1' },
       h('button', { class: 'btn', onclick: () => shareLink(stage) }, '🔗 Скопировать ссылку с текущим состоянием'),

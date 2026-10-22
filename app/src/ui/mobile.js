@@ -1,7 +1,7 @@
 // Мобильная версия: полноэкранная сцена, выдвижная шторка снизу, крупные кнопки.
 import './style.css';
 import { Stage } from '../app/stage.js';
-import { h, rigPanel, lightPanel, layersPanel, viewsPanel, infoCard, quickBar, toast, shareLink, dragBadge } from './common.js';
+import { h, rigPanel, lightPanel, layersPanel, viewsPanel, infoCard, quickBar, toast, shareLink, dragBadge, exportButtons } from './common.js';
 import { exposeTestApi } from '../app/testapi.js';
 
 export function startMobile() {
@@ -46,10 +46,11 @@ export function startMobile() {
   });
   sheet.append(handle, h('nav', { class: 'mtabs' }, tabBtns), content);
 
-  // «Поделиться»: PNG и ссылка — частые действия на телефоне, поэтому в шапке
+  // «Поделиться»: PNG, ссылка и 2D-чертежи DXF (План сцены и Продольный разрез)
   const shareMenu = h('div', { class: 'share-menu', hidden: true, role: 'menu' },
     h('button', { class: 'btn', role: 'menuitem', onclick: () => { setShare(false); shareLink(stage); } }, '🔗 Ссылка на это состояние'),
     h('button', { class: 'btn', role: 'menuitem', onclick: () => { setShare(false); stage.screenshot(); toast('Скриншот сохранён'); } }, '📷 Скриншот в PNG'),
+    exportButtons(stage, { onAction: () => setShare(false), role: 'menuitem' }),
   );
   // прозрачная подложка: тап мимо меню только закрывает его и не нажимает кнопки под ним
   const shareBackdrop = h('div', { class: 'share-backdrop', hidden: true, onpointerdown: (e) => { e.preventDefault(); e.stopPropagation(); setShare(false); } });

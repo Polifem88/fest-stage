@@ -60,6 +60,16 @@ test('снимки всех видов', async ({ page }, info) => {
     });
   }
 
+  // проверка кнопок экспорта (4 на десктопе, 2 на мобильном)
+  await test.step('кнопки экспорта', async () => {
+    const expectedIds = mobile ? ['plan-dxf', 'section-dxf'] : ['plan-dxf', 'section-dxf', '3d-dxf', '3d-glb'];
+    const panelIds = await page.evaluate(() => [...document.querySelectorAll('.export-panel [data-export]')].map((b) => b.dataset.export));
+    expect.soft(panelIds, 'кнопки экспорта во вкладке Виды').toEqual(expectedIds);
+    const menuSel = mobile ? '.share-menu [data-export]' : '.export-menu [data-export]';
+    const menuIds = await page.evaluate((sel) => [...document.querySelectorAll(sel)].map((b) => b.dataset.export), menuSel);
+    expect.soft(menuIds, 'кнопки экспорта в быстром меню').toEqual(expectedIds);
+  });
+
   // на телефоне: кнопки не мельче 44 px (рекомендация Apple / WCAG 2.5.5) — во всех вкладках и в карточках
   if (mobile) {
     await test.step('размер кнопок', async () => {

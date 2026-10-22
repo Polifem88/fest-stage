@@ -16,6 +16,9 @@ import { LightingSystem } from '../build/lighting.js';
 import { buildDims, buildGrid, setDimsView, setGridView } from './overlays.js';
 import { encodeState, decodeState } from './state.js';
 import { SheetOverlay } from './blueprint.js';
+import { encodeDxfWindows1251 } from '../export/dxfWriter.js';
+import { buildPlanDXF, buildSectionDXF } from '../export/dxf2d.js';
+import { build3DDXF, buildGLB } from '../export/export3d.js';
 
 export const PROFILES = {
   desktop: { name: 'desktop', dpr: 2, antialias: true, shadows: true, ropes: true, ropeLabels: true, haze: true, beamSegments: 22, lightPlan: 'full', fixtureLabels: false, dragRequiresSelect: false },
@@ -708,6 +711,39 @@ export class Stage {
     a.href = URL.createObjectURL(blob);
     a.download = 'fest-stage-state.json';
     a.click();
+  }
+
+  _downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+
+  exportPlanDXF(filename = 'fest-stage-plan-2d.dxf') {
+    const dxf = buildPlanDXF(this);
+    this._downloadBlob(new Blob([encodeDxfWindows1251(dxf)], { type: 'application/dxf' }), filename);
+    return dxf;
+  }
+
+  exportSectionDXF(filename = 'fest-stage-section-2d.dxf') {
+    const dxf = buildSectionDXF(this);
+    this._downloadBlob(new Blob([encodeDxfWindows1251(dxf)], { type: 'application/dxf' }), filename);
+    return dxf;
+  }
+
+  export3DDXF(filename = 'fest-stage-3d.dxf') {
+    const dxf = build3DDXF(this);
+    this._downloadBlob(new Blob([encodeDxfWindows1251(dxf)], { type: 'application/dxf' }), filename);
+    return dxf;
+  }
+
+  async exportGLB(filename = 'fest-stage-3d.glb') {
+    const buf = await buildGLB(this);
+    this._downloadBlob(new Blob([buf], { type: 'model/gltf-binary' }), filename);
+    return buf;
   }
 
   /** Статистика отрисовки (для тестов производительности). */
