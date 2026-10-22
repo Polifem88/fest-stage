@@ -3,27 +3,45 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ФЭСТ — Большая сцена: 3D-планировка</title>
+  <title>ФЭСТ · 3D-каталог сцен</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23141414'/%3E%3Cpath d='M6 24h20M9 24V10h14v14' stroke='%23ff8a1f' stroke-width='3' fill='none'/%3E%3C/svg%3E" />
 </head>
 <body class="index">
   <main>
-    <h1><b>ФЭСТ</b> · Большая сцена</h1>
-    <p>Интерактивная 3D-планировка: зал, сценическая коробка, галереи, механика и свет.</p>
+    <h1><b>ФЭСТ</b> · 3D-каталог сцен</h1>
+    <p>Интерактивные 3D-планировки сцен и залов театра: геометрия, механика и световое оборудование.</p>
     <div class="choices">
       <a class="choice" id="desk" href="desktop.html"><span class="big-ico">🖥</span><b>Компьютер</b><span>Полная версия: тени, канаты и противовесы, все инструменты</span></a>
       <a class="choice" id="mob" href="mobile.html"><span class="big-ico">📱</span><b>Телефон / планшет</b><span>Облегчённая графика, управление пальцами</span></a>
     </div>
     <p id="rec"></p>
+    <h2 class="venues-title">Сцены</h2>
+    <ul class="venue-cards" id="venues"></ul>
   </main>
   <script type="module">
     import './src/ui/style.css';
+    import { CATALOG } from './src/venues/catalog.js';
     const touch = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
     const pick = touch ? 'mob' : 'desk';
     document.getElementById(pick).classList.add('rec');
     document.getElementById('rec').textContent = touch ? 'Похоже, вы с телефона — рекомендуем мобильную версию.' : 'Похоже, вы с компьютера — рекомендуем полную версию.';
-    // ссылка с состоянием (#s=...) передаётся дальше
+    // ссылка с состоянием (#v=…&s=… или старая #s=…) передаётся дальше
     if (location.hash) for (const a of document.querySelectorAll('a.choice')) a.href += location.hash;
+    // карточки сцен: открыть сразу нужную сцену на рекомендованном устройстве (или на другом)
+    const STATUS = { draft: 'черновик', soon: 'скоро' };
+    const list = document.getElementById('venues');
+    for (const v of CATALOG) {
+      const li = document.createElement('li');
+      li.className = `venue-card${v.status === 'soon' ? ' soon' : ''}`;
+      li.dataset.venue = v.id;
+      const meta = [v.type, v.seats ? `${v.seats} мест` : null].filter(Boolean).join(' · ') || 'модель готовится';
+      const badge = STATUS[v.status] ? `<span class="venue-badge ${v.status}">${STATUS[v.status]}</span>` : '';
+      const links = v.status === 'soon'
+        ? '<span class="venue-soon">скоро</span>'
+        : ['desk', 'mob'].map((d) => `<a class="btn${d === pick ? ' on' : ''}" href="${d === 'desk' ? 'desktop' : 'mobile'}.html#v=${v.id}" aria-label="${v.name} — ${d === 'desk' ? 'компьютер' : 'телефон'}">${d === 'desk' ? '🖥 Компьютер' : '📱 Телефон'}</a>`).join('');
+      li.innerHTML = `<div class="venue-info"><b>${v.name}</b>${badge}<span>${meta}</span></div><div class="venue-links">${links}</div>`;
+      list.append(li);
+    }
   </script>
 </body>
 </html>

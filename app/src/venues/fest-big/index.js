@@ -5,7 +5,7 @@
 // =============================================================================
 import { DIM, rowFrontD } from './config/dimensions.js';
 import { RIGGING, DUTY_ROWS } from './config/rigging.js';
-import { FIXTURES, TYPES, GROUPS, GROUP_SETS, BAR_DEPTH, PORTABLE, portablePlacement, powerOf, AIM_NOTE } from './config/fixtures.js';
+import { FIXTURES, TYPES, SPECS, GROUPS, GROUP_SETS, BAR_DEPTH, PORTABLE, portablePlacement, powerOf, AIM_NOTE } from './config/fixtures.js';
 import { buildArchitecture, buildSeats, buildEmitters, HALL_BACK_FLOOR_Y } from './build/architecture.js';
 import { RiggingSystem } from './build/rigging.js';
 import { buildDims, buildGrid } from './build/overlays.js';
@@ -83,6 +83,7 @@ export default {
   fixtures: {
     list: FIXTURES,
     types: TYPES,
+    specs: SPECS,
     groups: GROUPS,
     groupSets: GROUP_SETS,
     barDepth: BAR_DEPTH,

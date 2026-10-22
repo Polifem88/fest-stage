@@ -18,3 +18,4 @@ app/review/modular/baseline/
 app/review/modular/compare/
 app/review/modular/parity-report.*
 app/review/modular/bbox.mjs
+app/review/modular/

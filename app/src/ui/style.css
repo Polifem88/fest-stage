@@ -119,7 +119,7 @@ details.grp summary small { color: var(--muted); font-weight: 400; }
 .desktop.side-hidden .side { transform: translateX(-100%); }
 .desktop .collapse { position: fixed; z-index: 11; top: 64px; left: 360px; width: 22px; height: 44px; border: 1px solid var(--line); border-left: 0; background: var(--panel); border-radius: 0 8px 8px 0; transition: left .2s; }
 .desktop.side-hidden .collapse { left: 0; transform: scaleX(-1); border-radius: 8px 0 0 8px; }
-.desktop .tabs { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); }
+.desktop .tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border-bottom: 1px solid var(--line); }
 .desktop .tab { background: none; border: 0; padding: 11px 4px; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; }
 .desktop .tab.on { color: var(--text); border-bottom-color: var(--accent); }
 .desktop .side-body { overflow: auto; padding: 10px 12px 30px; flex: 1; }
@@ -142,7 +142,8 @@ details.grp summary small { color: var(--muted); font-weight: 400; }
   .desktop .rig-row { grid-template-columns: 40px 1fr 72px; gap: 6px; }
   .desktop .quick .tgl { padding: 6px 10px 6px 7px; }
   .desktop .topbar { gap: 10px; }
-  .desktop .brand span { display: none; }
+  .desktop .brand { font-size: 14px; }
+  .desktop .brand-name { max-width: 170px; }
   /* вкладки без значков — чтобы «Механика» не переносилась; общий свет — в одну колонку, без разрыва слов */
   .desktop .tab .ico { display: none; }
   .desktop .panel-light .master { grid-template-columns: 1fr; }
@@ -158,8 +159,6 @@ details.grp summary small { color: var(--muted); font-weight: 400; }
 .mobile .mtop { position: fixed; z-index: 15; top: 0; left: 0; right: 0; padding: calc(env(safe-area-inset-top) + 6px) 8px 6px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: linear-gradient(#0b0d11e8, #0b0d1100); pointer-events: none; }
 .mobile .mtop > * { pointer-events: auto; }
 .mobile .brand { font-size: 14px; white-space: nowrap; }
-.mobile .brand span { display: none; }
-@media (min-width: 480px) { .mobile .brand span { display: inline; } }
 .mobile .brand b { color: var(--accent); }
 .mobile .quick { gap: 5px; }
 .mobile .quick .tgl { padding: 0; width: 44px; height: 44px; justify-content: center; border-radius: 12px; }
@@ -172,7 +171,7 @@ details.grp summary small { color: var(--muted); font-weight: 400; }
 /* язычок: видимая полоска прежняя, а зона касания 44 px (на 26 px выступает над шторкой, прозрачно) */
 .mobile .handle { flex: none; align-self: center; width: 160px; height: 44px; margin-top: -26px; border: 0; background: none; position: relative; touch-action: none; cursor: grab; }
 .mobile .handle::after { content: ""; position: absolute; left: 50%; top: 32px; width: 44px; height: 5px; border-radius: 3px; background: #4a5263; transform: translateX(-50%); }
-.mobile .mtabs { flex: none; display: grid; grid-template-columns: repeat(4, 1fr); }
+.mobile .mtabs { flex: none; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; }
 .mobile .mtab { background: none; border: 0; display: grid; place-items: center; gap: 1px; min-height: 48px; color: var(--muted); font-size: 12px; }
 .mobile .mtab .ico { font-size: 20px; }
 .mobile .mtab.on { color: var(--text); }
@@ -233,3 +232,61 @@ details.grp summary small { color: var(--muted); font-weight: 400; }
 .index a.choice.rec { border-color: var(--accent); box-shadow: 0 0 0 3px #ff8a1f33; }
 .index a.choice .big-ico { display: inline-block; font-size: 40px; line-height: 1.1; color: inherit; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
 @media (max-width: 520px) { .index .choices { grid-template-columns: 1fr; } }
+
+/* ======================= ВЫБОР СЦЕНЫ (заголовок + список) ======================= */
+.brand-btn { display: inline-flex; align-items: baseline; gap: 0; min-height: 44px; padding: 0 10px 0 6px; margin-left: -6px; background: none; border: 1px solid transparent; border-radius: 10px; color: var(--text); text-align: left; }
+.brand-btn:hover, .brand-btn[aria-expanded=true] { background: var(--panel2); border-color: var(--line); }
+.brand-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.brand-btn:disabled { opacity: .6; cursor: progress; }
+.brand-btn .brand-name { overflow: hidden; text-overflow: ellipsis; white-space: pre; }
+.brand-btn .brand-caret { margin-left: 6px; color: var(--muted); font-size: .85em; }
+.desktop .brand-btn { align-items: center; }
+
+.venue-picker { padding: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--text); box-shadow: 0 18px 44px rgba(0,0,0,.6); }
+.venue-picker::backdrop { background: rgba(0,0,0,.35); }
+.venue-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 6px 16px; color: var(--muted); }
+.venue-head b { font-weight: 600; }
+.venue-head .x { min-width: 44px; min-height: 44px; border: 0; background: none; font-size: 24px; color: var(--muted); border-radius: 10px; }
+.venue-head .x:hover { background: var(--panel2); color: var(--text); }
+.venue-list { display: grid; gap: 6px; padding: 4px 10px 12px; }
+.venue-item { display: grid; gap: 2px; min-height: 52px; padding: 9px 14px; text-align: left; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; }
+.venue-item:hover, .venue-item:focus-visible { border-color: #47506a; background: #232836; outline: none; }
+.venue-item:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.venue-item.current { border-color: var(--accent); background: #3a2612; }
+.venue-item.soon { opacity: .55; cursor: default; }
+.venue-name { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
+.venue-meta { color: var(--muted); font-size: 12.5px; }
+.venue-badge { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; }
+.venue-badge.draft { color: var(--mixed); }
+.venue-badge.soon { color: var(--muted); }
+.venue-veil { position: absolute; inset: 0; z-index: 4; background: rgba(11,13,17,.72); color: var(--text); }
+
+/* компьютер: выпадающая панель под заголовком */
+.desktop .venue-picker { position: fixed; inset: 56px auto auto 8px; margin: 0; width: 340px; max-height: calc(100vh - 72px); overflow: auto; }
+/* телефон: шторка снизу во всю ширину */
+.mobile .venue-picker { position: fixed; inset: auto 0 0 0; margin: 0; width: 100%; max-width: 100%; max-height: 80vh; overflow: auto; border-radius: 16px 16px 0 0; border-bottom: 0; padding-bottom: env(safe-area-inset-bottom); }
+.mobile .venue-item { min-height: 56px; }
+/* в шапке телефона: «ФЭСТ ▾» и под ним название сцены мелко (места мало из-за быстрых кнопок) */
+.mobile .brand-btn { display: grid; grid-template-columns: auto auto; grid-template-areas: "t c" "n n"; align-items: center; justify-items: start; padding: 2px 8px; margin-left: -4px; line-height: 1.15; max-width: 42vw; background: rgba(20,23,30,.55); }
+.mobile .brand-btn b { grid-area: t; }
+.mobile .brand-btn .brand-caret { grid-area: c; }
+.mobile .brand-btn .brand-name { grid-area: n; max-width: 100%; font-size: 11.5px; color: var(--muted); }
+@media (min-width: 560px) {
+  .mobile .brand-btn { display: inline-flex; align-items: center; max-width: none; }
+  .mobile .brand-btn .brand-name { font-size: inherit; color: inherit; }
+}
+@media (orientation: landscape) {
+  .mobile .venue-picker { inset: auto auto 0 max(8px, env(safe-area-inset-left)); width: min(420px, 60vw); max-height: 86vh; }
+}
+
+/* стартовая страница: карточки сцен */
+.index .venues-title { margin: 26px 0 10px; font-size: 18px; text-align: left; }
+.index .venue-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; text-align: left; }
+.index .venue-card { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px 10px 16px; background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; }
+.index .venue-card.soon { opacity: .55; }
+.index .venue-info { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.index .venue-info b { font-size: 16px; }
+.index .venue-info > span:last-child { flex-basis: 100%; color: var(--muted); font-size: 13px; }
+.index .venue-links { display: flex; gap: 6px; }
+.index .venue-links .btn { display: inline-flex; align-items: center; min-height: 44px; color: var(--text); text-decoration: none; }
+.index .venue-soon { color: var(--muted); font-size: 13px; padding: 0 6px; }

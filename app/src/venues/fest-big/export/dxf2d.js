@@ -12,7 +12,7 @@ import {
 } from '../config/dimensions.js';
 import { RIGGING, RIG_BY_ID, SPACING, LEFT_RAIL_ORDER, RIGHT_FRONT_ORDER, ropeDepth, DUTY_ROWS } from '../config/rigging.js';
 import { FIXTURES, TYPES, GROUPS, PORTABLE, portablePlacement, BAR_DEPTH } from '../config/fixtures.js';
-import { SPECS } from '../../../library/specs.js';
+import { SPECS } from '../config/fixtures.js';
 import { HALL_CEIL_PROFILE, HALL_BACK_FLOOR_Y } from '../build/architecture.js';
 import { DxfWriter } from '../../../export/dxfWriter.js';
 

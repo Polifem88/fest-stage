@@ -14,6 +14,7 @@ const ROUND = process.env.ROUND || 'r1-self';
 const CPU_SLOWDOWN = 4;
 const FPS_MIN = 30;
 const MOBILE_MAX_MB = 3;
+const CATALOG_MAX_MB = 1.3;
 /** Бюджеты для графики телефона среднего уровня (видеокарту телефона здесь не измерить). */
 const MOBILE_BUDGET = { calls: 150, triangles: 200_000 };
 const DIST = resolve('dist');
@@ -40,9 +41,13 @@ test.describe('FPS', () => {
 
     // haze — дымка: на телефоне по умолчанию выключена, замер с ней — для сведения
     const cases = mobile ? ['overview', 'hall', 'plan', 'section', 'hall+haze', 'overview+low'] : ['overview', 'hall', 'flyGallery', 'plan+bp'];
+    // остальные площадки каталога: общий вид и план (venue:вид)
+    const otherCases = ['chamber:overview', 'chamber:plan'];
     const results = [];
-    for (const spec of cases) {
-      await applyShot(page, spec);
+    for (const spec of [...cases, ...otherCases]) {
+      const [venue, shot] = spec.includes(':') ? spec.split(':') : ['big', spec];
+      if (await page.evaluate(() => window.__fest.venue()) !== venue) await page.evaluate((v) => window.__fest.loadVenue(v), venue);
+      await applyShot(page, shot);
       await page.evaluate(() => window.__fest.fps(800)); // прогрев
       const r = await page.evaluate(() => window.__fest.fps(3000));
       // время процессора на один кадр (без ожидания видеокарты), при замедлении ×4
@@ -93,6 +98,10 @@ test.describe('сборка (dist)', () => {
     const sizes = { index: mb('index.html'), desktop: mb('desktop.html'), mobile: mb('mobile.html') };
     console.log('размеры, МБ:', Object.entries(sizes).map(([k, v]) => `${k} ${v.toFixed(2)}`).join(', '));
     expect(sizes.mobile, `mobile.html ${sizes.mobile.toFixed(2)} МБ`).toBeLessThanOrEqual(MOBILE_MAX_MB);
+    // каталог сцен (GEMINI.md §2): все площадки в одном файле — не больше 1,3 МБ на страницу;
+    // стартовая страница не тянет за собой 3D-движок
+    for (const k of ['desktop', 'mobile']) expect(sizes[k], `${k}.html ${sizes[k].toFixed(2)} МБ (бюджет каталога 1,3)`).toBeLessThanOrEqual(CATALOG_MAX_MB);
+    expect(sizes.index, `index.html ${sizes.index.toFixed(2)} МБ`).toBeLessThanOrEqual(0.1);
   });
 
   test('открывается двойным кликом без интернета', async ({ page, context }, info) => {

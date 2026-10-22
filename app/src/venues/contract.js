@@ -28,10 +28,10 @@ import { RIG_KINDS } from '../library/rigKinds.js';
  *
  * @typedef {{rigging:boolean, counterweights:boolean, portable:boolean, duty:boolean, houseLight:boolean}} Capabilities
  * @typedef {{name:string, type:'persp'|'ortho', pos?:number[], target?:number[], dir?:'top'|'side',
- *            center?:number[], height?:number, portraitPullback?:boolean, allRopeLabels?:boolean, legendRows?:number}} View
+ *            center?:number[], height?:number, width?:number, portraitPullback?:boolean|number, allRopeLabels?:boolean, legendRows?:number}} View
  * @typedef {{id:string, name:string, kind:string, min:number, max:number, rest:number}} RigCfg
  * @typedef {{list:Object[], types:Object, groups:Object, groupSets:Object[], barDepth:Object,
- *            portable:Object|null, floor:{trace:Function, zone:Function, clip:Function},
+ *            specs?:Object, portable:Object|null, floor:{trace:Function, zone:Function, clip:Function},
  *            hangs:Function, poolK:Function, powerOf?:Function, lineText?:Function, aimNote?:string}} FixturesCfg
  * @typedef {{id:string, members:string[], shadow?:boolean, per?:number}} LightPlan
  * @typedef {{batch:Object, M:Object, labels:Object, profile:Object, commitBatch:Function, add:Function}} BuildCtx

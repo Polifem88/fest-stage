@@ -1,0 +1,33 @@
+# Проверка рабочих веток (всё, кроме master): юнит-тесты и сборка, БЕЗ публикации.
+# Публикация на GitHub Pages — только из master (pages.yml).
+name: Проверка ветки
+
+on:
+  push:
+    branches-ignore: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Тесты и сборка
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Зависимости
+        run: npm ci
+      - name: Юнит-тесты (площадки, контракт, границы модулей, ссылки, экспорт)
+        run: npm test
+      - name: Сборка (каждая страница — один html-файл)
+        run: npm run build

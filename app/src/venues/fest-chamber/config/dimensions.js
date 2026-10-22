@@ -64,7 +64,7 @@ export const CHAMBER = {
   },
   // яркости подобраны по снимкам (зал меньше и ниже Большой сцены — значения меньше)
   ambient: {
-    duty: { color: 0xffe2b0, decay: 1.4, full: 10, lite: 18 },
+    duty: { color: 0xffe2b0, decay: 1.4, full: 10, lite: 32 }, // телефон: один источник на весь зал — ярче, чтобы зал читался (разрез, вид из зала)
     house: { color: 0xfff0d6, decay: 1.3, angle: Math.PI / 2.4, full: 34, lite: 60, points: { full: [[-3, -2.5], [3, -2.5]], lite: [[0, -2.5]] } },
   },
 

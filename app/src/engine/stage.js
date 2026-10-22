@@ -125,7 +125,14 @@ export class Stage {
    * Открыть площадку из реестра. Состояние текущей запоминается; у новой восстанавливается
    * то, с каким её оставили (режимы отображения общие). opts.state — применить это состояние.
    */
-  async loadVenue(id, { state = null } = {}) {
+  async loadVenue(id, opts = {}) {
+    // переключения выполняются строго по очереди (двойной щелчок не строит две сцены разом)
+    const run = () => this._loadVenue(id, opts);
+    this._venueQueue = (this._venueQueue || Promise.resolve()).then(run, run);
+    return this._venueQueue;
+  }
+
+  async _loadVenue(id, { state = null } = {}) {
     if (!isOpenable(id)) return false;
     if (this.venue?.id === id) {
       if (state) { this._restore(state, { flags: true }); this.emit('state'); }
@@ -134,15 +141,18 @@ export class Stage {
     const entry = venueEntry(id);
     this.emit('venueloading', entry);
     const venue = (await entry.load()).default;
+    // дать браузеру нарисовать плашку «Строим…» до тяжёлой сборки геометрии
+    await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
     if (this.venue) {
       this._memory.set(this.venue.id, this._snapshot());
       this._teardownVenue();
     }
     this._buildVenue(venue);
+    // сначала интерфейс пересобирает панели под новую площадку, потом приходит её состояние
+    this.emit('venue', venue);
     const mem = state || this._memory.get(venue.id);
     if (mem) this._restore(mem, { flags: !!state });
     this.emit('select', null, null); // выбор прежней площадки снят
-    this.emit('venue', venue);
     this.emit('state');
     this.invalidate();
     return true;
@@ -279,7 +289,8 @@ export class Stage {
   _updateOrtho() {
     const el = this.renderer.domElement;
     const aspect = el.clientWidth / Math.max(1, el.clientHeight) || 1;
-    const hh = (this._orthoH || 20) / 2;
+    // вид задан высотой; если у вида есть ширина (width), на узком экране вписываем и её целиком
+    const hh = Math.max(this._orthoH || 20, this._orthoW ? this._orthoW / aspect : 0) / 2;
     Object.assign(this.ortho, { left: -hh * aspect, right: hh * aspect, top: hh, bottom: -hh });
     this.ortho.updateProjectionMatrix();
   }
@@ -323,6 +334,7 @@ export class Stage {
       this.camera = this.ortho;
       this.controls.object = this.ortho;
       this._orthoH = v.height;
+      this._orthoW = v.width || 0;
       this.ortho.zoom = 1;
       const [cx, cy, cd] = v.center;
       const c = new THREE.Vector3(cx, cy, -cd);
@@ -352,7 +364,7 @@ export class Stage {
       const pos = new THREE.Vector3(v.pos[0], v.pos[1], -v.pos[2]);
       const tgt = new THREE.Vector3(v.target[0], v.target[1], -v.target[2]);
       // в книжной ориентации телефона вид отодвигаем, чтобы влезла вся сцена
-      if (v.portraitPullback && this.persp.aspect < 1) pos.sub(tgt).multiplyScalar(1 + (1 - this.persp.aspect) * 0.9).add(tgt);
+      if (v.portraitPullback && this.persp.aspect < 1) pos.sub(tgt).multiplyScalar(1 + (1 - this.persp.aspect) * (typeof v.portraitPullback === 'number' ? v.portraitPullback : 0.9)).add(tgt);
       if (instant || wasOrtho) {
         this.persp.position.copy(pos);
         this.controls.target.copy(tgt);
@@ -727,7 +739,7 @@ export class Stage {
     } else if (w) rows.push(['Луч', 'упирается в стену, на пол не попадает']);
     if (FX.aimNote) rows.push(['Наведение', FX.aimNote]);
     // паспорт производителя (может быть неполным)
-    const s = SPECS[f.type];
+    const s = FX.specs?.[f.type] || SPECS[f.type]; // собственные паспорта площадки или справочник театра
     if (s) {
       for (const [k, name] of [['source', 'Источник'], ['power', 'Мощность'], ['zoom', 'Угол / зум (паспорт)'], ['color', 'Цвет'], ['dmx', 'DMX'], ['weight', 'Вес'], ['ip', 'Защита']]) {
         if (s[k] && s[k] !== '—') rows.push([name, s[k]]);

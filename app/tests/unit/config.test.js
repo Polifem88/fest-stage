@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DIM, BOX_HALF, GALLERY_INNER_X, BACK_GALLERY_FRONT_D } from '../../src/venues/fest-big/config/dimensions.js';
 import { RIGGING, SPACING, DEPTHS, LEFT_RAIL_ORDER, RIG_BY_ID, ropeDepth, DUTY_ROWS } from '../../src/venues/fest-big/config/rigging.js';
-import { FIXTURES, TYPES, GROUPS, INVENTORY, countByType, PORTABLE, portablePlacement } from '../../src/venues/fest-big/config/fixtures.js';
-import { SPECS } from '../../src/library/specs.js';
+import { FIXTURES, TYPES, GROUPS, INVENTORY, countByType, PORTABLE, portablePlacement, SPECS } from '../../src/venues/fest-big/config/fixtures.js';
 
 describe('Паспорта приборов', () => {
   it('у каждого типа прибора есть паспортные данные с источником', () => {

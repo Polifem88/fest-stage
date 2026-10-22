@@ -117,3 +117,35 @@ test('стартовая страница рекомендует нужную в
   await page.screenshot({ path: `${dir}/00-index.jpg`, type: 'jpeg', quality: 80, scale: 'css' });
   expect(errors).toEqual([]);
 });
+
+// Остальные площадки каталога: все их виды + чертёж/размеры/сетка и свет.
+// Снимки: review/shots/<раунд>/<проект>/<площадка>/NN-<вид>.jpg. VENUE=chamber — только одна площадка.
+const OTHER_VENUES = (process.env.VENUE ? [process.env.VENUE] : ['chamber']).filter((v) => v !== 'big');
+for (const venue of OTHER_VENUES) {
+  test(`снимки площадки: ${venue}`, async ({ page }, info) => {
+    const mobile = !!info.project.use.isMobile;
+    const dir = `review/shots/${ROUND}/${info.project.name}/${venue}`;
+    mkdirSync(dir, { recursive: true });
+    const log = await openApp(page, `${mobile ? 'mobile.html' : 'desktop.html'}#v=${venue}`);
+    expect(await page.evaluate(() => window.__fest.venue())).toBe(venue);
+    const views = await page.evaluate(() => window.__fest.views);
+    const ortho = await page.evaluate(() => Object.entries(window.__fest.stage.views).filter(([, v]) => v.type === 'ortho').map(([k]) => k));
+    const specs = [...views, ...ortho.map((k) => `${k}+bp+dims`), ...ortho.slice(0, 1).map((k) => `${k}+bp+grid`), `${views[0]}+off+house`, `${views[0]}+nums`];
+    let n = 0;
+    for (const spec of specs) {
+      await test.step(spec, async () => {
+        await applyShot(page, spec);
+        const st = await canvasStats(page);
+        await page.screenshot({ path: `${dir}/${String(++n).padStart(2, '0')}-${spec.replace(/\+/g, '_')}.jpg`, type: 'jpeg', quality: 80, scale: 'css' });
+        // «чертёж» — светлый лист, проверка строгая; без него чёрный кабинет тёмный по природе
+        // (разрез сбоку — в основном чёрная дальняя стена), поэтому порог ниже
+        const minStd = spec.includes('+bp') ? 4 : 1.5;
+        expect.soft(st.std, `${venue} ${spec}: пустой кадр (разброс яркости ${st.std})`).toBeGreaterThan(minStd);
+      });
+    }
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect.soft(overflow, 'горизонтальная прокрутка').toBeLessThanOrEqual(0);
+    writeFileSync(`${dir}/report.json`, JSON.stringify({ venue, stats: await page.evaluate(() => window.__fest.stats()), errors: log.errors }, null, 1));
+    expectNoErrors(log);
+  });
+}

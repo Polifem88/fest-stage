@@ -1,0 +1,110 @@
+// Каталог сцен: переключение площадок в интерфейсе, память состояния, утечки, старые ссылки.
+import { test, expect } from '@playwright/test';
+import { openApp, canvasStats, expectNoErrors } from './helpers.js';
+
+const pageOf = (info) => (info.project.use.isMobile ? 'mobile.html' : 'desktop.html');
+const tabSel = (info) => (info.project.use.isMobile ? '.mtab' : '.tab');
+
+/** Выбрать сцену через заголовок-список (как человек). */
+async function pickVenue(page, id) {
+  await page.locator('.brand-btn').click();
+  await expect(page.locator('dialog.venue-picker[open]')).toBeVisible();
+  await page.locator(`.venue-item[data-venue="${id}"]`).click();
+  await page.waitForFunction((id) => window.__fest.venue() === id, id);
+  await page.waitForTimeout(300);
+}
+
+test('переключение сцены через список в заголовке', async ({ page }, info) => {
+  const log = await openApp(page, pageOf(info));
+  expect(await page.evaluate(() => window.__fest.venue())).toBe('big');
+  await expect(page.locator(`${tabSel(info)}[data-tab="rig"]`)).toHaveCount(1);
+
+  await pickVenue(page, 'chamber');
+  await expect(page.locator('.brand-btn')).toContainText('Камерная');
+  expect(await page.evaluate(() => location.hash)).toMatch(/^#v=chamber&s=/);
+  // у Камерной нет подвижной механики и переносных приборов — вкладки и блока нет
+  await expect(page.locator(`${tabSel(info)}[data-tab="rig"]`)).toHaveCount(0);
+  await expect(page.locator('.panel-light h4', { hasText: 'Переносные' })).toHaveCount(0);
+  await expect(page.locator('[data-id="l-trusses"]')).toHaveCount(1);
+  expect((await canvasStats(page)).std, 'Камерная: кадр не пустой').toBeGreaterThan(4);
+
+  // «скоро» — видна, но не открывается
+  await page.locator('.brand-btn').click();
+  for (const id of ['roof', 'foyer', 'studio']) await expect(page.locator(`.venue-item[data-venue="${id}"]`)).toHaveAttribute('aria-disabled', 'true');
+  await page.locator('.venue-item[data-venue="roof"]').click();
+  await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => window.__fest.venue())).toBe('chamber');
+
+  await pickVenue(page, 'big');
+  await expect(page.locator(`${tabSel(info)}[data-tab="rig"]`)).toHaveCount(1);
+  expectNoErrors(log);
+});
+
+test('память сцен: механика своя, режимы отображения общие', async ({ page }, info) => {
+  const log = await openApp(page, pageOf(info));
+  await page.evaluate(() => { window.__fest.setHeight('Sh5', 2); window.__fest.flag('blueprint', true); });
+  await page.evaluate(() => window.__fest.loadVenue('chamber'));
+  expect(await page.evaluate(() => window.__fest.getState().flags.blueprint), 'чертёж переносится на новую сцену').toBe(true);
+  await page.evaluate(() => window.__fest.flag('blueprint', false));
+  await page.evaluate(() => window.__fest.loadVenue('big'));
+  expect(await page.evaluate(() => window.__fest.height('Sh5')), 'Большая сцена помнит свои высоты').toBe(2);
+  expect(await page.evaluate(() => window.__fest.getState().flags.blueprint)).toBe(false);
+  await expect(page.locator('.rig-row[data-id="Sh5"] input.num')).toHaveValue('2.00');
+  expectNoErrors(log);
+});
+
+test('нет утечек при переключении (10 циклов)', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop' && info.project.name !== 'iphone', 'достаточно двух профилей');
+  const log = await openApp(page, pageOf(info));
+  const mem = () => page.evaluate(async () => {
+    await window.__fest.loadVenue('chamber');
+    await window.__fest.loadVenue('big');
+    window.__fest.renderNow();
+    const m = window.__fest.stage.renderer.info.memory;
+    return { g: m.geometries, t: m.textures };
+  });
+  const first = await mem();
+  let last = first;
+  for (let i = 0; i < 9; i++) last = await mem();
+  console.log(`[${info.project.name}] память: после 1-го цикла ${JSON.stringify(first)}, после 10-го ${JSON.stringify(last)}`);
+  expect(Math.abs(last.g - first.g), 'геометрии').toBeLessThanOrEqual(2);
+  expect(Math.abs(last.t - first.t), 'текстуры').toBeLessThanOrEqual(2);
+  expectNoErrors(log);
+});
+
+test('ссылки: на сцену, на «скоро», старая v1', async ({ page }, info) => {
+  const url = pageOf(info);
+  // прямая ссылка на Камерную
+  let log = await openApp(page, `${url}#v=chamber`);
+  expect(await page.evaluate(() => window.__fest.venue())).toBe('chamber');
+  expectNoErrors(log);
+  // сцена «скоро» — открывается Большая и объясняется почему
+  await page.goto('about:blank');
+  log = await openApp(page, `${url}#v=roof`);
+  expect(await page.evaluate(() => window.__fest.venue())).toBe('big');
+  await expect(page.locator('.toast', { hasText: 'в разработке' })).toHaveCount(1);
+  // старая ссылка v1 (до каталога): Ш5 на 2 м, вид «из зала»
+  const v1 = await page.evaluate(() => {
+    const v = window.__fest.stage.venue;
+    const h = v.rigging.list.map((r) => Math.round((r.id === 'Sh5' ? 2 : r.rest) * 100));
+    const bytes = new Uint8Array(Math.ceil(v.fixtures.list.length / 8)).fill(255);
+    const b = (u8) => btoa(String.fromCharCode(...u8)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    return b(new TextEncoder().encode(JSON.stringify({ v: 1, h, fx: b(bytes), f: 1, l: 31, view: 'hall' })));
+  });
+  await page.goto('about:blank');
+  log = await openApp(page, `${url}#s=${v1}`);
+  expect(await page.evaluate(() => [window.__fest.venue(), window.__fest.height('Sh5'), window.__fest.getState().view])).toEqual(['big', 2, 'hall']);
+  expectNoErrors(log);
+});
+
+test('список сцен на телефоне: пункты не мельче 44 px', async ({ page }, info) => {
+  test.skip(!info.project.use.isMobile, 'только телефон');
+  const log = await openApp(page, 'mobile.html');
+  await page.locator('.brand-btn').click();
+  const small = await page.evaluate(() => [...document.querySelectorAll('.venue-picker button, .brand-btn')]
+    .map((el) => ({ r: el.getBoundingClientRect(), t: (el.getAttribute('aria-label') || el.textContent).trim().slice(0, 24) }))
+    .filter(({ r }) => r.width > 0 && Math.min(r.width, r.height) < 44)
+    .map(({ r, t }) => `${t} (${Math.round(r.width)}×${Math.round(r.height)})`));
+  expect(small).toEqual([]);
+  expectNoErrors(log);
+});

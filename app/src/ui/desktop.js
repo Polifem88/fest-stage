@@ -69,7 +69,7 @@ export async function startDesktop() {
 
   const quickSlot = h('div', { class: 'quick-slot' });
   const top = h('header', { class: 'topbar' },
-    venueBrand(stage, { onBefore: () => setExport(false) }),
+    venueBrand(stage, { onBefore: () => { setExport(false); setHelp(false); } }),
     quickSlot,
     h('div', { class: 'top-actions' },
       h('div', { class: 'top-search' }, fixtureSearch(stage)),
@@ -137,6 +137,7 @@ export async function startDesktop() {
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !exportMenu.hidden) { setExport(false); return; }
     if (e.key === 'Escape' && !help.hidden) { setHelp(false); return; }
+    if (document.querySelector('dialog[open]')) return; // список сцен сам закрывается по Esc
     if (e.target.matches('input, textarea')) return;
     if (e.key === 'Escape') { stage.select(null); if (stage.measure.active) stage.setMeasure(false); }
     const sel = stage.selected;

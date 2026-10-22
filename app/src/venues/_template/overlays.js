@@ -22,14 +22,14 @@ export function blackBoxViews(cfg) {
   // режим «чертёж» на плане: снизу слева — экспликация, сверху справа — масштабная линейка
   const legendPad = cfg.planLegendPad ?? 1.2, topPad = cfg.planTopPad ?? 0.8;
   const views = {
-    overview: { name: 'Общий вид', type: 'persp', pos: [cx + W * 0.6, R.ceiling * 1.9, R.d0 - D * 0.75], target: [cx, R.ceiling * 0.27, cd + D * 0.08], portraitPullback: true },
+    overview: { name: 'Общий вид', type: 'persp', pos: [cx + W * 0.6, R.ceiling * 1.9, R.d0 - D * 0.75], target: [cx, R.ceiling * 0.27, cd + D * 0.08], portraitPullback: cfg.portraitPullback ?? 1.3 },
     // глаза — над задней частью своего сиденья, взгляд почти горизонтально (над спинками ряда впереди)
     hall: { name: `Из зала (${row + 1}-й ряд)`, type: 'persp', pos: [seat.x, seat.y + H.eyeY, seat.d - H.seatDepth * 0.6], target: [seat.x, H.eyeY * 0.85, sd + (S.d1 - S.d0) * 0.12] },
     stageToHall: { name: 'Со сцены в зал', type: 'persp', pos: [cx, 1.7, S.d1 - 0.5], target: [cx, 1.3, R.d0] },
     trusses: { name: 'Под фермами', type: 'persp', pos: [R.x0 + 0.9, 1.5, ds[0] - 0.4], target: [cx + W * 0.12, cfg.trusses.bottomY, ds[ds.length - 1]] },
-    plan: { name: 'План сверху', type: 'ortho', dir: 'top', center: [cx, 0, cd + (topPad - legendPad) / 2], height: D + 2 * m + legendPad + topPad },
+    plan: { name: 'План сверху', type: 'ortho', dir: 'top', center: [cx, 0, cd + (topPad - legendPad) / 2], height: D + 2 * m + legendPad + topPad, width: W + 2 * m },
     // по высоте — потолок с полями, по глубине — весь зал (с полями) на экране ≈ 1,4 : 1
-    section: { name: 'Разрез сбоку', type: 'ortho', dir: 'side', center: [0, R.ceiling / 2, cd], height: Math.max(R.ceiling + 2 * m, (D + 2 * m) / 1.4) },
+    section: { name: 'Разрез сбоку', type: 'ortho', dir: 'side', center: [0, R.ceiling / 2, cd], height: Math.max(R.ceiling + 2 * m, (D + 2 * m) / 1.4), width: D + 2 * m },
   };
   for (const [k, v] of Object.entries(cfg.views || {})) views[k] = { ...views[k], ...v };
   return views;

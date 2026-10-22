@@ -7,6 +7,7 @@
 import { DIM } from './dimensions.js';
 import { DEPTHS as D } from './rigging.js';
 import { venueTypes } from '../../../library/fixtureTypes.js';
+import { SPECS as LIB_SPECS } from '../../../library/specs.js';
 
 // Типы приборов — общий справочник театра (library/fixtureTypes.js, там же описание shape/lamp)
 // плюс собственный тип Большой сцены, ещё не уточнённый (в конце: цвета справочных типов не сдвигаются).
@@ -15,6 +16,13 @@ export const LOCAL_TYPES = {
   GAL_LAMP: { name: 'ETC Source Four 26° или PAR-64', shape: 'profile', beam: 26, lamp: true, scale: 0.85, unknown: true, note: 'на каждой боковой галерее 2 из 6 — ETC 26°, остальные PAR-64; какие именно — уточняется' },
 };
 export const TYPES = venueTypes(LOCAL_TYPES);
+
+// Паспорт собственного типа (общие паспорта — library/specs.js)
+export const LOCAL_SPECS = {
+  // боковые галереи: какой из приборов ETC 26°, а какой PAR-64 — уточняется (см. fixtures.js)
+  GAL_LAMP: { power: '575 Вт (ETC 26°) или 1000 Вт (PAR-64)', source: 'лампа HPL 575 Вт или PAR64 1000 Вт', zoom: '26° (ETC) или по лампе (PAR-64)', color: 'гель-фильтр в рамке', weight: '6,3 кг (ETC) или ≈ 3,2 кг (PAR-64)', dmx: 'через диммер', ip: '—', confidence: 'тип не определён: ETC 26° или PAR-64', url: 'https://support.etcconnect.com/ETC/Fixtures/Source_Four/Source_Four_ERS_and_HID/Fixture_and_Shipping_Weights_of_Source_Four' },
+};
+export const SPECS = { ...LIB_SPECS, ...LOCAL_SPECS };
 
 /**
  * Перечень светового цеха по местам подвеса (только то, что висит постоянно)

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Интерактивная 3D-планировка Большой сцены театра ФЭСТ (Three.js)",
+  "description": "ФЭСТ · 3D-каталог сцен: интерактивные 3D-планировки сцен и залов театра (Three.js)",
   "scripts": {
     "dev": "vite --host",
     "build": "node scripts/build.mjs",

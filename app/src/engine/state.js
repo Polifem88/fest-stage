@@ -2,7 +2,7 @@
 // Формат v2 (каталог сцен): { v:2, vn:<id площадки>, h, fx, f, l, view, p?, hd? } — массивы в порядке
 // конфига площадки (механика, приборы, слои). Формат v1 (до каталога) — всегда Большая сцена,
 // раскладка та же, что у v2 для Большой сцены. Старые ссылки обязаны открываться.
-import { LEGACY_VENUE } from '../venues/registry.js';
+import { LEGACY_VENUE } from '../venues/catalog.js';
 
 const FLAGS = ['duty', 'house', 'haze', 'blueprint', 'labels', 'fixtureLabels', 'grid', 'dims'];
 const PORT_MODES = ['off', 'floor', 'stand'];
