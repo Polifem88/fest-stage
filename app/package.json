@@ -12,7 +12,8 @@
     "shots": "playwright test tests/e2e/shots.spec.js",
     "perf": "node scripts/build.mjs && playwright test tests/e2e/perf.spec.js",
     "e2e": "playwright test",
-    "check": "vitest run && node scripts/build.mjs && playwright test"
+    "check": "vitest run && node scripts/build.mjs && playwright test",
+    "backup": "powershell -ExecutionPolicy Bypass -File scripts/backup.ps1"
   },
   "dependencies": {
     "three": "^0.170.0"
