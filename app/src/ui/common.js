@@ -44,12 +44,21 @@ export function rigPanel(stage, { compact = false } = {}) {
   const RIGGING = stage.venue.rigging?.list || [];
   const rows = new Map();
   const list = h('div', { class: 'rig-list' });
+  // поле высоты всегда показывает два знака (6,40 / 6,00) — как карточка и плашка при перетаскивании,
+  // как бы ни поменялось значение: ползунком, стрелками поля, вводом с клавиатуры или из ссылки
+  const num = (v) => fmt(v).replace(',', '.');
   for (const r of RIGGING) {
-    const val = h('input', { type: 'number', class: 'num', min: r.min, max: r.max, step: '0.05', value: r.rest, 'aria-label': `Высота ${r.name}, м` });
-    const slider = h('input', { type: 'range', min: r.min, max: r.max, step: compact ? '0.05' : '0.01', value: r.rest, 'aria-label': `Высота ${r.name}` });
+    const cur = stage.rigging.height(r.id);
+    const val = h('input', { type: 'number', class: 'num', min: r.min, max: r.max, step: '0.05', value: num(cur), 'aria-label': `Высота ${r.name}, м` });
+    const slider = h('input', { type: 'range', min: r.min, max: r.max, step: compact ? '0.05' : '0.01', value: cur, 'aria-label': `Высота ${r.name}` });
     const name = h('button', { class: `rig-name k-${r.kind}`, title: 'Выбрать и показать', onclick: () => stage.select({ kind: 'rig', id: r.id }) }, r.name);
     slider.addEventListener('input', () => stage.setHeight(r.id, +slider.value));
-    val.addEventListener('change', () => stage.setHeight(r.id, +String(val.value).replace(',', '.')));
+    val.addEventListener('change', () => {
+      const v = +String(val.value).replace(',', '.');
+      if (Number.isFinite(v)) stage.setHeight(r.id, v);
+      val.value = num(stage.rigging.height(r.id)); // в т. ч. после стрелок поля и ввода «6,4»
+    });
+    val.addEventListener('blur', () => { val.value = num(stage.rigging.height(r.id)); });
     const row = h('div', { class: 'rig-row', 'data-id': r.id }, name, slider, h('span', { class: 'num-wrap' }, val, h('span', { class: 'unit' }, 'м')));
     rows.set(r.id, { row, slider, val });
     list.append(row);
@@ -58,7 +67,7 @@ export function rigPanel(stage, { compact = false } = {}) {
     const r = rows.get(id);
     if (!r) return;
     r.slider.value = v;
-    if (document.activeElement !== r.val) r.val.value = fmt(v).replace(',', '.');
+    if (document.activeElement !== r.val) r.val.value = num(v);
   };
   stage.on('rig', sync);
   stage.on('state', () => { for (const r of RIGGING) sync(r.id, stage.rigging.height(r.id)); });
