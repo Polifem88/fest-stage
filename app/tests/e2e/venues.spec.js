@@ -28,28 +28,43 @@ test('переключение сцены через список в загол�
   await expect(page.locator('[data-id="l-trusses"]')).toHaveCount(1);
   expect((await canvasStats(page)).std, 'Камерная: кадр не пустой').toBeGreaterThan(4);
 
-  // «скоро» — видна, но не открывается
+  // «скоро» — видна, но не открывается; ответ — строкой внутри списка (тост под модальной шторкой не виден)
   await page.locator('.brand-btn').click();
   for (const id of ['roof', 'foyer', 'studio']) await expect(page.locator(`.venue-item[data-venue="${id}"]`)).toHaveAttribute('aria-disabled', 'true');
-  await page.locator('.venue-item[data-venue="roof"]').click();
+  // aria-disabled — кнопка всё же нажимается (показывает пояснение), Playwright без force ждал бы «включения»
+  await page.locator('.venue-item[data-venue="roof"]').click({ force: true });
+  await expect(page.locator('.venue-note')).toContainText('готовится');
   await page.keyboard.press('Escape');
   expect(await page.evaluate(() => window.__fest.venue())).toBe('chamber');
+  // справка и раздел экспорта не содержат пустых пунктов
+  if (!info.project.use.isMobile) await expect(page.locator('.help li', { hasText: 'null' })).toHaveCount(0);
 
   await pickVenue(page, 'big');
   await expect(page.locator(`${tabSel(info)}[data-tab="rig"]`)).toHaveCount(1);
   expectNoErrors(log);
 });
 
-test('память сцен: механика своя, режимы отображения общие', async ({ page }, info) => {
+test('память сцен: механика и дежурный свет свои, режимы отображения общие', async ({ page }, info) => {
   const log = await openApp(page, pageOf(info));
-  await page.evaluate(() => { window.__fest.setHeight('Sh5', 2); window.__fest.flag('blueprint', true); });
+  await page.evaluate(() => { window.__fest.setHeight('Sh5', 2); window.__fest.flag('blueprint', true); window.__fest.flag('duty', false); });
   await page.evaluate(() => window.__fest.loadVenue('chamber'));
   expect(await page.evaluate(() => window.__fest.getState().flags.blueprint), 'чертёж переносится на новую сцену').toBe(true);
+  expect(await page.evaluate(() => window.__fest.getState().flags.duty), 'дежурный свет у Камерной свой (исходно включён)').toBe(true);
   await page.evaluate(() => window.__fest.flag('blueprint', false));
   await page.evaluate(() => window.__fest.loadVenue('big'));
   expect(await page.evaluate(() => window.__fest.height('Sh5')), 'Большая сцена помнит свои высоты').toBe(2);
+  expect(await page.evaluate(() => window.__fest.getState().flags.duty), 'и свой дежурный свет').toBe(false);
   expect(await page.evaluate(() => window.__fest.getState().flags.blueprint)).toBe(false);
   await expect(page.locator('.rig-row[data-id="Sh5"] input.num')).toHaveValue('2.00');
+  expectNoErrors(log);
+});
+
+test('дежурка: LED и синие приборы сохраняют свой материал после смены сцены', async ({ page }, info) => {
+  const log = await openApp(page, pageOf(info));
+  const names = () => page.evaluate(() => window.__fest.stage.emitters.duty.children.filter((m) => m.userData.emitter).map((m) => m.material.name));
+  const before = await names();
+  await page.evaluate(async () => { const f = window.__fest; f.flag('duty', false); await f.loadVenue('chamber'); f.flag('duty', false); await f.loadVenue('big'); f.flag('duty', true); });
+  expect(await names()).toEqual(before);
   expectNoErrors(log);
 });
 
@@ -60,8 +75,12 @@ test('нет утечек при переключении (10 циклов)', as
     await window.__fest.loadVenue('chamber');
     await window.__fest.loadVenue('big');
     window.__fest.renderNow();
-    const m = window.__fest.stage.renderer.info.memory;
-    return { g: m.geometries, t: m.textures };
+    const st = window.__fest.stage, i = st.renderer.info;
+    return {
+      g: i.memory.geometries, t: i.memory.textures, p: i.programs.length,
+      l: Object.values(st.listeners).reduce((n, a) => n + a.length, 0), // подписки панелей
+      dom: document.getElementsByTagName('*').length, // плашки, панели, диалоги
+    };
   });
   const first = await mem();
   let last = first;
@@ -69,6 +88,9 @@ test('нет утечек при переключении (10 циклов)', as
   console.log(`[${info.project.name}] память: после 1-го цикла ${JSON.stringify(first)}, после 10-го ${JSON.stringify(last)}`);
   expect(Math.abs(last.g - first.g), 'геометрии').toBeLessThanOrEqual(2);
   expect(Math.abs(last.t - first.t), 'текстуры').toBeLessThanOrEqual(2);
+  expect(last.l, 'подписки на события движка').toBe(first.l);
+  expect(Math.abs(last.dom - first.dom), 'узлы DOM').toBeLessThanOrEqual(5);
+  expect(Math.abs(last.p - first.p), 'шейдерные программы').toBeLessThanOrEqual(2);
   expectNoErrors(log);
 });
 

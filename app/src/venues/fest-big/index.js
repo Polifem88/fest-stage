@@ -62,7 +62,7 @@ const fmt2 = (v) => v.toFixed(2).replace('.', ',');
 function describeRig(r) {
   return [
     r.kind === 'side'
-      ? ['Положение', `${r.x < 0 ? 'слева' : 'справа'}, от ${r.dFrom.toFixed(2)} до ${r.dTo.toFixed(2)} м за порталом`]
+      ? ['Положение', `${r.x < 0 ? 'слева' : 'справа'}, от ${fmt2(r.dFrom)} до ${fmt2(r.dTo)} м за порталом`]
       : ['От портала', `${fmt2(r.d)} м ${r.d < 0 ? '(перед порталом)' : 'вглубь'}`],
     ['Подвесов', String(r.lines)],
     ['Управление', CONTROL_NAMES[r.control] + (r.via === 'redirect' ? ', через обводные блоки' : '')],
@@ -79,6 +79,8 @@ export default {
   views: VIEWS,
   defaultView: 'overview',
   camera: { maxDistance: 70 },
+  // ссылки v1 (до каталога сцен): сколько было приборов и слоёв — новые, добавленные в конец, останутся включены
+  linkV1: { fixtures: 124, layers: 5 },
   rigging: { list: RIGGING, describe: describeRig },
   fixtures: {
     list: FIXTURES,

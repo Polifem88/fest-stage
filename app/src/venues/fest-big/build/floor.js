@@ -44,7 +44,7 @@ export function clipPoolsToFloor(mat) {
     if (pd < 0.0 && ax > max(${c(fs.frontWidth / 2)}, ${c(fs.frontWidth / 2)} + (pd - ${c(fs.sideStraight - fs.depth)}) / ${c(fs.depth - fs.sideStraight)} * ${c((fs.backWidth - fs.frontWidth) / 2)})) discard;
   } else if (ax > ${c(HALL_HALF)}) discard;`);
   };
-  mat.customProgramCacheKey = () => 'pool-clip';
+  mat.customProgramCacheKey = () => 'pool-big'; // ключ уникален для площадки: обрезка своя
 }
 
 /** Пересечение луча с полом сцены/зала/стенами зала. */

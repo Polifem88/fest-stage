@@ -4,6 +4,7 @@ import './style.css';
 import { Stage } from '../engine/stage.js';
 import { h, rigPanel, lightPanel, layersPanel, viewsPanel, infoCard, quickBar, toast, shareLink, dragBadge, exportButtons } from './common.js';
 import { venueBrand } from './venuePicker.js';
+import { THEATRE_NAME } from '../venues/registry.js';
 import { exposeTestApi } from '../engine/testapi.js';
 
 export async function startMobile() {
@@ -45,7 +46,8 @@ export async function startMobile() {
   );
   // прозрачная подложка: тап мимо меню только закрывает его и не нажимает кнопки под ним
   const shareBackdrop = h('div', { class: 'share-backdrop', hidden: true, onpointerdown: (e) => { e.preventDefault(); e.stopPropagation(); setShare(false); } });
-  const setShare = (on) => { shareMenu.hidden = !on; shareBackdrop.hidden = !on; };
+  // при открытии меню убираем тосты: они на той же высоте и закрыли бы верхний пункт меню
+  const setShare = (on) => { shareMenu.hidden = !on; shareBackdrop.hidden = !on; if (on) document.querySelectorAll('.toast').forEach((t) => t.remove()); };
   const shareBtn = h('button', { class: 'tgl share-btn', 'aria-label': 'Поделиться: ссылка или скриншот', title: 'Поделиться', onclick: () => setShare(shareMenu.hidden) }, h('span', { class: 'ico' }, '📤'));
 
   const quickSlot = h('div', { class: 'quick-slot' });
@@ -72,6 +74,8 @@ export async function startMobile() {
   let unmount = null;
   const mountVenue = () => {
     unmount?.();
+    sheet.inert = false;
+    quickSlot.inert = false;
     unmount = stage.scope(() => {
       const caps = stage.venue.caps;
       const tabs = [
@@ -99,13 +103,14 @@ export async function startMobile() {
       hint.textContent = caps.rigging
         ? 'Один палец — вращать · два — масштаб и сдвиг · тап — выбрать, потом тянуть'
         : 'Один палец — вращать · два — масштаб и сдвиг · тап — выбрать прибор';
-      document.title = `${stage.venue.name} · ФЭСТ (телефон)`;
+      document.title = `${stage.venue.name} · ${THEATRE_NAME} (телефон)`;
     });
   };
   stage.on('venue', mountVenue);
   // панели прежней площадки отписываются до её разбора: события новой площадки
   // (select/state/lights) не должны доходить до панелей со старым списком приборов
-  stage.on('venueloading', () => { unmount?.(); unmount = null; });
+  // панели прежней площадки отписываются до её разбора и на время сборки не нажимаются
+  stage.on('venueloading', () => { unmount?.(); unmount = null; sheet.inert = true; quickSlot.inert = true; });
 
   const { notice } = await stage.boot();
   loading.remove();

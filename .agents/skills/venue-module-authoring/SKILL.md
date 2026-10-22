@@ -51,7 +51,7 @@ description: >-
 
 В зависимости от архитектурного типа площадки:
 - **Чёрный кабинет / зал без подвижной механики:**
-  Используется параметрический шаблон `app/src/venues/_template/` (см. [README.md](file:///app/src/venues/_template/README.md)) либо копируется готовый модуль `app/src/venues/fest-chamber/` в `app/src/venues/fest-<id>/`. Геометрия стен, потолка, ферм, кресел и наложений генерируется готовыми функциями `buildBlackBox`, `blackBoxViews`, `blackBoxOverlays`, `blackBoxAmbient`.
+  Используется параметрический шаблон `app/src/venues/_template/` (см. [README.md](../../../app/src/venues/_template/README.md)) либо копируется готовый модуль `app/src/venues/fest-chamber/` в `app/src/venues/fest-<id>/`. Геометрия стен, потолка, ферм, кресел и наложений генерируется готовыми функциями `buildBlackBox`, `blackBoxViews`, `blackBoxOverlays`, `blackBoxAmbient`.
 - **Сцена-коробка с порталом и механикой:**
   Архитектурным образцом служит модуль `app/src/venues/fest-big/` с разделением на подсистемы (`build/architecture.js`, `build/rigging.js`, `build/overlays.js`, `build/ambient.js`, `build/floor.js`).
 
@@ -86,7 +86,7 @@ description: >-
 - `GROUP_SETS`: наборы для кнопок быстрого включения в панели света.
 - `BAR_DEPTH`: соответствие между идентификаторами подвижных подъёмов и их глубиной $d$.
 - `PORTABLE`: переносные приборы (если `caps.portable: true`, иначе `null`).
-- `FIXTURES`: массив приборов `{ no, type, group, pos: [x,y,d], target: [tx,ty,td], beam, mount: { on, ... } }`. Номера приборов `no` уникальны в пределах площадки. Приборы на подвижных подъёмах имеют `mount: { on: '<rig_id>' }`.
+- `FIXTURES`: массив `{ no, type, group, mount: { on, x, y, d }, aim: { x, y, d } }`; угол луча берётся из `TYPES[type].beam`. На подвижной трубе `mount.on = '<rig_id>'`: `d` — смещение от `BAR_DEPTH[on]`, `y` — от высоты трубы; на неподвижной конструкции `on: null`, координаты абсолютные. Номера `no` уникальны в пределах площадки; порядок списка — часть формата ссылки (только добавлять в конец).
 
 ---
 
@@ -143,7 +143,7 @@ description: >-
   > Если ключ кэша опустить или продублировать, Three.js повторно использует шейдер первой загруженной сцены, и пятна света будут обрезаться по границам чужого зала.
 
 ### Контекст сборки `build(ctx)`:
-- `ctx.batch` — пакетный сборщик статики (`batch.add(layerKey, geometry, materialKey)`), склеивающий геометрию в минимальное число draw calls.
+- `ctx.batch` — пакетный сборщик статики: `batch.add(layerKey, material, geometry | geometry[], { tag?, shadow?, uv? })`, где `material` — объект из `ctx.M`; склеивает геометрию «слой + материал» в один меш (минимум draw calls). После `commitBatch()`/`ctx.add()` добавлять в batch нельзя (движок выдаст ошибку).
 - `ctx.commitBatch()` — генерация мешей из накопленных батчей.
 - `ctx.add(layerKey, ...objects)` — добавление динамических мешей и групп в конкретный слой.
 - `ctx.M` — палитра материалов из `core/materials.js`.

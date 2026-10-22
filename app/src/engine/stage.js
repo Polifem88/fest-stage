@@ -17,7 +17,7 @@ import { SheetOverlay } from './blueprint.js';
 import { disposeTree, sharedSet } from './dispose.js';
 import { encodeDxfWindows1251 } from '../export/dxfWriter.js';
 import { buildSceneGLB } from '../export/glbGeneric.js';
-import { DEFAULT_VENUE, venueEntry, isOpenable } from '../venues/registry.js';
+import { DEFAULT_VENUE, LEGACY_VENUE, venueEntry, isOpenable } from '../venues/registry.js';
 
 export const PROFILES = {
   desktop: { name: 'desktop', dpr: 2, antialias: true, shadows: true, ropes: true, ropeLabels: true, haze: true, beamSegments: 22, lightPlan: 'full', fixtureLabels: false, dragRequiresSelect: false },
@@ -35,6 +35,7 @@ export class Stage {
     this.selected = null;
     // режимы отображения — общие для всех площадок (переносятся при смене сцены)
     this.flags = { duty: true, house: false, haze: this.profile.haze, hazeDensity: HAZE_DEFAULT, blueprint: false, labels: true, fixtureLabels: this.profile.fixtureLabels, grid: false, dims: false };
+    this._flagDefaults = { ...this.flags };
     this.layers = {};
     this.view = null;
     this.venue = null;
@@ -65,8 +66,9 @@ export class Stage {
   scope(fn) {
     const prev = this._scope;
     const list = (this._scope = []);
-    try { fn(); } finally { this._scope = prev; }
-    return () => { for (const [ev, f] of list) this.off(ev, f); list.length = 0; };
+    const dispose = () => { for (const [ev, f] of list) this.off(ev, f); list.length = 0; };
+    try { fn(); } catch (e) { dispose(); throw e; } finally { this._scope = prev; }
+    return dispose;
   }
   invalidate() { this._dirty = true; }
 
@@ -123,37 +125,58 @@ export class Stage {
   // ---------------------------------------------------------------------------
   /**
    * Открыть площадку из реестра. Состояние текущей запоминается; у новой восстанавливается
-   * то, с каким её оставили (режимы отображения общие). opts.state — применить это состояние.
+   * то, с каким её оставили. Режимы отображения общие; дежурный и зальный свет — свои у площадки.
+   * @returns {Promise<boolean>} false — площадку открыть не удалось (событие venueerror)
    */
-  async loadVenue(id, opts = {}) {
+  async loadVenue(id) {
     // переключения выполняются строго по очереди (двойной щелчок не строит две сцены разом)
-    const run = () => this._loadVenue(id, opts);
+    const run = () => this._loadVenue(id);
     this._venueQueue = (this._venueQueue || Promise.resolve()).then(run, run);
     return this._venueQueue;
   }
 
-  async _loadVenue(id, { state = null } = {}) {
+  async _loadVenue(id) {
     if (!isOpenable(id)) return false;
-    if (this.venue?.id === id) {
-      if (state) { this._restore(state, { flags: true }); this.emit('state'); }
-      return true;
-    }
+    if (this.venue?.id === id) return true;
     const entry = venueEntry(id);
     this.emit('venueloading', entry);
-    const venue = (await entry.load()).default;
-    // дать браузеру нарисовать плашку «Строим…» до тяжёлой сборки геометрии
-    await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+    let venue;
+    try {
+      venue = (await entry.load()).default;
+      // дать браузеру нарисовать плашку «Строим…» до тяжёлой сборки геометрии
+      await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+    } catch (e) {
+      console.error(e);
+      this.emit('venueerror', entry, e);
+      if (this.venue) this.emit('venue', this.venue); // прежняя площадка цела — вернуть ей панели
+      return false;
+    }
+    const prevId = this.venue?.id;
     if (this.venue) {
       this._memory.set(this.venue.id, this._snapshot());
       this._teardownVenue();
     }
-    this._buildVenue(venue);
+    const mem = this._memory.get(venue.id);
+    // дежурный и зальный свет — свои у каждой площадки (GEMINI.md §2.2): из памяти или исходные
+    const own = mem?.flags || this._flagDefaults;
+    this.flags.duty = own.duty;
+    this.flags.house = own.house;
+    try {
+      this._buildVenue(venue);
+    } catch (e) {
+      // сборка площадки упала (например, черновик с ошибкой в конфиге): разобрать недостроенное,
+      // сообщить и вернуть прежнюю площадку (она восстановится из памяти)
+      console.error(e);
+      try { this._teardownVenue(); } catch { /* недостроенная сцена */ }
+      this.emit('venueerror', entry, e);
+      if (prevId && prevId !== id) await this._loadVenue(prevId);
+      return false;
+    }
     // сначала интерфейс пересобирает панели под новую площадку, потом приходит её состояние
     this.emit('venue', venue);
-    const mem = state || this._memory.get(venue.id);
-    if (mem) this._restore(mem, { flags: !!state });
+    if (mem) this._restore(mem); // loadState сам сообщает 'state'
+    else this.emit('state');
     this.emit('select', null, null); // выбор прежней площадки снят
-    this.emit('state');
     this.invalidate();
     return true;
   }
@@ -188,6 +211,9 @@ export class Stage {
     const commitBatch = () => {
       if (this.layerGroups) return;
       const built = batch.build();
+      for (const k of Object.keys(built)) if (!(k in this.layers)) throw new Error(`площадка ${venue.id}: слой «${k}» не описан в layers`);
+      // после сборки статики добавлять в batch бессмысленно — геометрия не попала бы в сцену
+      batch.add = () => { throw new Error(`площадка ${venue.id}: batch.add после commitBatch()/add()`); };
       this.layerGroups = {};
       for (const k of Object.keys(this.layers)) {
         const g = new THREE.Group();
@@ -197,11 +223,18 @@ export class Stage {
         scene.add(g);
       }
     };
-    const add = (layer, ...objs) => { commitBatch(); this.layerGroups[layer].add(...objs); };
+    const add = (layer, ...objs) => {
+      commitBatch();
+      if (!this.layerGroups[layer]) throw new Error(`площадка ${venue.id}: слой «${layer}» не описан в layers`);
+      this.layerGroups[layer].add(...objs);
+    };
     const built = venue.build({ batch, M: this.M, labels: this.labels, profile: P, commitBatch, add }) || {};
     commitBatch();
     this.rigging = built.rigging || null;
     this.emitters = built.emitters || null;
+    // «включённый» материал светящихся мешей запоминаем сразу: первый _applyFlags может их погасить
+    // (дежурка выключена) — тогда по текущему материалу его уже не узнать
+    for (const g of Object.values(this.emitters || {})) for (const m of g.children) if (m.userData.emitter) m.userData.matOn = m.material;
 
     this.fixtures = new FixtureSystem(this.M, this.rigging, { beams: this.flags.haze, beamSegments: P.beamSegments, labels: this.labels }, venue.fixtures);
     this.layerGroups.lights.add(this.fixtures.root);
@@ -459,8 +492,8 @@ export class Stage {
     this.lighting.setDuty(f.duty);
     this.lighting.setHouse(f.house);
     if (this.emitters) {
-      for (const m of this.emitters.duty.children) if (m.userData.emitter) m.material = f.duty ? this.M[m.userData.emitter === 'duty' ? matNameFor(m) : 'houseLamp'] : this._offMat();
-      for (const m of this.emitters.house.children) m.material = f.house ? this.M.houseLamp : this._offMat();
+      for (const m of this.emitters.duty.children) if (m.userData.emitter) m.material = f.duty ? m.userData.matOn : this._offMat();
+      for (const m of this.emitters.house.children) if (m.userData.emitter) m.material = f.house ? m.userData.matOn : this._offMat();
     }
     this.fixtures.setHaze(f.haze && !f.blueprint);
     this.fixtures.setHazeDensity(f.hazeDensity ?? HAZE_DEFAULT);
@@ -857,7 +890,8 @@ export class Stage {
   async openState(strOrObj) {
     let id;
     if (typeof strOrObj === 'string') id = peekVenue(strOrObj);
-    else id = strOrObj?.venue || 'big';
+    // файл до каталога сцен (без venue) — Большая сцена; объект без состояния — не наш файл
+    else if (strOrObj && (strOrObj.heights || strOrObj.fixturesOn)) id = strOrObj.venue || LEGACY_VENUE;
     if (!id || !isOpenable(id)) return false;
     if (id !== this.venue.id) await this.loadVenue(id);
     return this.loadState(strOrObj);
@@ -925,8 +959,3 @@ function emptyGroup(name) {
   return g;
 }
 
-function matNameFor(m) {
-  if (m.material === undefined) return 'dutyBulb';
-  const n = m.userData.matName || (m.userData.matName = m.material.name);
-  return n || 'dutyBulb';
-}

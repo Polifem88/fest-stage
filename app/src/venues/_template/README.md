@@ -46,8 +46,9 @@
 4. **Модуль** — `index.js`: поменяйте `id`, `name`, `status`, `meta`, `caps`, `layers`
    (порядок слоёв — порядок битов в ссылке: у опубликованной площадки только добавлять в конец),
    `lightPlans`, `camera.maxDistance`. Пол для пятен света — `rectFloor(...)` из `systems/fixtures.js`.
-5. **Реестр** — добавьте строку в `venues/registry.js`:
-   `{ id: '<id>', name: '…', status: 'draft', type: 'Чёрный кабинет', seats: N, load: () => import('./<папка>/index.js') }`.
+5. **Каталог и реестр** — описание сцены в `venues/catalog.js`:
+   `{ id: '<id>', name: '…', short: '…', status: 'draft', type: 'Чёрный кабинет', seats: N }`;
+   загрузчик — в словарь `LOADERS` файла `venues/registry.js`: `<id>: () => import('./<папка>/index.js')`.
 6. **Тесты** — `tests/unit/venues.contract.test.js` проверит контракт новой площадки сам; свои
    проверки размеров — по образцу `tests/unit/chamber.test.js`. Затем из `app`:
    `npx vitest run`, `node scripts/build.mjs`, снимки всех видов (обычный, «чертёж», размеры и сетка) —

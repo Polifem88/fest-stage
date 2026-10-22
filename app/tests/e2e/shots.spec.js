@@ -27,6 +27,7 @@ const SHOTS = [
 ];
 
 test('снимки всех видов', async ({ page }, info) => {
+  test.skip(!!process.env.VENUE && process.env.VENUE !== 'big', 'снимается только площадка VENUE');
   const mobile = !!info.project.use.isMobile;
   const dir = `review/shots/${ROUND}/${info.project.name}`;
   mkdirSync(dir, { recursive: true });

@@ -4,6 +4,7 @@ import './style.css';
 import { Stage } from '../engine/stage.js';
 import { h, rigPanel, lightPanel, layersPanel, viewsPanel, infoCard, quickBar, shareLink, toast, fixtureSearch, dragBadge, exportButtons } from './common.js';
 import { venueBrand } from './venuePicker.js';
+import { THEATRE_NAME } from '../venues/registry.js';
 import { exposeTestApi } from '../engine/testapi.js';
 
 export async function startDesktop() {
@@ -96,6 +97,8 @@ export async function startDesktop() {
   let unmount = null;
   const mountVenue = () => {
     unmount?.();
+    side.inert = false;
+    quickSlot.inert = false;
     unmount = stage.scope(() => {
       const caps = stage.venue.caps;
       const tabs = [
@@ -117,22 +120,26 @@ export async function startDesktop() {
       openTab(currentTab);
       quickSlot.replaceChildren(quickBar(stage));
       exportMenu.replaceChildren(...exportButtons(stage, { onAction: () => setExport(false), role: 'menuitem' }));
-      helpList.replaceChildren(
+      // replaceChildren превращает null в текст «null» — пустые пункты отфильтровываем
+      helpList.replaceChildren(...[
         h('li', {}, 'Левая кнопка мыши — вращать, правая — сдвигать, колесо — приближать.'),
         caps.rigging ? h('li', {}, 'Наведите на штанкет или софит (он подсветится) и тяните вверх-вниз — он поедет. Стрелки ↑/↓ двигают выбранный штанкет на 5 см, с Shift — на 50 см.') : null,
         h('li', {}, 'Щелчок по прибору — карточка с номером и типом, его можно выключить.'),
         h('li', {}, 'Вкладка «Виды» — готовые ракурсы, план, разрез, сохранение и ссылка.'),
         h('li', {}, 'Заголовок слева вверху — выбор сцены театра.'),
         h('li', {}, 'Esc — снять выбор, выключить рулетку, закрыть это окно.'),
-      );
+      ].filter(Boolean));
       updStatus();
-      document.title = `${stage.venue.name} · ФЭСТ (компьютер)`;
+      const can = stage.exportFormats();
+      exportBtn.title = can.planDXF || can.sectionDXF ? 'Экспорт чертежей (.dxf) и 3D-модели (.glb)' : 'Экспорт 3D-модели (.glb)';
+      document.title = `${stage.venue.name} · ${THEATRE_NAME} (компьютер)`;
     });
   };
   stage.on('venue', mountVenue);
   // панели прежней площадки отписываются до её разбора: события новой площадки
   // (select/state/lights) не должны доходить до панелей со старым списком приборов
-  stage.on('venueloading', () => { unmount?.(); unmount = null; });
+  // панели прежней площадки отписываются до её разбора и на время сборки не нажимаются
+  stage.on('venueloading', () => { unmount?.(); unmount = null; side.inert = true; quickSlot.inert = true; });
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !exportMenu.hidden) { setExport(false); return; }

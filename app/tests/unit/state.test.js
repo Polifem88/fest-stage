@@ -69,6 +69,16 @@ describe('Ссылка: формат v2', () => {
     expect(peekVenue('!!!')).toBeNull();
     expect(decodeState('abc', big)).toBeNull();
   });
+  it('приборы и слои, добавленные в конец позже, в старой ссылке остаются включены', () => {
+    const s = encodeState(stateOf(chamber, { fixturesOn: chamber.fixtures.list.map(() => false), layers: Object.fromEntries(chamber.layers.map(([k]) => [k, false])) }), chamber);
+    // площадка «выросла»: +1 прибор и +1 слой в конце
+    const grown = { ...chamber, layers: [...chamber.layers, ['extra', 'Новый слой']], fixtures: { ...chamber.fixtures, list: [...chamber.fixtures.list, { ...chamber.fixtures.list[0], no: 'NEW' }] } };
+    const st = decodeState(s, grown);
+    expect(st.fixturesOn.at(-1), 'новый прибор').toBe(true);
+    expect(st.fixturesOn.slice(0, -1).every((on) => on === false)).toBe(true);
+    expect('extra' in st.layers, 'новый слой не трогаем — остаётся как у площадки').toBe(false);
+    expect(st.layers.lights).toBe(false);
+  });
 });
 
 describe('Хэш ссылки', () => {

@@ -1,7 +1,10 @@
 // Сохранение/загрузка состояния: высоты механики, свет, режимы — в ссылку (#v=<площадка>&s=...) и в файл.
-// Формат v2 (каталог сцен): { v:2, vn:<id площадки>, h, fx, f, l, view, p?, hd? } — массивы в порядке
+// Формат v2 (каталог сцен): { v:2, vn:<id площадки>, h, fx, fn, f, l, ln, view, p?, hd? } — массивы в порядке
 // конфига площадки (механика, приборы, слои). Формат v1 (до каталога) — всегда Большая сцена,
 // раскладка та же, что у v2 для Большой сцены. Старые ссылки обязаны открываться.
+// fn / ln — сколько приборов и слоёв было у площадки, когда ссылку создали: приборы и слои,
+// добавленные в конец позже, при открытии старой ссылки остаются в исходном состоянии (включены).
+// Для v1 эти числа даёт сама площадка (venue.linkV1).
 import { LEGACY_VENUE } from '../venues/catalog.js';
 
 const FLAGS = ['duty', 'house', 'haze', 'blueprint', 'labels', 'fixtureLabels', 'grid', 'dims'];
@@ -35,7 +38,7 @@ export function encodeState(st, venue) {
   FLAGS.forEach((k, i) => { if (st.flags[k]) f |= 1 << i; });
   let l = 0;
   venue.layers.forEach(([k], i) => { if (st.layers[k] !== false) l |= 1 << i; });
-  const obj = { v: 2, vn: venue.id, h, fx: b64(bytes), f, l, view: st.view || '' };
+  const obj = { v: 2, vn: venue.id, h, fx: b64(bytes), fn: venue.fixtures.list.length, f, l, ln: venue.layers.length, view: st.view || '' };
   if (venue.fixtures.portable && st.portable && st.portable.mode !== 'off') obj.p = [PORT_MODES.indexOf(st.portable.mode), st.portable.count];
   if (st.flags.hazeDensity != null) obj.hd = Math.round(st.flags.hazeDensity * 100); // плотность дымки, %
   return b64(new TextEncoder().encode(JSON.stringify(obj)));
@@ -51,12 +54,15 @@ export function decodeState(str, venue) {
     const heights = {};
     (venue.rigging?.list || []).forEach((r, i) => { if (obj.h?.[i] != null) heights[r.id] = obj.h[i] / 100; });
     const bytes = unb64(obj.fx);
-    const fixturesOn = venue.fixtures.list.map((_, i) => !!(bytes[i >> 3] & (1 << (i & 7))));
+    const old = obj.v === 1 ? venue.linkV1 || {} : {};
+    const fn = obj.fn ?? old.fixtures ?? venue.fixtures.list.length;
+    const ln = obj.ln ?? old.layers ?? venue.layers.length;
+    const fixturesOn = venue.fixtures.list.map((_, i) => (i < fn ? !!(bytes[i >> 3] & (1 << (i & 7))) : true));
     const flags = {};
     FLAGS.forEach((k, i) => { flags[k] = !!(obj.f & (1 << i)); });
     if (typeof obj.hd === 'number') flags.hazeDensity = obj.hd / 100;
     const layers = {};
-    venue.layers.forEach(([k], i) => { layers[k] = !!(obj.l & (1 << i)); });
+    venue.layers.forEach(([k], i) => { if (i < ln) layers[k] = !!(obj.l & (1 << i)); });
     const defaults = venue.fixtures.portable?.defaults || { mode: 'off', count: 0 };
     const portable = Array.isArray(obj.p) ? { mode: PORT_MODES[obj.p[0]] || 'off', count: obj.p[1] } : { ...defaults };
     return { venue: vn, heights, fixturesOn, flags, layers, portable, view: obj.view };

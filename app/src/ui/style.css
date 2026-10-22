@@ -113,7 +113,8 @@ details.grp summary small { color: var(--muted); font-weight: 400; }
 .desktop .top-actions { margin-left: auto; display: flex; gap: 6px; }
 .desktop .export-menu { position: fixed; z-index: 25; top: 56px; right: 12px; display: grid; gap: 6px; min-width: 240px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px; box-shadow: 0 12px 32px rgba(0,0,0,.55); backdrop-filter: blur(8px); }
 .desktop .export-menu .btn { text-align: left; }
-.desktop .export-backdrop { position: fixed; inset: 0; z-index: 24; background: transparent; }
+/* подложка — ниже шапки: повторный щелчок по «Экспорт ▾» закрывает меню самой кнопкой */
+.desktop .export-backdrop { position: fixed; inset: 52px 0 0 0; z-index: 24; background: transparent; }
 .export-panel .btn { text-align: left; }
 .desktop .side { position: fixed; z-index: 10; top: 52px; bottom: 0; left: 0; width: 360px; background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; transition: transform .2s; }
 .desktop.side-hidden .side { transform: translateX(-100%); }
@@ -152,7 +153,8 @@ details.grp summary small { color: var(--muted); font-weight: 400; }
   .desktop .card { font-size: 13px; padding: 10px 12px; }
 }
 /* узкое окно: поиск остаётся во вкладке «Свет» */
-@media (max-width: 1240px) { .desktop .top-search { display: none; } }
+/* поиск в шапке — только на широком экране (на ноутбуке 1366 px шапка не помещается); он есть во вкладке «Свет» */
+@media (max-width: 1400px) { .desktop .top-search { display: none; } }
 
 /* ======================= ТЕЛЕФОН ======================= */
 .mobile { font-size: 15px; }
@@ -237,7 +239,7 @@ details.grp summary small { color: var(--muted); font-weight: 400; }
 .brand-btn { display: inline-flex; align-items: baseline; gap: 0; min-height: 44px; padding: 0 10px 0 6px; margin-left: -6px; background: none; border: 1px solid transparent; border-radius: 10px; color: var(--text); text-align: left; }
 .brand-btn:hover, .brand-btn[aria-expanded=true] { background: var(--panel2); border-color: var(--line); }
 .brand-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.brand-btn:disabled { opacity: .6; cursor: progress; }
+.brand-btn:disabled, .brand-btn[aria-busy=true] { opacity: .6; cursor: progress; }
 .brand-btn .brand-name { overflow: hidden; text-overflow: ellipsis; white-space: pre; }
 .brand-btn .brand-caret { margin-left: 6px; color: var(--muted); font-size: .85em; }
 .desktop .brand-btn { align-items: center; }
@@ -259,6 +261,8 @@ details.grp summary small { color: var(--muted); font-weight: 400; }
 .venue-badge { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; }
 .venue-badge.draft { color: var(--mixed); }
 .venue-badge.soon { color: var(--muted); }
+.venue-note { margin: 0 16px 12px; color: var(--mixed); font-size: 13px; }
+.venue-note:empty { display: none; }
 .venue-veil { position: absolute; inset: 0; z-index: 4; background: rgba(11,13,17,.72); color: var(--text); }
 
 /* компьютер: выпадающая панель под заголовком */
@@ -274,7 +278,17 @@ details.grp summary small { color: var(--muted); font-weight: 400; }
 @media (min-width: 560px) {
   .mobile .brand-btn { display: inline-flex; align-items: center; max-width: none; }
   .mobile .brand-btn .brand-name { font-size: inherit; color: inherit; }
+  .mobile .brand-btn .brand-name::before { content: ' · '; color: var(--muted); white-space: pre; }
 }
+/* узкий телефон (≤ 380 px): в шапке не помещаются 5 быстрых кнопок и «Поделиться» —
+   «Дымка» и «Чертёж» остаются во вкладках шторки («Свет», «Ещё») */
+@media (max-width: 380px) {
+  .mobile .quick [data-id=q-haze], .mobile .quick [data-id=q-bp] { display: none; }
+  .mobile .brand-btn { max-width: 34vw; }
+}
+/* язычок у шторки списка сцен — как у основной шторки */
+.mobile .venue-picker .venue-head { position: relative; padding-top: 18px; }
+.mobile .venue-picker .venue-head::before { content: ''; position: absolute; left: 50%; top: 7px; width: 44px; height: 5px; border-radius: 3px; background: #4a5263; transform: translateX(-50%); }
 @media (orientation: landscape) {
   .mobile .venue-picker { inset: auto auto 0 max(8px, env(safe-area-inset-left)); width: min(420px, 60vw); max-height: 86vh; }
 }

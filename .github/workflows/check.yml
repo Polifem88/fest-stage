@@ -11,6 +11,11 @@ on:
 permissions:
   contents: read
 
+# push в ветку с открытым PR не гоняет проверку дважды
+concurrency:
+  group: check-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     name: Тесты и сборка
@@ -31,3 +36,5 @@ jobs:
         run: npm test
       - name: Сборка (каждая страница — один html-файл)
         run: npm run build
+      - name: Бюджет размера (GEMINI.md §2.1)
+        run: node -e "const s=(f)=>require('fs').statSync('dist/'+f).size/1048576;const b={'index.html':0.1,'desktop.html':1.3,'mobile.html':1.3};let ok=true;for(const[f,m]of Object.entries(b)){console.log(f,s(f).toFixed(2),'МБ, бюджет',m);if(s(f)>m)ok=false}process.exit(ok?0:1)"

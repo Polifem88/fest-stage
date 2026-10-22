@@ -32,7 +32,7 @@ export function ambientLights(plan, em) {
     return L;
   });
   // свет в зале
-  const hallPts = plan === 'full' ? [[-4, -9], [4, -9], [0, -15]] : [[0, -11]];
+  const hallPts = DIM.hall.houseLights[plan === 'full' ? 'full' : 'lite'];
   const house = hallPts.map(([x, d]) => {
     const L = new THREE.SpotLight(0xfff0d6, 0, 0, Math.PI / 2.6, 0.9, 1.3);
     L.position.set(x, DIM.hall.ceilingY - 0.2, -d);

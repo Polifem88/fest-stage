@@ -10,7 +10,7 @@ const page = process.env.PAGE;
 export default defineConfig({
   base: './',
   // review/ — снимки и отчёты проверок; не следим, иначе сервер падает на занятых файлах (EBUSY)
-  server: { host: true, port: 5173, watch: { ignored: ['**/review/**', '**/dist/**'] } },
+  server: { host: true, port: 5173, watch: { ignored: ['**/review/**', '**/dist/**', '**/test-results/**'] } },
   plugins: page ? [viteSingleFile({ removeViteModuleLoader: true })] : [],
   build: page
     ? {

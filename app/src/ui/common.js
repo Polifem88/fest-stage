@@ -3,6 +3,7 @@
 // из stage.venue: панели пересобираются при смене сцены (см. desktop.js / mobile.js).
 import { RIG_KINDS, kindsPresent } from '../library/rigKinds.js';
 import { THEATRE_NAME } from '../venues/registry.js';
+import { HAZE_DEFAULT } from '../systems/fixtures.js';
 
 export const fmt = (v, n = 2) => Number(v).toFixed(n).replace('.', ',');
 
@@ -112,7 +113,7 @@ export function lightPanel(stage, { compact = false } = {}) {
   const hazeVal = h('span', { class: 'unit' });
   const hazeSlider = h('input', { type: 'range', min: 0, max: 100, step: 5, 'aria-label': 'Плотность дымки, %' });
   const updHaze = () => {
-    const v = Math.round((stage.flags.hazeDensity ?? 0.3) * 100);
+    const v = Math.round((stage.flags.hazeDensity ?? HAZE_DEFAULT) * 100);
     hazeSlider.value = v;
     hazeVal.textContent = `${v} %`;
     hazeRow.classList.toggle('dim', !stage.flags.haze);
@@ -158,7 +159,7 @@ export function lightPanel(stage, { compact = false } = {}) {
       if (compact) {
         // телефон: тап — выбрать (шторка остаётся открытой), долгое нажатие — вкл/выкл
         let timer = null, long = false;
-        c.addEventListener('pointerdown', () => { long = false; timer = setTimeout(() => { long = true; stage.setFixture(f.idx, !f.on); navigator.vibrate?.(15); toast(`№ ${f.no} ${f.on ? 'включён' : 'выключен'}`, 1200); }, 500); });
+        c.addEventListener('pointerdown', () => { long = false; timer = setTimeout(() => { long = true; stage.setFixture(f.idx, !f.on); navigator.vibrate?.(40); toast(`№ ${f.no} ${f.on ? 'включён' : 'выключен'}`, 1200); }, 500); });
         for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) c.addEventListener(ev, () => clearTimeout(timer));
         c.addEventListener('contextmenu', (e) => e.preventDefault());
         c.addEventListener('click', () => { if (long) return; stage.select({ kind: 'fixture', idx: f.idx, keepSheet: true }); toast(`№ ${f.no} выбран · долгое нажатие — вкл/выкл`, 1600); });
@@ -207,10 +208,21 @@ export function lightPanel(stage, { compact = false } = {}) {
 /** Поиск прибора по номеру: поле + кнопка (в панели «Свет» и в верхней панели десктопа). */
 export function fixtureSearch(stage, { compact = false } = {}) {
   const search = h('input', { type: 'search', class: 'search', placeholder: compact ? '№ прибора' : 'Найти прибор №…', inputmode: 'numeric', enterkeyhint: 'search', 'aria-label': 'Найти прибор по номеру' });
+  /**
+   * «53», «к7», «K7» (латинская K — как русская), «7» — если на площадке такой номер один («К7»).
+   * На телефоне у поля цифровая клавиатура: буквенный префикс номера набирать не нужно.
+   */
+  const find = (q) => {
+    const F = stage.fixtures.byNo, up = q.toUpperCase().replace(/K/g, 'К');
+    const exact = F.get(q) || F.get(up);
+    if (exact || !/^\d+$/.test(q)) return exact || null;
+    const byDigits = stage.fixtures.list.filter((f) => String(f.no).replace(/\D/g, '') === q);
+    return byDigits.length === 1 ? byDigits[0] : null;
+  };
   const doFind = () => {
     const q = search.value.trim();
     if (!q) { search.focus(); return; }
-    const f = stage.fixtures.byNo.get(q) || stage.fixtures.byNo.get(q.toUpperCase());
+    const f = find(q);
     if (!f) { toast(`Прибор № ${q} не найден`); return; }
     if (f.hidden) { toast(`№ ${f.no} — переносной прибор, сейчас не показан. Включите его в разделе «${stage.venue.fixtures.portable?.short || 'Переносные приборы'}»`, 3500); return; }
     search.blur();
@@ -318,10 +330,10 @@ export function viewsPanel(stage, { onPicked } = {}) {
     try { (await stage.openState(JSON.parse(await f.text()))) ? toast('Состояние загружено') : toast('Не удалось прочитать файл'); } catch { toast('Не удалось прочитать файл'); }
     file.value = '';
   });
+  const exp = exportButtons(stage); // у площадки может не быть ни одного формата для этого устройства
   return h('div', { class: 'panel-views' },
     h('h4', {}, 'Точки обзора'), grid,
-    h('h4', {}, 'Экспорт в CAD / 3D'),
-    h('div', { class: 'grid-1 export-panel' }, exportButtons(stage)),
+    exp.length ? [h('h4', {}, 'Экспорт в CAD / 3D'), h('div', { class: 'grid-1 export-panel' }, exp)] : null,
     h('h4', {}, 'Сохранить / поделиться'),
     h('div', { class: 'grid-1' },
       h('button', { class: 'btn', onclick: () => shareLink(stage) }, '🔗 Скопировать ссылку с текущим состоянием'),
@@ -337,7 +349,7 @@ export async function shareLink(stage) {
   const url = stage.shareUrl();
   history.replaceState(null, '', url);
   try {
-    if (navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ title: ` — ${stage.venue.name}`, url }); return; }
+    if (navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ title: `${THEATRE_NAME} — ${stage.venue.name}`, url }); return; }
     await navigator.clipboard.writeText(url);
     toast('Ссылка скопирована');
   } catch {

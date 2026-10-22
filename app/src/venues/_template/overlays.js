@@ -89,10 +89,11 @@ export function blackBoxGrid(labels, cfg) {
     const num = (n) => String(n).replace('-', '−');
     const step = cfg.gridLabelStep ?? 2;
     for (let x = Math.ceil(R.x0 / step) * step; x <= R.x1; x += step) mk(xl, num(x), x, R.d1 + 0.5);
-    mk(xl, 'м от оси', R.x1 + 1.2, R.d1 + 0.5, { color: '#555' });
     for (let d = Math.ceil(R.d0); d <= Math.floor(R.d1); d++) mk(g, num(d), R.x0 - 0.45, d);
-    // подпись оси d — над цифрами (внизу слева на плане её закрыла бы экспликация)
-    mk(g, cfg.zeroLineLabel || 'м от нулевой линии', R.x0 - 0.45, R.d1 + 1.1, { color: '#555' });
+    // названия осей — над цифрами, прижаты к краям зала (cx: 0 / 1): на узком экране не выходят за кадр;
+    // внизу слева на плане их закрыла бы экспликация
+    mk(xl, 'м от оси', R.x1, R.d1 + 1.1, { color: '#333', cx: 1 });
+    mk(g, cfg.zeroLineLabel || 'м от нулевой линии', R.x0, R.d1 + 1.1, { color: '#333', cx: 0 });
   }
   return g;
 }

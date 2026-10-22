@@ -4,29 +4,35 @@
 //  validateVenue() проверяется юнит-тестом для каждой площадки реестра.
 // =============================================================================
 import { RIG_KINDS } from '../library/rigKinds.js';
+import { SPECS } from '../library/specs.js';
 
 /**
  * @typedef {Object} VenueModule
  * @property {string} id                       'big' — совпадает с id в registry.js и с #v= в ссылке
  * @property {string} name                     'Большая сцена'
  * @property {'ready'|'draft'} status
- * @property {{type:string, seats?:number, note?:string}} meta   — для карточки в списке сцен
+ * @property {{type:string, seats?:number, note?:string}} meta   — паспорт; type/seats сверяются тестом с catalog.js
+ *           (список сцен и стартовая страница берут данные из catalog.js)
  * @property {Capabilities} caps               — что есть на площадке; интерфейс скрывает остальное
  * @property {Array<[string, string, {bp?:number}?]>} layers
  *           слои [ключ, подпись, {bp: цвет в «чертеже»}]; порядок = порядок битов в ссылке, НЕ МЕНЯТЬ
  *           у опубликованной площадки (только добавлять в конец). Слой 'lights' обязателен.
  * @property {Record<string, View>} views      — готовые точки обзора; порядок = порядок кнопок
  * @property {string} defaultView
- * @property {{list: RigCfg[], controlNames?: Record<string,string>, describe?: Function}|null} rigging
- *           подвижная механика (порядок list = порядок в ссылке); null — механики нет
- * @property {FixturesCfg} fixtures
+ * @property {{list: RigCfg[], describe?: (cfg: RigCfg, stage) => Array<[string, string]>}|null} rigging
+ *           подвижная механика; null — механики нет. Порядок list — часть формата ссылки:
+ *           у опубликованной площадки только ДОБАВЛЯТЬ в конец, не удалять и не переставлять
+ * @property {FixturesCfg} fixtures            — порядок fixtures.list — часть формата ссылки (только добавлять в конец;
+ *           списанный прибор не удалять, а оставить с пометкой)
  * @property {{full: LightPlan[], lite: LightPlan[]}} lightPlans   — групповые источники по профилю
  * @property {(ctx: BuildCtx) => Built} build  — строит геометрию площадки
  * @property {Partial<Record<'planDXF'|'sectionDXF'|'dxf3d'|'glb', (stage) => any>>} exports
  * @property {{maxDistance?: number}} [camera]
+ * @property {{fixtures:number, layers:number}} [linkV1]  — только у площадки ссылок формата v1 (Большая сцена)
  * @property {{rigDrag?: string}} [texts]
  *
  * @typedef {{rigging:boolean, counterweights:boolean, portable:boolean, duty:boolean, houseLight:boolean}} Capabilities
+ *           counterweights — информационный флаг (противовесы строит сама площадка), интерфейс по нему ничего не скрывает
  * @typedef {{name:string, type:'persp'|'ortho', pos?:number[], target?:number[], dir?:'top'|'side',
  *            center?:number[], height?:number, width?:number, portraitPullback?:boolean|number, allRopeLabels?:boolean, legendRows?:number}} View
  * @typedef {{id:string, name:string, kind:string, min:number, max:number, rest:number}} RigCfg
@@ -92,10 +98,15 @@ export function validateVenue(v) {
     need(new Set(nos).size === nos.length, 'повторяются номера приборов');
     for (const f of fx.list) {
       need(!!fx.types?.[f.type], `прибор ${f.no}: тип «${f.type}» нет в справочнике`);
+      need(!!(fx.specs?.[f.type] || SPECS[f.type]), `прибор ${f.no}: у типа «${f.type}» нет паспорта (library/specs.js или fixtures.specs)`);
       need(!!fx.groups?.[f.group], `прибор ${f.no}: группа «${f.group}» не описана`);
+      const nums = [f.mount?.x, f.mount?.y, f.mount?.d, f.aim?.x, f.aim?.y, f.aim?.d];
+      need(nums.every(Number.isFinite), `прибор ${f.no}: mount/aim — конечные числа x, y, d`);
       if (f.mount?.on) need(!!rig && rig.list.some((r) => r.id === f.mount.on) && fx.barDepth?.[f.mount.on] != null, `прибор ${f.no}: висит на «${f.mount.on}», которого нет в механике/barDepth`);
     }
     for (const s of fx.groupSets || []) for (const g of s.groups) need(!!fx.groups?.[g], `набор ${s.id}: группа «${g}» не описана`);
+    const inSets = new Set((fx.groupSets || []).flatMap((s) => s.groups));
+    for (const g of Object.keys(fx.groups || {})) need(inSets.has(g), `группа «${g}» не входит ни в один набор groupSets (её нельзя включить кнопкой)`);
     need(!!fx.portable === !!v.caps?.portable, 'caps.portable не совпадает с наличием fixtures.portable');
     need(typeof fx.floor?.trace === 'function' && typeof fx.floor?.zone === 'function' && typeof fx.floor?.clip === 'function', 'fixtures.floor: trace/zone/clip');
     need(typeof fx.hangs === 'function' && typeof fx.poolK === 'function', 'fixtures.hangs / poolK');

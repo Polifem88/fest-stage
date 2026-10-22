@@ -1,8 +1,8 @@
 // Шаг 6. Самопроверка: производительность и собранные файлы.
 //  • FPS при замедленном в 4 раза процессоре (цель ≥ 30) — на телефонах и на десктопе;
 //    время процессора на кадр < 33 мс; на телефонах — бюджет вызовов отрисовки и треугольников.
-//  • dist/mobile.html ≤ 3 МБ, все три файла собраны.
-//  • Собранные файлы открываются двойным кликом (file://) без интернета и без ошибок.
+//  • dist/desktop.html и dist/mobile.html ≤ 1,3 МБ (все площадки каталога), index.html ≤ 0,1 МБ.
+//  • Собранные файлы открываются двойным кликом (file://) без интернета и без ошибок — все площадки.
 // Результаты: review/shots/<раунд>/<проект>/perf.json
 import { test, expect } from '@playwright/test';
 import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
@@ -13,7 +13,6 @@ import { openApp, applyShot, expectNoErrors } from './helpers.js';
 const ROUND = process.env.ROUND || 'r1-self';
 const CPU_SLOWDOWN = 4;
 const FPS_MIN = 30;
-const MOBILE_MAX_MB = 3;
 const CATALOG_MAX_MB = 1.3;
 /** Бюджеты для графики телефона среднего уровня (видеокарту телефона здесь не измерить). */
 const MOBILE_BUDGET = { calls: 150, triangles: 200_000 };
@@ -97,7 +96,6 @@ test.describe('сборка (dist)', () => {
     const mb = (p) => statSync(resolve(DIST, p)).size / 1024 / 1024;
     const sizes = { index: mb('index.html'), desktop: mb('desktop.html'), mobile: mb('mobile.html') };
     console.log('размеры, МБ:', Object.entries(sizes).map(([k, v]) => `${k} ${v.toFixed(2)}`).join(', '));
-    expect(sizes.mobile, `mobile.html ${sizes.mobile.toFixed(2)} МБ`).toBeLessThanOrEqual(MOBILE_MAX_MB);
     // каталог сцен (GEMINI.md §2): все площадки в одном файле — не больше 1,3 МБ на страницу;
     // стартовая страница не тянет за собой 3D-движок
     for (const k of ['desktop', 'mobile']) expect(sizes[k], `${k}.html ${sizes[k].toFixed(2)} МБ (бюджет каталога 1,3)`).toBeLessThanOrEqual(CATALOG_MAX_MB);
@@ -114,6 +112,11 @@ test.describe('сборка (dist)', () => {
     const log = await openApp(page, pathToFileURL(resolve(DIST, file)).href);
     await applyShot(page, 'hall');
     expect(await page.evaluate(() => window.__fest.stats().calls)).toBeGreaterThan(10);
+    // все площадки каталога встроены в тот же файл и открываются без сети
+    for (const v of await page.evaluate(() => window.__fest.venues.filter((e) => e.status !== 'soon').map((e) => e.id))) {
+      expect(await page.evaluate((id) => window.__fest.loadVenue(id), v), `площадка ${v} открылась`).toBe(true);
+      expect(await page.evaluate(() => window.__fest.venue())).toBe(v);
+    }
     expect(external, 'запросы в интернет').toEqual([]);
     expectNoErrors(log);
   });

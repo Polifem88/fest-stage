@@ -23,5 +23,6 @@ describe.each(openable.map((e) => [e.id, e]))('Площадка %s', (id, entry)
     expect(venue.status).toBe(entry.status);
     expect(venue.name).toBe(entry.name);
     if (entry.seats != null && venue.meta.seats != null) expect(venue.meta.seats).toBe(entry.seats);
+    if (entry.type) expect(venue.meta.type, 'тип площадки в каталоге и в модуле').toBe(entry.type);
   });
 });

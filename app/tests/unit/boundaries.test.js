@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, dirname, resolve, sep } from 'node:path';
+import { CATALOG } from '../../src/venues/catalog.js';
 
 const SRC = resolve(__dirname, '../../src');
 const files = [];
@@ -70,6 +71,18 @@ describe('Границы модулей', () => {
       readFileSync(f, 'utf8').split('\n').forEach((line, n) => {
         if (/^(\/\/|\/\*|\*)/.test(line.trim())) return; // комментарии — можно
         if (NAMES.test(line)) bad.push(`${rel(f)}:${n + 1}: ${line.trim().slice(0, 90)}`);
+      });
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('в движке, системах, ядре, справочнике и экспорте нет id площадок', () => {
+    const ids = new RegExp(`['"\`](${CATALOG.map((v) => v.id).join('|')})['"\`]`);
+    const bad = [];
+    for (const f of files.filter((f) => ['engine', 'systems', 'core', 'library', 'export'].includes(top(f)))) {
+      readFileSync(f, 'utf8').split('\n').forEach((line, n) => {
+        if (/^(\/\/|\/\*|\*)/.test(line.trim())) return;
+        if (ids.test(line)) bad.push(`${rel(f)}:${n + 1}: ${line.trim().slice(0, 90)}`);
       });
     }
     expect(bad).toEqual([]);

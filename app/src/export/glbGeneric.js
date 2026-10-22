@@ -12,21 +12,25 @@ export function buildExportScene(stage) {
   const root = new THREE.Group();
   root.name = `FEST_${stage.venue.id}`;
   const mats = new Map();
-  const matFor = (m) => {
+  /** Материал для экспорта; tint — цвет экземпляра InstancedMesh (корпуса приборов окрашены через instanceColor). */
+  const matFor = (m, tint = null) => {
     const src = Array.isArray(m) ? m[0] : m;
-    if (!mats.has(src)) {
+    const key = tint ? `${src.uuid}:${tint.getHexString()}` : src;
+    if (!mats.has(key)) {
+      const color = src.color ? src.color.clone() : new THREE.Color(0x808080);
+      if (tint) color.multiply(tint);
       const out = new THREE.MeshStandardMaterial({
         name: src.name || 'material',
-        color: src.color ? src.color.clone() : new THREE.Color(0x808080),
+        color,
         roughness: src.roughness ?? 0.8,
         metalness: src.metalness ?? 0,
         side: src.side ?? THREE.FrontSide,
         transparent: !!src.transparent,
         opacity: src.opacity ?? 1,
       });
-      mats.set(src, out);
+      mats.set(key, out);
     }
-    return mats.get(src);
+    return mats.get(key);
   };
   const sources = [...Object.values(stage.layerGroups || {})];
   for (const src of sources) {
@@ -38,10 +42,12 @@ export function buildExportScene(stage) {
       if (!mat || mat.visible === false || mat.isShaderMaterial || mat.blending === THREE.AdditiveBlending) return;
       if (o.isInstancedMesh) {
         const m = new THREE.Matrix4();
+        const c = new THREE.Color();
         for (let i = 0; i < o.count; i++) {
           o.getMatrixAt(i, m);
           if (Math.abs(m.determinant()) < 1e-12) continue; // скрытые экземпляры (масштаб 0)
-          const mesh = new THREE.Mesh(o.geometry, matFor(mat));
+          if (o.instanceColor) o.getColorAt(i, c);
+          const mesh = new THREE.Mesh(o.geometry, matFor(mat, o.instanceColor ? c : null));
           mesh.name = `${o.name}#${i}`;
           mesh.matrixAutoUpdate = false;
           mesh.matrix.multiplyMatrices(o.matrixWorld, m);
