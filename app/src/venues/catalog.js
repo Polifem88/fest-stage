@@ -8,7 +8,7 @@
 // =============================================================================
 
 export const THEATRE_NAME = 'ФЭСТ';
-export const APP_TITLE = 'ФЭСТ · 3D-каталог сцен';
+export const APP_TITLE = 'Театр ФЭСТ · 3D-каталог сцен';
 
 export const CATALOG = [
   { id: 'big', name: 'Большая сцена', short: 'Большая', status: 'ready', type: 'Сцена-коробка с порталом', seats: 390 },

@@ -28,7 +28,7 @@ for (const [name, ctxOpts, page] of [
     await p2.waitForFunction(() => window.__fest?.ready, null, { timeout: 120000 });
     info += `; по ссылке Ш5 = ${await p2.evaluate(() => window.__fest.height('Sh5'))} м`;
   } else {
-    info += `, рекомендована: ${await p.locator('a.choice.rec b').textContent()}`;
+    info += `, сцен на стартовой: ${await p.locator('.venue-card').count()}; ${await p.locator('#rec').textContent()}`;
   }
   await p.screenshot({ path: `${out}/live-${name}.jpg`, type: 'jpeg', quality: 70 });
   console.log(name.padEnd(14), info, errs.length ? `ОШИБКИ: ${errs.join(' | ')}` : 'без ошибок');

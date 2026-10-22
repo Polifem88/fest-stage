@@ -104,7 +104,7 @@ test('снимки всех видов', async ({ page }, info) => {
   expectNoErrors(log);
 });
 
-test('стартовая страница рекомендует нужную версию', async ({ page }, info) => {
+test('стартовая страница: карточки сцен и рекомендация версии', async ({ page }, info) => {
   const mobile = !!info.project.use.isMobile;
   const dir = `review/shots/${ROUND}/${info.project.name}`;
   mkdirSync(dir, { recursive: true });
@@ -112,9 +112,15 @@ test('стартовая страница рекомендует нужную в
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await page.goto('index.html#s=test');
-  await expect(page.locator(mobile ? '#mob' : '#desk')).toHaveClass(/rec/);
-  // ссылка с состоянием передаётся дальше
-  await expect(page.locator('#desk')).toHaveAttribute('href', /desktop\.html#s=test$/);
+  await expect(page.locator('h1')).toContainText('Театр ФЭСТ');
+  // пять сцен; у открываемых — кнопки «Компьютер» и «Телефон», без выделения «рекомендованной»
+  await expect(page.locator('.venue-card')).toHaveCount(5);
+  await expect(page.locator('.venue-card[data-venue="chamber"] a[data-device="mob"]')).toHaveAttribute('href', /mobile\.html#v=chamber$/);
+  await expect(page.locator('.venue-links .btn.on')).toHaveCount(0);
+  await expect(page.locator('.venue-card.soon a')).toHaveCount(0);
+  await expect(page.locator('#rec')).toContainText(mobile ? 'мобильную' : 'полную');
+  // старая ссылка с состоянием (#s=… — Большая сцена) передаётся в кнопки Большой сцены
+  await expect(page.locator('.venue-card[data-venue="big"] a[data-device="desk"]')).toHaveAttribute('href', /desktop\.html#s=test$/);
   await page.screenshot({ path: `${dir}/00-index.jpg`, type: 'jpeg', quality: 80, scale: 'css' });
   expect(errors).toEqual([]);
 });
