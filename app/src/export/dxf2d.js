@@ -222,16 +222,18 @@ export function buildPlanDXF(stage) {
     [-PW2, 0], [-FW2, BREAK_D], [-FW2, -FS.depth],
     [FW2, -FS.depth], [FW2, BREAK_D], [PW2, 0],
   ], { layer: 'AR_WALLS' });
-  // Ступени в нишах авансцены
+  // Ступени в нишах авансцены (параллельно скосу авансцены от его излома до линии портала d = 0)
   for (const side of [-1, 1]) {
     const ax = side * PW2, ay = 0;
     const bx = side * FW2, by = BREAK_D;
-    const cx = side * FW2, cy = -FS.depth;
+    const cy = -FS.depth;
     const rises = FS.stairs.steps;
     for (let k = 1; k < rises; k++) {
       const t = k / (rises - 1);
-      const p0x = ax + (cx - bx) * t, p0y = ay;
-      const p1x = bx, p1y = by + (cy - by) * t;
+      const p1x = bx;
+      const p1y = by + (cy - by) * t;
+      const p0x = bx + (p1y / by) * (ax - bx);
+      const p0y = ay;
       dxf.addLine(p0x, p0y, p1x, p1y, { layer: 'AR_WALLS' });
     }
   }

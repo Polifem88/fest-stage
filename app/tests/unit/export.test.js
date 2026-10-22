@@ -78,6 +78,33 @@ describe('Экспорт 2D-плана сцены (buildPlanDXF)', () => {
     const inserts = (dxf.match(/\n0\nINSERT\n/g) || []).length;
     expect(inserts).toBe(124);
   });
+
+  it('строит линии передних лестниц авансцены строго параллельно скосу (без схождения в одну точку у портала)', () => {
+    const dxf = buildPlanDXF(null);
+    // Правый скос авансцены: от (6.25, 0) до (5.625, -0.85) -> наклон dx/dy = (5.625 - 6.25) / -0.85
+    const expectedSlope = (5.625 - 6.25) / -0.85;
+    // Извлекаем все LINE на слое AR_WALLS, у которых y1 = 0 и x2 = 5.625 (правый марш лестницы)
+    const lineBlocks = dxf.split('\n0\nLINE\n').slice(1);
+    const rightStairLines = [];
+    for (const blk of lineBlocks) {
+      const lines = blk.split('\n');
+      const map = {};
+      for (let i = 0; i + 1 < lines.length; i += 2) {
+        if (lines[i] === '0') break;
+        map[lines[i]] = lines[i + 1];
+      }
+      if (map['8'] === 'AR_WALLS' && Number(map['20']) === 0 && Math.abs(Number(map['11']) - 5.625) < 1e-3 && Number(map['21']) < -0.85) {
+        rightStairLines.push({ x1: Number(map['10']), y1: Number(map['20']), x2: Number(map['11']), y2: Number(map['21']) });
+      }
+    }
+    expect(rightStairLines.length).toBe(4);
+    const x1Set = new Set(rightStairLines.map((l) => l.x1));
+    expect(x1Set.size).toBe(4); // все 4 ступени приходят в разные точки на линии портала d=0
+    for (const l of rightStairLines) {
+      const slope = (l.x2 - l.x1) / (l.y2 - l.y1);
+      expect(slope).toBeCloseTo(expectedSlope, 3);
+    }
+  });
 });
 
 describe('Экспорт 2D продольного разреза (buildSectionDXF)', () => {
