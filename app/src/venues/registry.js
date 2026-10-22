@@ -12,8 +12,7 @@ export const APP_TITLE = 'ФЭСТ · 3D-каталог сцен';
 
 export const VENUES = [
   { id: 'big', name: 'Большая сцена', status: 'ready', type: 'Сцена-коробка с порталом', seats: 390, load: () => import('./fest-big/index.js') },
-  // модуль Камерной подключается в фазе 3 (шаблон «чёрный кабинет»)
-  { id: 'chamber', name: 'Камерная сцена', status: 'draft', type: 'Чёрный кабинет', seats: 100 },
+  { id: 'chamber', name: 'Камерная сцена', status: 'draft', type: 'Чёрный кабинет', seats: 100, load: () => import('./fest-chamber/index.js') },
   { id: 'roof', name: 'Сцена под крышей', status: 'soon' },
   { id: 'foyer', name: 'Фойе', status: 'soon' },
   { id: 'studio', name: 'Студия мультимедиа', status: 'soon' },
