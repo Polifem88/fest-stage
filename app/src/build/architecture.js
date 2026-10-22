@@ -90,12 +90,13 @@ export function buildArchitecture(batch, M) {
   // ===========================================================================
   //  ПЛАНШЕТ (с вырезом под приямок)
   // ===========================================================================
-  const floorParts = [
-    rect('y', 0, -W, GX, 0, BACK, 1),
-    rect('y', 0, GX, W, 0, pit.fromD, 1),
-    rect('y', 0, GX, W, pit.toD, BACK, 1),
+  const floorPts = [
+    [-W, 0], [W, 0], [W, pit.fromD], [GX, pit.fromD],
+    [GX, pit.toD], [W, pit.toD], [W, BACK], [-W, BACK],
   ];
-  batch.add('walls', M.floor, floorParts, { tag: 'stageFloor' });
+  const floorGeo = new THREE.ShapeGeometry(new THREE.Shape(floorPts.map(([x, d]) => new THREE.Vector2(x, d))));
+  floorGeo.rotateX(-Math.PI / 2);
+  batch.add('walls', M.floor, floorGeo, { tag: 'stageFloor' });
 
   // ===========================================================================
   //  АВАНСЦЕНА: перед + бока под прямым углом на sideStraight, далее скос к порталу;
@@ -215,8 +216,9 @@ export function buildArchitecture(batch, M) {
     rect('d', pit.fromD, GX, W, -pit.depth, 0, 1),
     rect('d', pit.toD, GX, W, -pit.depth, 0, -1),
   ]);
-  batch.add('walls', M.floor, rect('y', -pit.depth, GX, W, pit.fromD, pit.toD, 1));
   const tread = 0.3;
+  const stepsStartD = pit.toD - (pit.steps - 1) * tread;
+  batch.add('walls', M.stageEdge, rect('y', -pit.depth, GX, W, pit.fromD, stepsStartD, 1));
   const steps = [];
   for (let i = 0; i < pit.steps - 1; i++) {
     const yTop = -(i + 1) * (pit.depth / pit.steps);

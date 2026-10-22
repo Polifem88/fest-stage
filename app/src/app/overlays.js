@@ -1,6 +1,6 @@
 // Размерные линии с подписями и сетка на планшете.
 import * as THREE from 'three';
-import { DIM, BOX_HALF, HALL_HALF, rowFrontD } from '../config/dimensions.js';
+import { DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, rowFrontD } from '../config/dimensions.js';
 import { HALL_BACK_FLOOR_Y } from '../build/architecture.js';
 
 const fmt = (m) => `${m.toFixed(2).replace(/\.?0+$/, '').replace('.', ',')} м`;
@@ -87,9 +87,21 @@ export function buildGrid(labels) {
   g.name = 'grid';
   const v = [];
   const W = BOX_HALF;
+  const GX = GALLERY_INNER_X;
+  const pit = DIM.pit;
   const d0 = -DIM.forestage.depth, d1 = DIM.box.backWallD;
-  for (let x = -8; x <= 8; x++) v.push(x, 0.006, -d0, x, 0.006, -d1);
-  for (let d = Math.ceil(d0); d <= d1; d++) v.push(-W, 0.006, -d, W, 0.006, -d);
+  for (let x = -8; x <= 8; x++) {
+    if (x > GX) {
+      v.push(x, 0.006, -d0, x, 0.006, -pit.fromD);
+      v.push(x, 0.006, -pit.toD, x, 0.006, -d1);
+    } else {
+      v.push(x, 0.006, -d0, x, 0.006, -d1);
+    }
+  }
+  for (let d = Math.ceil(d0); d <= d1; d++) {
+    const xMax = d > pit.fromD && d < pit.toD ? GX : W;
+    v.push(-W, 0.006, -d, xMax, 0.006, -d);
+  }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
   g.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0x6f7c8f, transparent: true, opacity: 0.45 })));

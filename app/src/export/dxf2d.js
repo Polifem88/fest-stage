@@ -162,14 +162,25 @@ export function buildPlanDXF(stage) {
   dxf.addText(0.15, BACK + 0.85, 'ОСЬ СЦЕНЫ (X = 0)', { layer: '0_AXES', height: 0.18 });
   dxf.addText(-HW - 1.1, 0.12, 'КРАСНАЯ ЛИНИЯ ПОРТАЛА (d = 0)', { layer: '0_AXES', height: 0.18 });
 
+  const pit = DIM.pit;
   for (let x = -8; x <= 8; x++) {
-    if (x !== 0) dxf.addLine(x, -FS.depth, x, BACK, { layer: '0_GRID' });
+    if (x !== 0) {
+      if (x > GX) {
+        dxf.addLine(x, -FS.depth, x, pit.fromD, { layer: '0_GRID' });
+        dxf.addLine(x, pit.toD, x, BACK, { layer: '0_GRID' });
+      } else {
+        dxf.addLine(x, -FS.depth, x, BACK, { layer: '0_GRID' });
+      }
+    }
     if (x % 2 === 0) {
       dxf.addText(x, BACK + 0.35, `${x > 0 ? '+' : ''}${x}`, { layer: '0_GRID', height: 0.18, align: 'center', valign: 'bottom' });
     }
   }
   for (let d = Math.ceil(-FS.depth); d <= Math.floor(BACK); d++) {
-    if (d !== 0) dxf.addLine(-W, d, W, d, { layer: '0_GRID' });
+    if (d !== 0) {
+      const xMax = d > pit.fromD && d < pit.toD ? GX : W;
+      dxf.addLine(-W, d, xMax, d, { layer: '0_GRID' });
+    }
     dxf.addText(-W - 0.35, d, `${d > 0 ? '+' : ''}${d} м`, { layer: '0_GRID', height: 0.16, align: 'right', valign: 'middle' });
   }
 
@@ -226,7 +237,6 @@ export function buildPlanDXF(stage) {
   }
 
   // Приямок у правой стены (0.9 × 3.0 м, глубина -1.0 м)
-  const pit = DIM.pit;
   dxf.addRect(GX, pit.fromD, W, pit.toD, { layer: 'AR_WALLS' });
   for (let i = 1; i < pit.steps; i++) {
     const stepD = pit.toD - i * 0.3;
@@ -570,20 +580,22 @@ export function buildSectionDXF(stage) {
   }
 
   // --- 2. Архитектурный контур разреза (AR_SECTION) --------------------------
-  // Планшет сцены (Y = 0 от задней стены d=9.2 до переднего края авансцены d=-2.75)
-  dxf.addLine(X(BACK), 0, X(-FS.depth), 0, { layer: 'AR_SECTION' });
-  dxf.addLine(X(BACK), -0.08, X(-FS.depth), -0.08, { layer: 'AR_SECTION' });
-
-  // Приямок у правой стены в проекции разреза (d = 1.0..4.0, глубина -1.0 м)
+  // Планшет сцены (Y = 0 от задней стены d=9.2 до переднего края авансцены d=-2.75, без пола над приямком d=1.0..4.0)
   const pit = DIM.pit;
+  dxf.addLine(X(BACK), 0, X(pit.toD), 0, { layer: 'AR_SECTION' });
+  dxf.addLine(X(BACK), -0.08, X(pit.toD), -0.08, { layer: 'AR_SECTION' });
+  dxf.addLine(X(pit.fromD), 0, X(-FS.depth), 0, { layer: 'AR_SECTION' });
+  dxf.addLine(X(pit.fromD), -0.08, X(-FS.depth), -0.08, { layer: 'AR_SECTION' });
+
+  // Приямок у правой стены в разрезе (d = 1.0..4.0, глубина -1.0 м)
   dxf.addPolyline([
     [X(pit.toD), 0], [X(pit.toD), -pit.depth],
     [X(pit.fromD), -pit.depth], [X(pit.fromD), 0],
-  ], { layer: 'AR_SECTION', ltype: 'DASHED' });
+  ], { layer: 'AR_SECTION' });
   for (let i = 1; i < pit.steps; i++) {
     const stepD = pit.toD - i * 0.3;
     const stepY = -(i * pit.depth) / pit.steps;
-    dxf.addLine(X(stepD), -pit.depth, X(stepD), stepY, { layer: 'AR_SECTION', ltype: 'DASHED' });
+    dxf.addLine(X(stepD), -pit.depth, X(stepD), stepY, { layer: 'AR_SECTION' });
   }
   dxf.addText(X((pit.fromD + pit.toD) / 2), -pit.depth + 0.15, 'Приямок -1,00 м', {
     layer: 'AR_SECTION', height: 0.15, align: 'center',

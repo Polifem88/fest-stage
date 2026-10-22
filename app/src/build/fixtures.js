@@ -1,7 +1,7 @@
 // Приборы: упрощённые модели по типам (InstancedMesh), светящиеся линзы,
 // лучи («дымка») и световые пятна на полу. Включение/выключение по одному и группами.
 import * as THREE from 'three';
-import { DIM, BOX_HALF, HALL_HALF, hallFloorY, forestageHalfWidth } from '../config/dimensions.js';
+import { DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, hallFloorY, forestageHalfWidth } from '../config/dimensions.js';
 import { FIXTURES, TYPES, BAR_DEPTH, PORTABLE, portablePlacement } from '../config/fixtures.js';
 import { radialTexRGB } from '../core/materials.js';
 
@@ -428,6 +428,7 @@ function poolColor(f) {
  */
 function clipPoolsToFloor(mat) {
   const fs = DIM.forestage;
+  const pit = DIM.pit;
   const c = (v) => v.toFixed(4);
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
@@ -440,6 +441,7 @@ function clipPoolsToFloor(mat) {
   float ax = abs(vPoolW.x);
   if (vZone < 0.5) {
     if (pd > ${c(DIM.box.backWallD)} || ax > ${c(BOX_HALF)} || pd < ${c(-fs.depth)}) discard;
+    if (vPoolW.x > ${c(GALLERY_INNER_X)} && pd > ${c(pit.fromD)} && pd < ${c(pit.toD)}) discard;
     if (pd < 0.0 && ax > max(${c(fs.frontWidth / 2)}, ${c(fs.frontWidth / 2)} + (pd - ${c(fs.sideStraight - fs.depth)}) / ${c(fs.depth - fs.sideStraight)} * ${c((fs.backWidth - fs.frontWidth) / 2)})) discard;
   } else if (ax > ${c(HALL_HALF)}) discard;`);
   };
@@ -455,10 +457,14 @@ export function traceToFloor(p, dir) {
     const t = -p.y / dir.y;
     const q = p.clone().addScaledVector(dir, t);
     const d = -q.z;
-    const onStage = d >= 0 && d <= DIM.box.backWallD && Math.abs(q.x) <= BOX_HALF;
+    const inPit = q.x > GALLERY_INNER_X && d > DIM.pit.fromD && d < DIM.pit.toD;
+    const onStage = d >= 0 && d <= DIM.box.backWallD && Math.abs(q.x) <= BOX_HALF && !inPit;
     const onFs = d < 0 && d >= -DIM.forestage.depth && Math.abs(q.x) <= forestageHalfWidth(d);
     if ((onStage || onFs) && t < best.dist) best = { dist: t, floor: true, point: q };
-    else if (!onStage && !onFs) {
+    else if (inPit) {
+      const tPit = (-DIM.pit.depth - p.y) / dir.y;
+      if (tPit > 0 && tPit < best.dist) best = { dist: tPit, floor: false, point: p.clone().addScaledVector(dir, tPit) };
+    } else if (d < 0 && !onFs) {
       // пол зала (ступенчатый) — несколько итераций
       let tt = t;
       for (let k = 0; k < 4; k++) {
