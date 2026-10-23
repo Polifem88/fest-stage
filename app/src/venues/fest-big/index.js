@@ -73,7 +73,7 @@ export default {
   id: 'big',
   name: 'Большая сцена',
   status: 'ready',
-  meta: { type: 'Сцена-коробка с порталом', seats: DIM.hall.rows * DIM.hall.seatsPerRow },
+  meta: { type: 'Сцена с порталом, приподнятым планшетом и подвижной механизацией', seats: DIM.hall.rows * DIM.hall.seatsPerRow },
   caps: { rigging: true, counterweights: true, portable: true, duty: true, houseLight: true },
   layers: [['hall', 'Зрительный зал'], ['walls', 'Стены и потолок коробки'], ['galleries', 'Галереи'], ['rigging', 'Механика'], ['lights', 'Свет (приборы)']],
   views: VIEWS,

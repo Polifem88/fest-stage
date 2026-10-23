@@ -72,7 +72,7 @@ export function buildGrid(labels) {
     g.add(xl);
     g.userData.xLabels = xl;
     const mk = (parent, text, x, d, opts = {}) => {
-      const s = labels.make(text, { px: 11, color: '#c8352a', bg: 'rgba(255,255,255,0.85)', kind: 'grid', depthTest: false, ...opts });
+      const s = labels.make(text, { px: 22, color: '#c8352a', bg: 'rgba(255,255,255,0.92)', kind: 'grid', depthTest: false, ...opts });
       s.position.set(x, 0.02, -d);
       s.renderOrder = 11;
       parent.add(s);

@@ -97,6 +97,29 @@ function woodPanelTex() {
   });
 }
 
+// Серые стеновые панели: прямоугольник 1,2 × 0,6 м (Ш × В) в тайле 1,2 × 1,2 м (1 по ширине × 2 по высоте)
+function greyPanelTex() {
+  return canvasTex(256, (g, S) => {
+    const r = rng(19);
+    g.fillStyle = '#686c75';
+    g.fillRect(0, 0, S, S);
+    for (let i = 0; i < 40; i++) {
+      g.fillStyle = i % 2 ? 'rgba(255,255,255,0.022)' : 'rgba(0,0,0,0.03)';
+      g.fillRect(r() * S, r() * S, 16 + r() * 32, 2 + r() * 4);
+    }
+    g.strokeStyle = '#3f434a';
+    g.lineWidth = 3;
+    // По ширине (U) — 1 панель 1,2 м (вертикальный шов по краям тайла 0 и S)
+    for (let i = 0; i <= 1; i++) {
+      g.beginPath(); g.moveTo(i * S, 0); g.lineTo(i * S, S); g.stroke();
+    }
+    // По высоте (V) — 2 панели по 0,6 м (горизонтальные швы на 0, S/2 и S)
+    for (let i = 0; i <= 2; i++) {
+      g.beginPath(); g.moveTo(0, i * S / 2); g.lineTo(S, i * S / 2); g.stroke();
+    }
+  });
+}
+
 function meshTex() {
   // сетка-рабица (альфа)
   return canvasTex(128, (g, S) => {
@@ -142,9 +165,13 @@ export function radialTexRGB() {
  */
 export function createMaterials() {
   const std = (o) => new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0, ...o });
+  const boards = boardsTex();
   const m = {
-    floor: std({ map: boardsTex(), roughness: 0.9 }),
+    floor: std({ map: boards, roughness: 0.9 }),
+    // узкая доска 10 см того же графитового цвета (5 досок на 0.5 м повтора)
+    floorNarrow: std({ map: boards, roughness: 0.9 }),
     blackWall: std({ color: 0x141414, roughness: 0.95 }),
+    wallPanel: std({ map: greyPanelTex(), roughness: 0.88 }),
     brickBack: std({ map: brickTex('#161618', '#08080a', 0), roughness: 0.95 }),
     // низ задней стены под нижней галереей: чёрный кирпич
     brickBlack: std({ map: brickTex('#121214', '#070709', 0), roughness: 1 }),
@@ -156,6 +183,7 @@ export function createMaterials() {
     fascia: std({ color: 0x2a2c30, metalness: 0.2, roughness: 0.85 }), // отбойный щит нижней галереи — тёмный графитовый металл
     pipe: std({ color: 0x1f2023, metalness: 0.7, roughness: 0.4 }),
     track: std({ color: 0x2d2f33, metalness: 0.6, roughness: 0.5 }),
+    curtainTrack: std({ color: 0xb8bec7, metalness: 0.65, roughness: 0.35 }),
     rigel: std({ color: 0x1a1a1a, roughness: 0.9 }),
     counterweight: std({ color: 0x3b3430, roughness: 0.8, metalness: 0.2 }),
     rope: std({ color: 0xc9b48a, roughness: 1 }),
@@ -165,6 +193,10 @@ export function createMaterials() {
     gate: std({ color: 0x232427, roughness: 0.6, metalness: 0.3 }),
     // зал
     hallFloor: std({ color: 0x3a3c44, roughness: 1 }),
+    carpet: std({ color: 0x34373d, roughness: 0.98 }),
+    carpetSide: std({ color: 0x282b30, roughness: 0.98 }),
+    brass: std({ color: 0xb8923a, metalness: 0.7, roughness: 0.35 }),
+    acUnit: std({ color: 0x151619, roughness: 0.75, metalness: 0.2 }),
     hallWood: std({ map: woodPanelTex(), roughness: 0.7 }),
     hallAcoustic: std({ color: 0x8b8783, roughness: 1 }),
     hallCeiling: std({ map: tilesTex('#6f665e', '#4f4943'), roughness: 1 }),
@@ -185,6 +217,8 @@ export function createMaterials() {
   };
   // масштаб повтора текстур (метров на повтор)
   m.floor.userData.uvScale = 2;
+  m.floorNarrow.userData.uvScale = 0.5;
+  m.wallPanel.userData.uvScale = 1.2;
   m.brickBack.userData.uvScale = 1;
   m.brickBlack.userData.uvScale = 1;
   m.brickSide.userData.uvScale = 1;

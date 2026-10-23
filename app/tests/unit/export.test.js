@@ -4,6 +4,10 @@ import { FIXTURES } from '../../src/venues/fest-big/config/fixtures.js';
 import { DxfWriter, encodeDxfWindows1251 } from '../../src/export/dxfWriter.js';
 import { buildPlanDXF, buildSectionDXF } from '../../src/venues/fest-big/export/dxf2d.js';
 import { build3DDXF, buildGLB } from '../../src/venues/fest-big/export/export3d.js';
+import { ALL_TRUSSES } from '../../src/venues/fest-chamber/config/dimensions.js';
+import { FIXTURES as CHAMBER_FIXTURES } from '../../src/venues/fest-chamber/config/fixtures.js';
+import { buildPlanDXF as buildChamberPlanDXF, buildSectionDXF as buildChamberSectionDXF } from '../../src/venues/fest-chamber/export/dxf2d.js';
+import { build3DDXF as buildChamber3DDXF, buildGLB as buildChamberGLB } from '../../src/venues/fest-chamber/export/export3d.js';
 
 describe('Ядро генератора DXF (DxfWriter)', () => {
   it('формирует валидные секции HEADER ($INSUNITS=6, $DWGCODEPAGE=ANSI_1251), TABLES, BLOCKS, ENTITIES, EOF и кодирует Windows-1251', () => {
@@ -173,6 +177,63 @@ describe('Экспорт 3D-модели Binary glTF 2.0 (buildGLB)', () => {
     }
 
     // Проверка отсутствия NaN/Infinity в min/max всех accessors
+    for (const acc of gltf.accessors) {
+      if (acc.min) for (const v of acc.min) expect(Number.isFinite(v)).toBe(true);
+      if (acc.max) for (const v of acc.max) expect(Number.isFinite(v)).toBe(true);
+    }
+  });
+});
+
+describe('Камерная сцена: экспорт 2D и 3D (DXF и GLB)', () => {
+  it('2D-план (buildChamberPlanDXF) содержит все целевые слои, 12 ферм и 72 блока приборов', () => {
+    const dxf = buildChamberPlanDXF(null);
+    for (const layer of [
+      '0_AXES', '0_GRID', 'AR_WALLS', 'AR_RIGEL', 'AR_DUCTS', 'AR_HALL', 'AR_HALL_SEATS',
+      'TRUSSES', 'TRUSS_EQUIPMENT', 'FIXTURES', 'FIXTURE_LABELS', 'DIMS', 'SHEET_LEGEND',
+    ]) {
+      expect(dxf, `отсутствует слой ${layer}`).toContain(`\n2\n${layer}\n`);
+    }
+    for (const tr of ALL_TRUSSES) {
+      expect(dxf, `отсутствует ферма ${tr.name}`).toContain(tr.name);
+    }
+    const inserts = (dxf.match(/\n0\nINSERT\n/g) || []).length;
+    expect(inserts).toBe(CHAMBER_FIXTURES.length);
+  });
+
+  it('2D продольный разрез (buildChamberSectionDXF) содержит высотные отметки, гребёнку зала и операторскую', () => {
+    const dxf = buildChamberSectionDXF(null);
+    expect(dxf).toContain('±0,000 (Планшет сцены)');
+    expect(dxf).toContain('+1,500 (7-й ряд / Операторская)');
+    expect(dxf).toContain('+3,600 (Низ ригелей)');
+    expect(dxf).toContain('+3,750 (Низ ферм)');
+    expect(dxf).toContain('+4,400 (Потолок)');
+    expect(dxf).toContain('Операторская (+1,50)');
+    expect(dxf).toContain('\n2\nFIXTURES_SECTION\n');
+  });
+
+  it('3D DXF (buildChamber3DDXF) генерирует 3DFACE и LINE в AutoCAD WCS и скрывает внешние стены на 3D_OUTER_WALLS', () => {
+    const dxf = buildChamber3DDXF(null);
+    expect(dxf).toContain('\n0\n3DFACE\n');
+    expect(dxf).toContain('\n2\n3D_WALLS\n');
+    expect(dxf).toContain('\n2\n3D_OUTER_WALLS\n');
+    expect(dxf).toContain('\n2\n3D_TRUSSES\n');
+    expect(dxf).toContain('\n2\n3D_FIXTURES\n');
+    expect(dxf.trim().endsWith('0\nEOF')).toBe(true);
+  });
+
+  it('3D GLB (buildChamberGLB) создаёт валидный бинарный контейнер glTF 2.0 с односторонними материалами и без NaN', async () => {
+    const buf = await buildChamberGLB(null);
+    expect(buf).toBeInstanceOf(ArrayBuffer);
+    expect(buf.byteLength).toBeGreaterThan(20_000);
+    const dv = new DataView(buf);
+    expect(dv.getUint32(0, true)).toBe(0x46546C67);
+    expect(dv.getUint32(4, true)).toBe(2);
+    const jsonLen = dv.getUint32(12, true);
+    const gltf = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 20, jsonLen)));
+    expect(gltf.asset.version).toBe('2.0');
+    for (const mat of gltf.materials || []) {
+      expect(mat.doubleSided).not.toBe(true);
+    }
     for (const acc of gltf.accessors) {
       if (acc.min) for (const v of acc.min) expect(Number.isFinite(v)).toBe(true);
       if (acc.max) for (const v of acc.max) expect(Number.isFinite(v)).toBe(true);

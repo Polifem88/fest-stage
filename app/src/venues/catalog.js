@@ -11,12 +11,20 @@ export const THEATRE_NAME = 'ФЭСТ';
 export const APP_TITLE = 'Театр ФЭСТ · 3D-каталог сцен';
 
 export const CATALOG = [
-  { id: 'big', name: 'Большая сцена', short: 'Большая', status: 'ready', type: 'Сцена-коробка с порталом', seats: 390 },
-  { id: 'chamber', name: 'Камерная сцена', short: 'Камерная', status: 'draft', type: 'Чёрный кабинет', seats: 100 },
+  { id: 'big', name: 'Большая сцена', short: 'Большая', status: 'ready', type: 'Сцена с порталом, приподнятым планшетом и подвижной механизацией', seats: 390 },
+  { id: 'chamber', name: 'Камерная сцена', short: 'Камерная', status: 'ready', type: 'Аудитория с фиксированным амфитеатром', seats: 102 },
   { id: 'roof', name: 'Сцена под крышей', short: 'Под крышей', status: 'soon' },
   { id: 'foyer', name: 'Фойе', short: 'Фойе', status: 'soon' },
   { id: 'studio', name: 'Студия мультимедиа', short: 'Студия', status: 'soon' },
 ];
+
+/** Склонение числа зрительских мест («390 мест», «102 места»). */
+export function seatsLabel(n) {
+  if (!n) return null;
+  const m10 = n % 10, m100 = n % 100;
+  const w = m10 === 1 && m100 !== 11 ? 'место' : m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? 'места' : 'мест';
+  return `${n} ${w}`;
+}
 
 export const DEFAULT_VENUE = 'big';
 /** Ссылки до каталога (формат v1) не содержат площадки — это всегда Большая сцена. */

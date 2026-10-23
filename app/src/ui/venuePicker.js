@@ -3,6 +3,7 @@
 // (фокус внутри, Esc закрывает, щелчок мимо закрывает). Сцены «скоро» видны, но не открываются.
 import { h, toast } from './common.js';
 import { THEATRE_NAME, VENUES, venueEntry } from '../venues/registry.js';
+import { seatsLabel } from '../venues/catalog.js';
 
 const STATUS = { draft: 'черновик', soon: 'скоро' };
 
@@ -52,7 +53,7 @@ export function venueBrand(stage, { compact = false, onBefore } = {}) {
     const cur = stage.venue?.id;
     list.replaceChildren(...VENUES.map((v) => {
       const soon = v.status === 'soon' || !v.load;
-      const meta = [v.type, v.seats ? `${v.seats} мест` : null].filter(Boolean).join(' · ') || 'модель готовится';
+      const meta = [v.type, seatsLabel(v.seats)].filter(Boolean).join(' · ') || 'модель готовится';
       return h('button', {
         class: `venue-item${v.id === cur ? ' current' : ''}${soon ? ' soon' : ''}`, type: 'button',
         'data-venue': v.id, 'aria-current': v.id === cur ? 'true' : null, 'aria-disabled': soon ? 'true' : null,

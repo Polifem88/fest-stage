@@ -240,7 +240,7 @@ export class FixtureSystem {
     // номера приборов
     if (this.opts.labels) {
       for (const f of this.list) {
-        const s = this.opts.labels.make(String(f.no), { px: 11, color: TYPES[f.type].unknown ? '#ffb3f0' : '#ffe9c2', bg: 'rgba(10,10,12,0.7)', kind: 'fixture' });
+        const s = this.opts.labels.make(String(f.no), { px: 22, color: TYPES[f.type].unknown ? '#ffb3f0' : '#ffe9c2', bg: 'rgba(10,10,12,0.85)', kind: 'fixture', depthTest: false });
         f.label = s;
         this.root.add(s);
       }

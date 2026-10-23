@@ -157,10 +157,15 @@ export function lightPanel(stage, { compact = false } = {}) {
     const wrap = h('div', { class: 'chips' }, fl.map((f) => {
       const c = h('button', { class: 'chip', title: compact ? `${TYPES[f.type].name} — тап: выбрать; долгое нажатие: вкл/выкл` : `${TYPES[f.type].name} — нажмите, чтобы выбрать; двойной щелчок — вкл/выкл` }, String(f.no));
       if (compact) {
-        // телефон: тап — выбрать (шторка остаётся открытой), долгое нажатие — вкл/выкл
-        let timer = null, long = false;
-        c.addEventListener('pointerdown', () => { long = false; timer = setTimeout(() => { long = true; stage.setFixture(f.idx, !f.on); navigator.vibrate?.(40); toast(`№ ${f.no} ${f.on ? 'включён' : 'выключен'}`, 1200); }, 500); });
-        for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) c.addEventListener(ev, () => clearTimeout(timer));
+        // телефон: тап — выбрать (шторка остаётся открытой), долгое нажатие — вкл/выкл;
+        // при сдвиге пальца > 10 px во время прокрутки списка таймер отменяется
+        let timer = null, long = false, sx = 0, sy = 0;
+        c.addEventListener('pointerdown', (e) => {
+          long = false; sx = e.clientX; sy = e.clientY;
+          timer = setTimeout(() => { long = true; stage.setFixture(f.idx, !f.on); navigator.vibrate?.(40); toast(`№ ${f.no} ${f.on ? 'включён' : 'выключен'}`, 1200); }, 500);
+        });
+        c.addEventListener('pointermove', (e) => { if (timer && Math.hypot(e.clientX - sx, e.clientY - sy) > 10) { clearTimeout(timer); timer = null; } });
+        for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) c.addEventListener(ev, () => { clearTimeout(timer); timer = null; });
         c.addEventListener('contextmenu', (e) => e.preventDefault());
         c.addEventListener('click', () => { if (long) return; stage.select({ kind: 'fixture', idx: f.idx, keepSheet: true }); toast(`№ ${f.no} выбран · долгое нажатие — вкл/выкл`, 1600); });
       } else {
@@ -209,11 +214,12 @@ export function lightPanel(stage, { compact = false } = {}) {
 export function fixtureSearch(stage, { compact = false } = {}) {
   const search = h('input', { type: 'search', class: 'search', placeholder: compact ? '№ прибора' : 'Найти прибор №…', inputmode: 'numeric', enterkeyhint: 'search', 'aria-label': 'Найти прибор по номеру' });
   /**
-   * «53», «к7», «K7» (латинская K — как русская), «7» — если на площадке такой номер один («К7»).
+   * «53», «к7», «K7», «30A», «OP», «P1» (латинские K, A, O, P — как русские К, А, О, П), «7» — если на площадке такой номер один («К7»).
    * На телефоне у поля цифровая клавиатура: буквенный префикс номера набирать не нужно.
    */
   const find = (q) => {
-    const F = stage.fixtures.byNo, up = q.toUpperCase().replace(/K/g, 'К');
+    const F = stage.fixtures.byNo;
+    const up = q.toUpperCase().replace(/K/g, 'К').replace(/A/g, 'А').replace(/O/g, 'О').replace(/P/g, 'П');
     const exact = F.get(q) || F.get(up);
     if (exact || !/^\d+$/.test(q)) return exact || null;
     const byDigits = stage.fixtures.list.filter((f) => String(f.no).replace(/\D/g, '') === q);

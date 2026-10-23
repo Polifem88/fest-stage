@@ -395,13 +395,17 @@ export class DxfWriter {
       let cx = x0;
       for (const col of headers) {
         if (cx > x0) this.addLine(cx, y - rowH, cx, y, { layer });
-        this.addText(cx + col.width / 2, y - rowH / 2, col.label, { layer, height: textH, align: 'center', valign: 'middle' });
+        const lbl = cleanText(col.label);
+        const availW = Math.max(0.4, col.width - 0.24);
+        const fitH = lbl.length > 0 ? Math.min(textH, availW / (lbl.length * 0.58)) : textH;
+        this.addText(cx + col.width / 2, y - rowH / 2, lbl, { layer, height: Math.max(0.11, fitH), align: 'center', valign: 'middle' });
         cx += col.width;
       }
       y -= rowH;
     }
 
     // Строки
+    const baseCellH = textH * 0.92;
     for (const row of rows) {
       this.addRect(x0, y - rowH, x0 + totalW, y, { layer });
       let cx = x0;
@@ -410,8 +414,11 @@ export class DxfWriter {
         const cell = cleanText(row[i] ?? '');
         if (cx > x0) this.addLine(cx, y - rowH, cx, y, { layer });
         const al = col.align || 'left';
-        const tx = al === 'center' ? cx + col.width / 2 : al === 'right' ? cx + col.width - 0.14 : cx + 0.14;
-        this.addText(tx, y - rowH / 2, cell, { layer, height: textH * 0.92, align: al, valign: 'middle' });
+        const pad = 0.16;
+        const availW = Math.max(0.4, col.width - pad * 2);
+        const fitH = cell.length > 0 ? Math.min(baseCellH, availW / (cell.length * 0.58)) : baseCellH;
+        const tx = al === 'center' ? cx + col.width / 2 : al === 'right' ? cx + col.width - pad : cx + pad;
+        this.addText(tx, y - rowH / 2, cell, { layer, height: Math.max(0.1, fitH), align: al, valign: 'middle' });
         cx += col.width;
       }
       y -= rowH;
@@ -682,12 +689,22 @@ function makeTextEntity(x, y, z, str, height, rotation, align, valign, layer, co
   const vMap = { baseline: 0, bottom: 1, middle: 2, top: 3 };
   const hCode = hMap[align] ?? 0;
   const vCode = vMap[valign] ?? 0;
+  // Вычисляем левую нижнюю точку базовой линии (10, 20) для программ вроде LibreOffice Draw,
+  // которые игнорируют коды выравнивания 72/73 и точку выравнивания (11, 21).
+  // AutoCAD при ненулевых 72/73 использует точку выравнивания (11, 21) = (x, y).
+  const approxW = str.length * height * 0.56;
+  const dx = hCode === 1 ? -approxW / 2 : hCode === 2 ? -approxW : 0;
+  const dy = vCode === 2 ? -height * 0.36 : vCode === 3 ? -height : 0;
+  const rad = ((rotation || 0) * Math.PI) / 180;
+  const cos = Math.cos(rad), sin = Math.sin(rad);
+  const x0 = x + dx * cos - dy * sin;
+  const y0 = y + dx * sin + dy * cos;
   const a = [
     '0', 'TEXT',
     '8', layer,
     '7', 'STANDARD',
-    '10', fmtNum(x),
-    '20', fmtNum(y),
+    '10', fmtNum(x0),
+    '20', fmtNum(y0),
     '30', fmtNum(z),
     '40', fmtNum(height),
     '1', str,

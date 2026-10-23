@@ -37,6 +37,20 @@ export const TYPES = {
   ETC19: { name: 'ETC Source Four 19° (линза сменная: 14° / 26°)', shape: 'profile', beam: 19, lamp: true, scale: 0.85 },
   ETCJR50: { name: 'ETC Source Four Jr 50°', shape: 'profile', beam: 50, lamp: true, scale: 0.7 },
   ETC50: { name: 'ETC Source Four 50° (переносной)', shape: 'profile', beam: 50, lamp: true, scale: 0.85, note: 'прострел по планшету; число и места меняются от спектакля к спектаклю' },
+  // --- Камерная сцена (добавлены в конец для сохранения цветов чертежа) ------
+  BEYE640: { name: 'Anzhee H6x40Z B-EYE', shape: 'beam', beam: 22, scale: 0.9 },
+  RAVEN150: { name: 'PROCBET RAVEN SPOT 150', shape: 'spot', beam: 15, scale: 0.78 },
+  SPARROW: { name: 'Anzhee PROCBET SPARROW Wash RGBW', shape: 'wash', beam: 28, scale: 0.8 },
+  FRESNEL100: { name: 'Anzhee Fresnel 100 Q ZOOM (WW+CW)', shape: 'fresnel', beam: 35, scale: 0.82 },
+  PROF100_CW: { name: 'Anzhee Profile 100 (WW/CW)', shape: 'profile', beam: 26, scale: 0.8 },
+  PROF100_RGB: { name: 'Anzhee Profile 100 (RGBALC)', shape: 'profile', beam: 26, scale: 0.8 },
+  P7X40: { name: 'Anzhee PROCBET P7x40 RGBW ZOOM', shape: 'ledpar', beam: 25, scale: 0.75 },
+  LEDBAR24: { name: 'Anzhee LedBar 24-15', shape: 'ledpar', beam: 35, scale: 0.85 },
+  SVETOCH1000: { name: 'Светоч Fr-1000', shape: 'fresnel', beam: 32, lamp: true, scale: 0.95 },
+  COMPC500: { name: 'SpotLight ComPC-500', shape: 'fresnel', beam: 30, lamp: true, scale: 0.8 },
+  ETCJR_ZOOM: { name: 'ETC Source Four Jr Zoom (25–50°)', shape: 'profile', beam: 36, lamp: true, scale: 0.72 },
+  ETCJR36: { name: 'ETC Source Four Jr 36°', shape: 'profile', beam: 36, lamp: true, scale: 0.7 },
+  ETC_50: { name: 'ETC Source Four 50°', shape: 'profile', beam: 50, lamp: true, scale: 0.85 },
 };
 
 /**

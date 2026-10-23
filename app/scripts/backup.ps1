@@ -69,7 +69,7 @@ if (-not (Test-Path $BackupBase)) {
 
 # 1. Mirror copy
 Write-Host "1/3. Updating mirror directory: $destFolder"
-& robocopy.exe $rootDir $destFolder /E /DCOPY:DAT /COPY:DAT /R:2 /W:1 /MT:8 /NP /NFL /NDL
+& robocopy.exe $rootDir $destFolder /MIR /DCOPY:DAT /COPY:DAT /R:2 /W:1 /MT:8 /NP /NFL /NDL
 $rc1 = $LASTEXITCODE
 if ($rc1 -ge 8) {
     throw "Robocopy mirror failed with exit code $rc1"

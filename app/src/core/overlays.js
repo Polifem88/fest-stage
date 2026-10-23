@@ -30,7 +30,7 @@ export function buildDimsFromList(labels, list) {
       v.push(...P.clone().sub(tick).toArray(), ...P.clone().add(tick).toArray());
     }
     if (labels) {
-      const s = labels.make(text, { px: 13, color: '#111', bg: 'rgba(255,214,90,0.92)', kind: 'dim', depthTest: false });
+      const s = labels.make(text, { px: 19, color: '#111', bg: 'rgba(255,214,90,0.94)', kind: 'dim', depthTest: false });
       s.position.lerpVectors(A, B, t);
       axes[axis].add(s);
     }

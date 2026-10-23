@@ -15,7 +15,7 @@
   </main>
   <script type="module">
     import './src/ui/style.css';
-    import { CATALOG, DEFAULT_VENUE } from './src/venues/catalog.js';
+    import { CATALOG, DEFAULT_VENUE, seatsLabel } from './src/venues/catalog.js';
     import { parseHash, peekVenue } from './src/engine/state.js';
     const touch = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
     document.getElementById('rec').textContent = touch
@@ -30,7 +30,7 @@
       const li = document.createElement('li');
       li.className = `venue-card${venue.status === 'soon' ? ' soon' : ''}`;
       li.dataset.venue = venue.id;
-      const meta = [venue.type, venue.seats ? `${venue.seats} мест` : null].filter(Boolean).join(' · ') || 'модель готовится';
+      const meta = [venue.type, seatsLabel(venue.seats)].filter(Boolean).join(' · ') || 'модель готовится';
       const badge = STATUS[venue.status] ? `<span class="venue-badge ${venue.status}">${STATUS[venue.status]}</span>` : '';
       const hash = venue.id === linked && location.hash ? location.hash : `#v=${venue.id}`;
       // у сцен «скоро» кнопок нет — достаточно пометки рядом с названием
