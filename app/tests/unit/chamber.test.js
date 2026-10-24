@@ -8,6 +8,9 @@ import { FIXTURES, INVENTORY, countByType } from '../../src/venues/fest-chamber/
 import { validateVenue } from '../../src/venues/contract.js';
 import { TYPES } from '../../src/library/fixtureTypes.js';
 import { SPECS } from '../../src/library/specs.js';
+import * as THREE from 'three';
+import { StaticBatch } from '../../src/core/geom.js';
+import { buildArchitecture } from '../../src/venues/fest-chamber/build/architecture.js';
 
 const R = CHAMBER.room, T = CHAMBER.trusses, S = CHAMBER.stage, H = CHAMBER.hall;
 
@@ -84,6 +87,89 @@ describe('Камерная сцена: геометрия зала, сцены �
       expect(xs.length).toBeGreaterThanOrEqual(2);
       for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1]).toBeLessThanOrEqual(3.0001);
     }
+  });
+  it('венткороб и электрокороб построены односторонними гранями внутрь сцены (без наружных граней по x = -8.35, y = 4.40, y = 0)', () => {
+    const M = new Proxy({}, {
+      get: (target, prop) => (target[prop] ||= new THREE.MeshBasicMaterial({ name: String(prop) })),
+    });
+    const batch = new StaticBatch();
+    buildArchitecture(batch, M);
+    const layers = batch.build();
+    const wallMeshes = layers.walls.children.filter((c) => c.material.name === 'wallPanel');
+    expect(wallMeshes.length).toBeGreaterThan(0);
+
+    let ventOuterLeftFaces = 0;
+    let ventOuterCeilFaces = 0;
+    let elecLowOuterLeftFaces = 0;
+    let ductOuterFloorFaces = 0;
+
+    let ventStageSideFaces = 0;
+    let elecStageSideFaces = 0;
+    let elecLowTopCoverFaces = 0;
+    let ventFrontFaces = 0;
+
+    for (const mesh of wallMeshes) {
+      const pos = mesh.geometry.attributes.position;
+      const nor = mesh.geometry.attributes.normal;
+      for (let i = 0; i < pos.count; i += 3) {
+        const xs = [pos.getX(i), pos.getX(i + 1), pos.getX(i + 2)];
+        const ys = [pos.getY(i), pos.getY(i + 1), pos.getY(i + 2)];
+        const zs = [pos.getZ(i), pos.getZ(i + 1), pos.getZ(i + 2)];
+        const nx = (nor.getX(i) + nor.getX(i + 1) + nor.getX(i + 2)) / 3;
+        const ny = (nor.getY(i) + nor.getY(i + 1) + nor.getY(i + 2)) / 3;
+        const nz = (nor.getZ(i) + nor.getZ(i + 1) + nor.getZ(i + 2)) / 3;
+        const minX = Math.min(...xs), maxX = Math.max(...xs);
+        const minY = Math.min(...ys), maxY = Math.max(...ys);
+        const minD = Math.min(-zs[0], -zs[1], -zs[2]), maxD = Math.max(-zs[0], -zs[1], -zs[2]);
+
+        // Зона венткороба (d = 2.80..6.10, до заднего ригеля)
+        if (maxD >= 2.80 && minD <= 6.10 && minX <= -7.74) {
+          if (nx < -0.9 && Math.abs(minX - (-8.35)) < 0.01) ventOuterLeftFaces++;
+          if (ny > 0.9 && Math.abs(maxY - 4.40) < 0.01) ventOuterCeilFaces++;
+        }
+
+        // Зона низкого электрокороба (d = 6.60..7.40, за задним ригелем)
+        if (maxD >= 6.60 && minD <= 7.40 && minX <= -8.14) {
+          if (nx < -0.9 && Math.abs(minX - (-8.35)) < 0.01) elecLowOuterLeftFaces++;
+        }
+
+        // Нижние наружные грани коробов на отметке чистого пола y = 0.00
+        if (maxD >= 2.80 && minD <= 7.40 && minX <= -7.74) {
+          if (ny < -0.9 && Math.abs(minY - 0.00) < 0.01) ductOuterFloorFaces++;
+        }
+
+        // Внутренние грани коробов (должны присутствовать):
+        // Внутренние грани коробов (должны присутствовать):
+        // 1. Боковая грань венткороба в сцену: x = -7.75, normal = +X
+        if (Math.abs(minX - (-7.75)) < 0.01 && Math.abs(maxX - (-7.75)) < 0.01 && nx > 0.9 && minD >= 2.79 && maxD <= 6.26) {
+          ventStageSideFaces++;
+        }
+        // 2. Боковая грань электрокороба в сцену: x = -8.15, normal = +X
+        if (Math.abs(minX - (-8.15)) < 0.01 && Math.abs(maxX - (-8.15)) < 0.01 && nx > 0.9 && minD >= 6.24 && maxD <= 7.41) {
+          elecStageSideFaces++;
+        }
+        // 3. Горизонтальная крышка низкого электрокороба: y = 1.90, normal = +Y
+        if (Math.abs(minY - CHAMBER.ducts.elecLow.y1) < 0.01 && Math.abs(maxY - CHAMBER.ducts.elecLow.y1) < 0.01 && ny > 0.9 && minD >= CHAMBER.ducts.elecLow.d0 - 0.01 && maxD <= CHAMBER.ducts.elecLow.d1 + 0.01) {
+          elecLowTopCoverFaces++;
+        }
+        // 4. Передняя грань венткороба: d = 2.80 (z = -2.80), normal = +Z
+        if (Math.abs(minD - 2.80) < 0.02 && Math.abs(maxD - 2.80) < 0.02 && nz > 0.9 && minX <= -7.74) {
+          ventFrontFaces++;
+        }
+      }
+    }
+
+    // Наружных граней нет (короба прозрачны снаружи)
+    expect(ventOuterLeftFaces).toBe(0);
+    expect(ventOuterCeilFaces).toBe(0);
+    expect(elecLowOuterLeftFaces).toBe(0);
+    expect(ductOuterFloorFaces).toBe(0);
+
+    // Внутренние грани на месте (видны изнутри)
+    expect(ventStageSideFaces).toBeGreaterThan(0);
+    expect(elecStageSideFaces).toBeGreaterThan(0);
+    expect(elecLowTopCoverFaces).toBeGreaterThan(0);
+    expect(ventFrontFaces).toBeGreaterThan(0);
   });
 });
 

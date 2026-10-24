@@ -7,7 +7,7 @@ import { build3DDXF, buildGLB } from '../../src/venues/fest-big/export/export3d.
 import { ALL_TRUSSES } from '../../src/venues/fest-chamber/config/dimensions.js';
 import { FIXTURES as CHAMBER_FIXTURES } from '../../src/venues/fest-chamber/config/fixtures.js';
 import { buildPlanDXF as buildChamberPlanDXF, buildSectionDXF as buildChamberSectionDXF } from '../../src/venues/fest-chamber/export/dxf2d.js';
-import { build3DDXF as buildChamber3DDXF, buildGLB as buildChamberGLB } from '../../src/venues/fest-chamber/export/export3d.js';
+import { build3DDXF as buildChamber3DDXF, buildGLB as buildChamberGLB, buildExportSceneForGLTF as buildChamberExportSceneForGLTF } from '../../src/venues/fest-chamber/export/export3d.js';
 
 describe('Ядро генератора DXF (DxfWriter)', () => {
   it('формирует валидные секции HEADER ($INSUNITS=6, $DWGCODEPAGE=ANSI_1251), TABLES, BLOCKS, ENTITIES, EOF и кодирует Windows-1251', () => {
@@ -238,5 +238,29 @@ describe('Камерная сцена: экспорт 2D и 3D (DXF и GLB)', ()
       if (acc.min) for (const v of acc.min) expect(Number.isFinite(v)).toBe(true);
       if (acc.max) for (const v of acc.max) expect(Number.isFinite(v)).toBe(true);
     }
+
+    // Проверяем экспортную сцену GLB: короба входят в Architecture_Walls_Columns_Ducts
+    // и не содержат наружных граней по x = -8.35
+    const root = buildChamberExportSceneForGLTF(null);
+    const archGroup = root.getObjectByName('Architecture_Walls_Columns_Ducts');
+    expect(archGroup).toBeTruthy();
+    let outerLeftDuctFaces = 0;
+    archGroup.traverse((o) => {
+      if (!o.isMesh || !o.geometry) return;
+      const pos = o.geometry.attributes.position;
+      const nor = o.geometry.attributes.normal;
+      for (let i = 0; i < pos.count; i += 3) {
+        const xs = [pos.getX(i), pos.getX(i + 1), pos.getX(i + 2)];
+        const zs = [pos.getZ(i), pos.getZ(i + 1), pos.getZ(i + 2)];
+        const minX = Math.min(...xs);
+        const minD = Math.min(-zs[0], -zs[1], -zs[2]), maxD = Math.max(-zs[0], -zs[1], -zs[2]);
+        const nx = (nor.getX(i) + nor.getX(i + 1) + nor.getX(i + 2)) / 3;
+        // Венткороб d = 2.80..6.10: не должно быть граней по x = -8.35 с нормалью -X
+        if (maxD >= 2.80 && minD <= 6.10 && minX <= -7.74 && Math.abs(minX - (-8.35)) < 0.01 && nx < -0.9) {
+          outerLeftDuctFaces++;
+        }
+      }
+    });
+    expect(outerLeftDuctFaces).toBe(0);
   });
 });

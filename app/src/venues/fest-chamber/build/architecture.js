@@ -136,12 +136,28 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
     box(RG.front.x0, RG.front.x1, RG.bottomY, RG.topY, RG.front.d0, RG.front.d1),
     box(RG.back.x0, RG.back.x1, RG.bottomY, RG.topY, RG.back.d0, RG.back.d1),
     box(RG.back.pocketX0, RG.back.pocketX1, RG.bottomY, RG.topY, RG.back.d0, RG.back.d1),
-    // Вентиляционный и электрический короба у левой стены сцены
-    box(DUCT.vent.x0, DUCT.vent.x1, DUCT.vent.y0, DUCT.vent.y1, DUCT.vent.d0, DUCT.vent.d1),
-    box(DUCT.elecHigh.x0, DUCT.elecHigh.x1, DUCT.elecHigh.y0, DUCT.elecHigh.y1, DUCT.elecHigh.d0, DUCT.elecHigh.d1),
-    box(DUCT.elecLow.x0, DUCT.elecLow.x1, DUCT.elecLow.y0, DUCT.elecLow.y1, DUCT.elecLow.d0, DUCT.elecLow.d1),
   ];
-  batch.add('walls', M.wallPanel, colRigelGeoms);
+
+  // Вентиляционный и электрический короба у левой стены сцены (x = −8,35 м).
+  // Строятся односторонними плоскостями, обращёнными внутрь помещения.
+  // При взгляде извне помещения короба «прозрачны» (Backface Culling), как и капитальные стены.
+  const ductGeoms = [
+    // Венткороб: передняя грань к зрителю (−d), боковая грань в сцену (+x), задний уступ к электрокоробу (+d)
+    rect('d', DUCT.vent.d0, DUCT.vent.x0, DUCT.vent.x1, DUCT.vent.y0, DUCT.vent.y1, -1),
+    rect('x', DUCT.vent.x1, DUCT.vent.d0, DUCT.vent.d1, DUCT.vent.y0, DUCT.vent.y1, 1),
+    rect('d', DUCT.vent.d1, DUCT.elecHigh.x1, DUCT.vent.x1, DUCT.vent.y0, DUCT.vent.y1, 1),
+
+    // Высокий электрокороб: боковая грань в сцену (+x), вертикальный уступ к низкому электрокоробу (+d)
+    rect('x', DUCT.elecHigh.x1, DUCT.elecHigh.d0, DUCT.elecHigh.d1, DUCT.elecHigh.y0, DUCT.elecHigh.y1, 1),
+    rect('d', DUCT.elecHigh.d1, DUCT.elecHigh.x0, DUCT.elecHigh.x1, DUCT.elecLow.y1, DUCT.elecHigh.y1, 1),
+
+    // Низкий электрокороб: боковая грань в сцену (+x), верхняя крышка (+y, 1,90 м), задний торец (+d)
+    rect('x', DUCT.elecLow.x1, DUCT.elecLow.d0, DUCT.elecLow.d1, DUCT.elecLow.y0, DUCT.elecLow.y1, 1),
+    rect('y', DUCT.elecLow.y1, DUCT.elecLow.x0, DUCT.elecLow.x1, DUCT.elecLow.d0, DUCT.elecLow.d1, 1),
+    rect('d', DUCT.elecLow.d1, DUCT.elecLow.x0, DUCT.elecLow.x1, DUCT.elecLow.y0, DUCT.elecLow.y1, 1),
+  ];
+
+  batch.add('walls', M.wallPanel, [...colRigelGeoms, ...ductGeoms]);
 
   // 2 потолочных блока кондиционеров (1,0 × 1,0 × 0,25 м перед Ф3)
   const acGeoms = CHAMBER.equipment.acUnits.map((u) => box(u.x0, u.x1, u.y0, u.y1, u.d0, u.d1));
