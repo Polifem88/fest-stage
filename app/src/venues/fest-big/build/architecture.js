@@ -373,8 +373,36 @@ function buildHall(batch, M) {
     rect('d', backD + 0.03, -HW + 0.4, -HW + 1.8, backY, backY + 2.2, 1),
     rect('d', backD + 0.03, HW - 1.8, HW - 0.4, backY, backY + 2.2, 1),
   ]);
-  // выход слева у сцены
-  batch.add('hall', M.door, rect('x', -HW + 0.03, -3.4, -4.6, fy, fy + 2.2, 1));
+  // широкие двойные двери у портала (слева и справа, 2.2 × 2.0 м)
+  const pd = DIM.openings.portalDoors;
+  const pdoorPanels = [];
+  const pdoorTrim = [];
+  const pdoorHandles = [];
+  for (const s of [-1, 1]) {
+    const at = s * (HW - 0.03);
+    const facing = -s;
+    const dMid = -pd.width / 2; // -1.1
+    // две створки двери с зазором 1 см
+    pdoorPanels.push(
+      rect('x', at, 0, dMid + 0.005, fy, fy + pd.height, facing),
+      rect('x', at, dMid - 0.005, -pd.width, fy, fy + pd.height, facing),
+    );
+    // наличник (коробка) сверху и с дальней стороны
+    pdoorTrim.push(
+      rect('x', at - s * 0.004, 0, -pd.width - 0.04, fy + pd.height, fy + pd.height + 0.05, facing),
+      rect('x', at - s * 0.004, -pd.width, -pd.width - 0.04, fy, fy + pd.height + 0.05, facing),
+    );
+    // вертикальные ручки на створках у стыка
+    const hx0 = Math.min(at, at - s * 0.03);
+    const hx1 = Math.max(at, at - s * 0.03);
+    pdoorHandles.push(
+      box(hx0, hx1, fy + 0.85, fy + 1.15, dMid + 0.06, dMid + 0.08),
+      box(hx0, hx1, fy + 0.85, fy + 1.15, dMid - 0.08, dMid - 0.06),
+    );
+  }
+  batch.add('hall', M.door, pdoorPanels);
+  batch.add('hall', M.seatFrame, pdoorTrim);
+  batch.add('hall', M.steel, pdoorHandles);
   // операторская за стеклом
   batch.add('hall', M.glass, rect('d', backD - 0.02, -win.windowW / 2, win.windowW / 2, wy0, wy1, 1), { shadow: false });
   batch.add('hall', M.booth, [

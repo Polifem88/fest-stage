@@ -328,6 +328,17 @@ export function buildPlanDXF(stage) {
       layer: 'AR_HALL', height: 0.17, align: tw.side < 0 ? 'right' : 'left', valign: 'middle',
     });
   }
+  // Двойные двери у портала в зал (2.2 × 2.0 м)
+  const pd = DIM.openings.portalDoors;
+  for (const s of [-1, 1]) {
+    const wx = s * HW;
+    const dMid = -pd.width / 2;
+    dxf.addLine(wx, 0, wx + s * 0.7, dMid * 0.5, { layer: 'AR_HALL' });
+    dxf.addLine(wx, -pd.width, wx + s * 0.7, dMid * 1.5, { layer: 'AR_HALL' });
+    dxf.addText(wx - s * 0.45, dMid, `Дверь ${fmtM(pd.width, 1)}×${fmtM(pd.height, 1)} м`, {
+      layer: 'AR_HALL', height: 0.15, align: s < 0 ? 'left' : 'right', valign: 'middle',
+    });
+  }
 
   // --- 6. Верхняя механика: штанкеты, софиты, дорога занавеса, боковые -------
   const pipeHalf = DIM.pipe.length / 2; // 7.0
@@ -713,7 +724,7 @@ export function buildSectionDXF(stage) {
     dxf.addRect(X(br.d + 0.15), br.y - 0.15, X(br.d - 0.15), br.y + 0.15, { layer: 'AR_GALLERIES' });
     dxf.addText(X(br.d), br.y + 0.32, lbl, { layer: 'AR_GALLERIES', height: 0.16, align: 'center' });
   }
-  // Рамы лож Л1/П1 (d=-6.2, Y=4.2) и Л2/П2 (d=-12.5, Y=4.6), прострелы (d=-1.6, Y=1.2..4.2)
+  // Рамы лож Л1/П1 (d=-6.2, Y=4.2) и Л2/П2 (d=-12.5, Y=4.6), прострелы (d=-1.6, Y=2.2..5.2)
   for (const [lbl, bx] of [['Ложа 1', DIM.hallRig.boxes.L1], ['Ложа 2', DIM.hallRig.boxes.L2]]) {
     dxf.addRect(X(bx.d + bx.w / 2), bx.y - bx.h / 2, X(bx.d - bx.w / 2), bx.y + bx.h / 2, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
     dxf.addText(X(bx.d), bx.y + bx.h / 2 + 0.18, lbl, { layer: 'AR_GALLERIES', height: 0.15, align: 'center' });
@@ -721,6 +732,11 @@ export function buildSectionDXF(stage) {
   const tw = DIM.hallRig.sideTowers.L;
   dxf.addRect(X(tw.d + 0.2), tw.y, X(tw.d - 0.2), tw.y + tw.h, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
   dxf.addText(X(tw.d), tw.y + tw.h + 0.18, 'Прострелы', { layer: 'AR_GALLERIES', height: 0.15, align: 'center' });
+  const pdoor = DIM.openings.portalDoors;
+  dxf.addRect(X(0), -DIM.forestage.height, X(-pdoor.width), -DIM.forestage.height + pdoor.height, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  dxf.addText(X(-pdoor.width / 2), -DIM.forestage.height + pdoor.height / 2, `Дверь в зал ${fmtM(pdoor.width, 1)}×${fmtM(pdoor.height, 1)} м`, {
+    layer: 'AR_GALLERIES', height: 0.14, align: 'center', valign: 'middle',
+  });
 
   // --- 4. Верхняя механика в разрезе на ТЕКУЩИХ высотах ----------------------
   const crossRigs = RIGGING.filter((r) => r.kind !== 'side').sort((a, b) => a.d - b.d);

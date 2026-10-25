@@ -35,6 +35,14 @@ describe('Размеры и глубины', () => {
     const ds = order.map((id) => RIG_BY_ID[id].d);
     for (let i = 1; i < ds.length; i++) expect(ds[i]).toBeGreaterThan(ds[i - 1]);
   });
+
+  it('двойные двери у портала заданы по размерам 2.2×2.0 м и примыкают к порталу (d = 0)', () => {
+    const pd = DIM.openings.portalDoors;
+    expect(pd).toBeTruthy();
+    expect(pd.width).toBe(2.2);
+    expect(pd.height).toBe(2.0);
+    expect(pd.fromD).toBe(0.0);
+  });
 });
 
 describe('Механика', () => {
@@ -114,6 +122,30 @@ describe('Приборы', () => {
     expect(countByType(['GAL_B'])).toEqual({ ETC26: 2 });
     expect(countByType(['GAL_L', 'GAL_R'])).toEqual({ GAL_LAMP: 12 });
     expect(INVENTORY.galleries.ETC26 - 2 + INVENTORY.galleries.PAR64).toBe(12);
+  });
+
+  it('прострелы (sideTowers) и их приборы перенесены на серую часть стены (Y = 2.2..5.2 м)', () => {
+    const woodTopY = -DIM.forestage.height + 2.6; // 1.85 м — граница деревянной обшивки
+    for (const [key, t] of Object.entries(DIM.hallRig.sideTowers)) {
+      expect(t.y, `низ стойки ${key}`).toBeGreaterThan(woodTopY);
+      expect(t.y, `низ стойки ${key}`).toBe(2.2);
+      expect(t.h, `высота стойки ${key}`).toBe(3.0);
+      expect(t.y + t.h, `верх стойки ${key}`).toBeLessThan(DIM.decoCeilingY);
+    }
+    const byNo = Object.fromEntries(FIXTURES.map((f) => [String(f.no), f]));
+    // Левый прострел: #26 (Profile), #139 (PAR), #28 (Wash)
+    // Правый прострел: #27 (Profile), #140 (PAR), #29 (Wash)
+    expect(byNo['26'].mount.y).toBeCloseTo(4.8, 2);
+    expect(byNo['27'].mount.y).toBeCloseTo(4.8, 2);
+    expect(byNo['139'].mount.y).toBeCloseTo(3.6, 2);
+    expect(byNo['140'].mount.y).toBeCloseTo(3.6, 2);
+    expect(byNo['28'].mount.y).toBeCloseTo(2.4, 2);
+    expect(byNo['29'].mount.y).toBeCloseTo(2.4, 2);
+    // Все 6 приборов строго выше деревянной обшивки (1.85 м) и выше проёма двери (-0.75 + 2.0 = 1.25 м)
+    for (const no of ['26', '27', '139', '140', '28', '29']) {
+      expect(byNo[no].mount.y).toBeGreaterThan(woodTopY);
+      expect(byNo[no].mount.y).toBeGreaterThan(-DIM.forestage.height + DIM.openings.portalDoors.height);
+    }
   });
 
   it('ламповые приборы — это ровно трёхзначные номера (= диммерные линии)', () => {
