@@ -2,7 +2,7 @@
 // Оболочка (шапка, карточка, поиск) живёт всё время; панели площадки пересобираются при смене сцены.
 import './style.css';
 import { Stage } from '../engine/stage.js';
-import { h, rigPanel, lightPanel, layersPanel, viewsPanel, infoCard, quickBar, shareLink, toast, fixtureSearch, dragBadge, exportButtons } from './common.js';
+import { h, rigPanel, lightPanel, layoutPanel, layersPanel, viewsPanel, infoCard, quickBar, shareLink, toast, fixtureSearch, dragBadge, exportButtons } from './common.js';
 import { venueBrand } from './venuePicker.js';
 import { THEATRE_NAME } from '../venues/registry.js';
 import { exposeTestApi } from '../engine/testapi.js';
@@ -104,6 +104,7 @@ export async function startDesktop() {
       const tabs = [
         caps.rigging ? ['rig', '⚙', 'Механика', () => rigPanel(stage)] : null,
         ['light', '💡', 'Свет', () => lightPanel(stage)],
+        caps.layouts ? ['hall', '🪑', 'Зал', () => layoutPanel(stage)] : null,
         ['layers', '🗂', 'Слои', () => layersPanel(stage)],
         ['views', '👁', 'Виды', () => viewsPanel(stage)],
       ].filter(Boolean);

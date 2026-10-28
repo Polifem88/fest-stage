@@ -2,7 +2,7 @@
 // Оболочка (шапка, шторка, карточка) живёт всё время; вкладки площадки пересобираются при смене сцены.
 import './style.css';
 import { Stage } from '../engine/stage.js';
-import { h, rigPanel, lightPanel, layersPanel, viewsPanel, infoCard, quickBar, toast, shareLink, dragBadge, exportButtons } from './common.js';
+import { h, rigPanel, lightPanel, layoutPanel, layersPanel, viewsPanel, infoCard, quickBar, toast, shareLink, dragBadge, exportButtons } from './common.js';
 import { venueBrand } from './venuePicker.js';
 import { THEATRE_NAME } from '../venues/registry.js';
 import { exposeTestApi } from '../engine/testapi.js';
@@ -81,6 +81,7 @@ export async function startMobile() {
       const tabs = [
         caps.rigging ? ['rig', '⚙', 'Механика', () => rigPanel(stage, { compact: true })] : null,
         ['light', '💡', 'Свет', () => lightPanel(stage, { compact: true })],
+        caps.layouts ? ['hall', '🪑', 'Зал', () => layoutPanel(stage, { compact: true })] : null,
         ['views', '👁', 'Виды', () => viewsPanel(stage, { onPicked: () => setSheet('peek') })],
         ['layers', '🗂', 'Ещё', () => layersPanel(stage)],
       ].filter(Boolean);
