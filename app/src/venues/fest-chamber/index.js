@@ -48,7 +48,7 @@ export default {
   status: 'ready',
   meta: { type: 'Аудитория с фиксированным амфитеатром', seats: CHAMBER.hall.seatsTotal },
   // фермы неподвижны — механики нет; переносных приборов нет
-  caps: { rigging: false, counterweights: false, portable: false, duty: true, houseLight: true },
+  caps: { rigging: false, counterweights: false, portable: false, duty: true, houseLight: true, layouts: false },
   // порядок = порядок битов в ссылке: только добавлять в конец
   layers: [
     ['hall', 'Зрительный зал'],
@@ -60,6 +60,7 @@ export default {
   defaultView: 'overview',
   camera: { maxDistance: 45 },
   rigging: null,
+  layouts: null,
   fixtures: {
     list: FIXTURES,
     types: TYPES,

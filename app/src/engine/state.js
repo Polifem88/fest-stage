@@ -1,6 +1,7 @@
 // Сохранение/загрузка состояния: высоты механики, свет, режимы — в ссылку (#v=<площадка>&s=...) и в файл.
-// Формат v2 (каталог сцен): { v:2, vn:<id площадки>, h, fx, fn, f, l, ln, view, p?, hd? } — массивы в порядке
-// конфига площадки (механика, приборы, слои). Формат v1 (до каталога) — всегда Большая сцена,
+// Формат v2 (каталог сцен): { v:2, vn:<id площадки>, h, fx, fn, f, l, ln, view, p?, hd?, lo? } — массивы в порядке
+// конфига площадки (механика, приборы, слои). lo = [индекс планировки, рядов, шагов сдвига] — только у площадок
+// с трансформируемым залом (caps.layouts); без lo — планировка по умолчанию. Формат v1 (до каталога) — всегда Большая сцена,
 // раскладка та же, что у v2 для Большой сцены. Старые ссылки обязаны открываться.
 // fn / ln — сколько приборов и слоёв было у площадки, когда ссылку создали: приборы и слои,
 // добавленные в конец позже, при открытии старой ссылки остаются в исходном состоянии (включены).
@@ -41,7 +42,27 @@ export function encodeState(st, venue) {
   const obj = { v: 2, vn: venue.id, h, fx: b64(bytes), fn: venue.fixtures.list.length, f, l, ln: venue.layers.length, view: st.view || '' };
   if (venue.fixtures.portable && st.portable && st.portable.mode !== 'off') obj.p = [PORT_MODES.indexOf(st.portable.mode), st.portable.count];
   if (st.flags.hazeDensity != null) obj.hd = Math.round(st.flags.hazeDensity * 100); // плотность дымки, %
+  if (venue.layouts) {
+    const lo = normLayout(st.layout, venue.layouts);
+    obj.lo = [venue.layouts.list.findIndex((l) => l.id === lo.id), lo.rows, lo.shift];
+  }
   return b64(new TextEncoder().encode(JSON.stringify(obj)));
+}
+
+/**
+ * Планировка зала в допустимых пределах: id из списка (иначе по умолчанию), rows в [min(1, rowsMax), rowsMax],
+ * shift (в шагах) — целое в range(id, rows). Пустое/чужое значение → планировка по умолчанию.
+ * @param {Partial<{id:string, rows:number, shift:number}>|null|undefined} p
+ * @param {Object} cfg  venue.layouts
+ */
+export function normLayout(p, cfg) {
+  const def = cfg.list.find((l) => l.id === cfg.default);
+  const it = cfg.list.find((l) => l.id === p?.id) || def;
+  const num = (x, d) => (Number.isFinite(x) ? Math.round(x) : d);
+  const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+  const rows = clamp(num(p?.rows, it.rowsMax), Math.min(1, it.rowsMax), it.rowsMax);
+  const [s0, s1] = cfg.range(it.id, rows);
+  return { id: it.id, rows, shift: clamp(num(p?.shift, 0), s0, s1) };
 }
 
 /** Разобрать строку состояния для площадки venue (строки другой площадки → null). */
@@ -65,7 +86,12 @@ export function decodeState(str, venue) {
     venue.layers.forEach(([k], i) => { if (i < ln) layers[k] = !!(obj.l & (1 << i)); });
     const defaults = venue.fixtures.portable?.defaults || { mode: 'off', count: 0 };
     const portable = Array.isArray(obj.p) ? { mode: PORT_MODES[obj.p[0]] || 'off', count: obj.p[1] } : { ...defaults };
-    return { venue: vn, heights, fixturesOn, flags, layers, portable, view: obj.view };
+    let layout = null;
+    if (venue.layouts) {
+      const lo = Array.isArray(obj.lo) ? obj.lo : [];
+      layout = normLayout({ id: venue.layouts.list[lo[0]]?.id, rows: lo[1], shift: lo[2] }, venue.layouts);
+    }
+    return { venue: vn, heights, fixturesOn, flags, layers, portable, view: obj.view, layout };
   } catch {
     return null;
   }

@@ -68,8 +68,8 @@
 
 **Files:** нет изменений кода.
 
-- [ ] **Step 1:** `git checkout -b roof` (от `master`, рабочее дерево чистое; spec и план закоммитить первым коммитом ветки: `docs: спецификация и план Сцены под крышей`).
-- [ ] **Step 2:** Собрать и снять эталон для неизменности Большой и Камерной: `cd app; npm.cmd run build; node scripts/parity.mjs capture`. Ожидается: отчёт о снятом эталоне без ошибок.
+- [x] **Step 1:** `git checkout -b roof` (от `master`, рабочее дерево чистое; spec и план закоммитить первым коммитом ветки: `docs: спецификация и план Сцены под крышей`).
+- [x] **Step 2:** Собрать и снять эталон для неизменности Большой и Камерной: `cd app; npm.cmd run build; node scripts/parity.mjs capture`. Ожидается: отчёт о снятом эталоне без ошибок.
 
 ---
 
@@ -95,7 +95,7 @@
   ```
 - Produces (state.js): в `encodeState(st, venue)` при `venue.layouts` пишется `lo: [index, rows, shift]`. `decodeState` возвращает `layout: LayoutState`. Без `lo` — `{ id: default, rows: rowsMax, shift: 0 }`. Для площадок без `layouts` — `layout: null`.
 
-- [ ] **Step 1: Падающие тесты** в `state.test.js`. Фиктивная площадка `fake` с `layouts.list = [{id:'a',rowsMax:5},{id:'b',rowsMax:3}]`, `default:'a'`:
+- [x] **Step 1: Падающие тесты** в `state.test.js`. Фиктивная площадка `fake` с `layouts.list = [{id:'a',rowsMax:5},{id:'b',rowsMax:3}]`, `default:'a'`:
   ```js
   it('ссылка хранит планировку lo', () => {
     const s = encodeState({ ...base, layout: { id: 'b', rows: 2, shift: -3 } }, fake);
@@ -110,10 +110,10 @@
   ```
   Существующие тесты v1/v2 не трогать: они обязаны пройти без изменений.
   В `venues.contract.test.js` добавить: `validateVenue` даёт ошибку, если `caps.layouts !== !!layouts`, если `default` не в `list`, если повторяются id, если нет `build`/`range`/`seats`.
-- [ ] **Step 2:** `npx.cmd vitest run tests/unit/state.test.js tests/unit/venues.contract.test.js`. Ожидается: новые тесты FAIL.
-- [ ] **Step 3:** В `contract.js` добавить `'layouts'` в `CAPS` и проверки выше. В `fest-big` и `fest-chamber` добавить `caps.layouts: false` и `layouts: null`. В `state.js` — `lo` (кодирование и разбор с зажимом значений).
-- [ ] **Step 4:** `npx.cmd vitest run`. Ожидается: всё PASS.
-- [ ] **Step 5:** Коммит: `Движок: возможность трансформируемого зала (caps.layouts, поле ссылки lo)`.
+- [x] **Step 2:** `npx.cmd vitest run tests/unit/state.test.js tests/unit/venues.contract.test.js`. Ожидается: новые тесты FAIL.
+- [x] **Step 3:** В `contract.js` добавить `'layouts'` в `CAPS` и проверки выше. В `fest-big` и `fest-chamber` добавить `caps.layouts: false` и `layouts: null`. В `state.js` — `lo` (кодирование и разбор с зажимом значений).
+- [x] **Step 4:** `npx.cmd vitest run`. Ожидается: всё PASS.
+- [x] **Step 5:** Коммит: `Движок: возможность трансформируемого зала (caps.layouts, поле ссылки lo)`.
 
 ---
 
