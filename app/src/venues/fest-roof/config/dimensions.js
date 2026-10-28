@@ -40,7 +40,8 @@ export const ROOF = {
     { id: '7', axis: 'd', at: -8.30, a0: 5.05, a1: 6.15, finish: 'black' },
     { id: '7.1', axis: 'x', at: 5.05, a0: -9.65, a1: -8.30, finish: 'black' },
     { id: '8', axis: 'd', at: -9.65, a0: -0.10, a1: 5.05, finish: 'black' },
-    { id: '8.1', axis: 'x', at: -0.10, a0: -9.65, a1: -8.35, finish: 'black' },
+    // бок венткороба 8.1 + 9 — до верха короба (2,50): выше плоскость стены 8 продолжается до x −2,90 (решение 29.10.2026)
+    { id: '8.1', axis: 'x', at: -0.10, a0: -9.65, a1: -8.35, finish: 'black', h: 2.50 },
     // стена 9: сегмент B (x −2,90…−0,10) высотой 2,50 — над ним ниша до плоскости стены 8 (см. vent9),
     // сегмент A (x −6,45…−2,90) — до потолка; 6,00 → 6,35 (подгонка)
     { id: '9', part: 'B', axis: 'd', at: -8.35, a0: -2.90, a1: -0.10, finish: 'black', h: 2.50 },
@@ -192,6 +193,11 @@ export const ROOF = {
   // --- мольтон (отключаемый слой) --------------------------------------------------
   /** Чёрная ткань на заднем верхнем поясе «жёлтой» фермы d −5: отделяет склад декораций у стен 8–9. */
   molton: { d: -5.15, x0: -6.30, x1: 6.15, y0: 0, y1: 3.45 },
+
+  // --- источники дежурного света для LightingSystem (яркость — как на Камерной) ----------
+  ambient: { duty: { color: 0xffe2b0, decay: 1.4, full: 16, lite: 42 } },
+
+  zeroLineLabel: 'd = 0 — передний край 1-го ряда «Стандарта»',
 };
 
 const EPS = 1e-9;
@@ -211,6 +217,25 @@ export function insideRoom(x, d, y = 0) {
 /** Повороты стен на обходе: последовательные концы. Конец стены i (по обходу) = начало стены i+1. */
 export function wallEnds(w) {
   return w.axis === 'x' ? [[w.at, w.a0], [w.at, w.a1]] : [[w.a0, w.at], [w.a1, w.at]];
+}
+
+/** Контур пола помещения многоугольником [x, d] по обходу стен (проём коридора закрыт по линии стены 13). */
+export function roomPolygon() {
+  const poly = [];
+  let cur = null;
+  const dist = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+  for (const w of ROOF.walls) {
+    let [a, b] = wallEnds(w);
+    if (cur && dist(b, cur) < dist(a, cur)) [a, b] = [b, a];
+    if (cur && dist(a, cur) > 1e-6) poly.push(cur); // конец предыдущей стены перед проёмом
+    poly.push(a);
+    cur = b;
+  }
+  // убрать точки, лежащие на прямой между соседями
+  return poly.filter((p, i) => {
+    const a = poly[(i + poly.length - 1) % poly.length], c = poly[(i + 1) % poly.length];
+    return Math.abs((p[0] - a[0]) * (c[1] - a[1]) - (p[1] - a[1]) * (c[0] - a[0])) > 1e-9;
+  });
 }
 
 /**

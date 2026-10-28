@@ -4,6 +4,15 @@ import { ROOF, insideRoom, wallEnds, CEIL_RECTS, OBSTACLES } from '../../src/ven
 import { clipSegmentToRects } from '../../src/core/geom.js';
 import { LAYOUTS, STOCK, SEAT_PITCH, placed, shiftRange, seatCount, rowsMax, CLEAR } from '../../src/venues/fest-roof/config/layouts.js';
 import { FIXTURES, TYPES, SPECS, GROUPS, GROUP_SETS, countByType, onTruss } from '../../src/venues/fest-roof/config/fixtures.js';
+import * as THREE from 'three';
+import { StaticBatch } from '../../src/core/geom.js';
+import { buildArchitecture } from '../../src/venues/fest-roof/build/architecture.js';
+import { buildTrusses } from '../../src/venues/fest-roof/build/trusses.js';
+import { buildEmitters, buildMolton } from '../../src/venues/fest-roof/build/emitters.js';
+
+/** Материалы-заглушки (имя = ключ), как в chamber.test.js. */
+const fakeM = () => new Proxy({}, { get: (t, p) => (t[p] ||= new THREE.MeshBasicMaterial({ name: String(p) })) });
+const triCount = (group) => { let n = 0; group?.traverse((o) => { if (o.isMesh) n += o.geometry.attributes.position.count / 3; }); return n; };
 
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
 const wall = (id) => ROOF.walls.find((w) => w.id === id && !w.part);
@@ -130,6 +139,10 @@ describe('Сцена под крышей · геометрия', () => {
     expect([ROOF.trusses.y0, ROOF.trusses.y1]).toEqual([3.15, 3.45]);
     expect(ROOF.diagonals.y0).toBe(ROOF.capital.y0);
     expect(ROOF.vFrames.every((v) => v.topY === ROOF.capital.y0 && v.w === 0.15 && v.node.y === 2.5 && v.node.off === 1)).toBe(true);
+    // венткороб 8.1 + 9: сегмент B и бок 8.1 — до 2,50, выше — ниша до плоскости стены 8
+    expect(wall('8.1').h).toBe(2.5);
+    expect(ROOF.walls.find((w) => w.id === '9' && w.part === 'B').h).toBe(2.5);
+    expect(insideRoom(-1.5, -9.0, 3.0) && !insideRoom(-1.5, -9.0, 1.0)).toBe(true);
   });
 
   it('контур пола: ≤ 8 прямоугольников, внутри габарита, площадь = площади многоугольника стен', () => {
@@ -298,5 +311,83 @@ describe('Сцена под крышей · свет', () => {
     for (const g of Object.keys(GROUPS)) expect(inSets.has(g), g).toBe(true);
     for (const f of FIXTURES) { expect(TYPES[f.type], f.type).toBeTruthy(); expect(SPECS[f.type], f.type).toBeTruthy(); expect(GROUPS[f.group]).toBeTruthy(); }
     expect(Object.keys(GROUPS)).toEqual(['FRONT', 'SIDE_L', 'SIDE_R', 'FRESNEL', 'COMPC', 'BEYE', 'RAVEN', 'BACK', 'SIDE_WASH', 'STORAGE']);
+  });
+});
+
+describe('Сцена под крышей · сборка', () => {
+  const build = (mobile = false) => {
+    const batch = new StaticBatch();
+    const M = fakeM();
+    buildArchitecture(batch, M, { mobile });
+    buildTrusses(batch, M, { mobile });
+    return batch.build();
+  };
+  /** Допустимая зона вершин: пол помещения, коридор, ниша над стеной 9 (выше 2,50). */
+  const outside = (x, y, d) => {
+    const zones = [...ROOF.rects, [ROOF.corridor.x0, ROOF.corridor.x1, ROOF.corridor.d0, ROOF.corridor.d1]];
+    if (y > ROOF.vent9.y - 1e-6) zones.push([ROOF.vent9.x0, ROOF.vent9.x1, ROOF.vent9.d0, ROOF.vent9.d1]);
+    return Math.min(...zones.map(([x0, x1, d0, d1]) => Math.hypot(Math.max(x0 - x, 0, x - x1), Math.max(d0 - d, 0, d - d1))));
+  };
+  const WALL_T = 0.1; // наружу — не больше толщины откоса/полузаделанной балки
+
+  it('слои walls, ceiling, trusses; ни одна вершина не выходит за контур помещения больше чем на толщину стены', () => {
+    const L = build();
+    for (const k of ['walls', 'ceiling', 'trusses']) expect(L[k], k).toBeTruthy();
+    let worst = 0, where = null;
+    for (const k of ['walls', 'ceiling', 'trusses']) {
+      L[k].traverse((o) => {
+        if (!o.isMesh) return;
+        const p = o.geometry.attributes.position;
+        for (let i = 0; i < p.count; i++) {
+          const x = p.getX(i), y = p.getY(i), d = -p.getZ(i);
+          const e = outside(x, y, d);
+          if (e > worst) { worst = e; where = `${o.name} (${x.toFixed(2)}; ${y.toFixed(2)}; ${d.toFixed(2)})`; }
+        }
+      });
+    }
+    expect(worst, `дальше всех: ${where}`).toBeLessThanOrEqual(WALL_T + 1e-6);
+    // и до потолка, не выше
+    let maxY = 0;
+    for (const k of ['walls', 'ceiling', 'trusses']) L[k].traverse((o) => { if (o.isMesh) { o.geometry.computeBoundingBox(); maxY = Math.max(maxY, o.geometry.boundingBox.max.y); } });
+    expect(maxY).toBeLessThanOrEqual(ROOF.room.ceiling + 1e-6);
+  });
+
+  it('стены: кирпич — рыжий (brickRed), чёрные — blackWall; настил потолка — deckRibbed', () => {
+    const L = build();
+    const mats = new Set();
+    for (const k of ['walls', 'ceiling']) L[k].children.forEach((m) => mats.add(m.material.name));
+    for (const m of ['brickRed', 'blackWall', 'deckRibbed', 'floor', 'door']) expect(mats.has(m), m).toBe(true);
+  });
+
+  it('20 куполов: светящиеся меши — прямые потомки groups.duty с userData.emitter = "duty"; house — пустая', () => {
+    const em = buildEmitters(fakeM());
+    expect(em.dutyPoints).toHaveLength(20);
+    const glow = em.groups.duty.children.filter((m) => m.userData.emitter === 'duty');
+    expect(glow.length).toBeGreaterThan(0);
+    let deep = 0;
+    em.groups.duty.traverse((o) => { if (o.userData.emitter && o.parent !== em.groups.duty) deep++; });
+    expect(deep, 'светящиеся меши только прямые потомки').toBe(0);
+    // у каждого купола есть светящийся диск
+    for (const p of ROOF.domes.list) {
+      const hit = glow.some((m) => { const a = m.geometry.attributes.position; for (let i = 0; i < a.count; i++) if (Math.hypot(a.getX(i) - p.x, -a.getZ(i) - p.d) <= ROOF.domes.r + 1e-6 && Math.abs(a.getY(i) - ROOF.domes.bottomY) < 0.05) return true; return false; });
+      expect(hit, `купол (${p.x}; ${p.d})`).toBe(true);
+    }
+    expect(em.groups.house.children.filter((m) => m.userData.emitter)).toHaveLength(0);
+  });
+
+  it('мольтон: на d −5,15, от x −6,30 до 6,15, высота 3,45, двусторонний', () => {
+    const M = fakeM();
+    const m = buildMolton(M);
+    m.geometry.computeBoundingBox();
+    const b = m.geometry.boundingBox;
+    expect(b.min.x).toBeCloseTo(ROOF.molton.x0, 2);
+    expect(b.max.x).toBeCloseTo(ROOF.molton.x1, 2);
+    expect(b.max.y).toBeCloseTo(ROOF.molton.y1, 2);
+    expect(Math.abs(-(b.min.z + b.max.z) / 2 - ROOF.molton.d)).toBeLessThan(0.1);
+    expect(m.material.name).toBe('molton');
+  });
+
+  it('mobile: треугольников ферм меньше, чем на компьютере', () => {
+    expect(triCount(build(true).trusses)).toBeLessThan(triCount(build(false).trusses));
   });
 });
