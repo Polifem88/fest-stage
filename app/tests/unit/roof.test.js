@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { ROOF, insideRoom, wallEnds, CEIL_RECTS, OBSTACLES } from '../../src/venues/fest-roof/config/dimensions.js';
 import { clipSegmentToRects } from '../../src/core/geom.js';
+import { LAYOUTS, STOCK, SEAT_PITCH, placed, shiftRange, seatCount, rowsMax, CLEAR } from '../../src/venues/fest-roof/config/layouts.js';
 
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
 const wall = (id) => ROOF.walls.find((w) => w.id === id && !w.part);
@@ -159,5 +160,96 @@ describe('Сцена под крышей · геометрия', () => {
       const [x0, x1, d0, d1] = o.r;
       expect(insideRoom((x0 + x1) / 2, (d0 + d1) / 2), o.kind).toBe(true);
     }
+  });
+});
+
+describe('Сцена под крышей · планировки зала', () => {
+  const ids = LAYOUTS.map((l) => l.id);
+  const all = (fn) => {
+    for (const l of LAYOUTS) {
+      const rm = rowsMax(l.id);
+      for (let rows = Math.min(1, rm); rows <= rm; rows++) {
+        const [s0, s1] = shiftRange(l.id, rows);
+        for (let shift = s0; shift <= s1; shift++) fn({ id: l.id, rows, shift }, l);
+      }
+    }
+  };
+  const overlap = (a, b) => a[0] < b[1] && a[1] > b[0] && a[2] < b[3] && a[3] > b[2];
+  const grow = ([x0, x1, d0, d1], e) => [x0 - e, x1 + e, d0 - e, d1 + e];
+  const rectInRoom = ([x0, x1, d0, d1]) => {
+    const pts = [];
+    for (let t = 0; t <= 1.0001; t += 0.02) pts.push([x0 + (x1 - x0) * t, d0], [x0 + (x1 - x0) * t, d1], [x0, d0 + (d1 - d0) * t], [x1, d0 + (d1 - d0) * t]);
+    return pts.every(([x, d]) => insideRoom(x, d));
+  };
+  const footprints = (p) => [...p.rows.map((r) => [r.x0, r.x1, r.d0, r.d1]), ...p.pults.map((r) => [r.x0, r.x1, r.d0, r.d1])];
+
+  it('порядок планировок (формат ссылки): std, empty, cross, crossRev, traverse, arena', () => {
+    expect(ids).toEqual(['std', 'empty', 'cross', 'crossRev', 'traverse', 'arena']);
+    expect(SEAT_PITCH).toBeCloseTo(10 / 18, 12);
+  });
+  it('места: std 90, empty 0, cross 90, crossRev 90, traverse 84, arena 82', () => {
+    const full = (id) => seatCount({ id, rows: rowsMax(id), shift: 0 });
+    expect(Object.fromEntries(ids.map((id) => [id, full(id)]))).toEqual({ std: 90, empty: 0, cross: 90, crossRev: 90, traverse: 84, arena: 82 });
+    for (const id of ids) expect(placed({ id, rows: rowsMax(id), shift: 0 }).seats).toHaveLength(full(id));
+  });
+  it('инвентарь: станков ≤ 20, пультовых ≤ 2, стульев ≤ 90 — в каждой планировке', () => {
+    const stands = { std: 20, empty: 0, cross: 20, crossRev: 20, traverse: 16, arena: 14 };
+    for (const l of LAYOUTS) {
+      const p = placed({ id: l.id, rows: rowsMax(l.id), shift: 0 });
+      expect(p.stands.length, l.id).toBe(stands[l.id]);
+      expect(p.stands.length).toBeLessThanOrEqual(STOCK.stands);
+      expect(p.pults.length).toBeLessThanOrEqual(STOCK.pultStands);
+      expect(p.seats.length).toBeLessThanOrEqual(STOCK.chairs);
+    }
+    expect(placed({ id: 'empty', rows: 0, shift: 0 }).pults, 'в «Пустом зале» пультов нет').toEqual([]);
+  });
+  it('станки 2×1, высоты из STOCK.heights; ряд 1 на полу', () => {
+    all((st) => {
+      const p = placed(st);
+      for (const s of p.stands) {
+        const a = s.x1 - s.x0, b = s.d1 - s.d0;
+        expect([Math.min(a, b), Math.max(a, b)].map((v) => +v.toFixed(6)), st.id).toEqual([1, 2]);
+        expect(STOCK.heights).toContain(s.h);
+      }
+      for (const r of p.rows) if (r.rank === 1) expect(r.h).toBe(0);
+      for (const pu of p.pults) { expect(STOCK.heights).toContain(pu.h); expect(+((pu.x1 - pu.x0) * (pu.d1 - pu.d0)).toFixed(6)).toBe(2); }
+      // места стоят на верхе станка своего ряда (или на полу)
+      for (const s of p.seats) expect([0, ...STOCK.heights]).toContain(s.y);
+    });
+  });
+  it(`зазор ≥ ${0.05} до всех преград — для каждой планировки, каждого rows 1..rowsMax и каждого сдвига из shiftRange`, () => {
+    expect(CLEAR).toBe(0.05);
+    all((st) => {
+      for (const f of footprints(placed(st))) for (const o of OBSTACLES) expect(overlap(grow(f, CLEAR - 1e-9), o.r), `${JSON.stringify(st)} ↔ ${o.kind}`).toBe(false);
+    });
+  });
+  it('все станки и места внутри помещения', () => {
+    all((st) => {
+      const p = placed(st);
+      for (const f of footprints(p)) expect(rectInRoom(grow(f, CLEAR - 1e-9)), JSON.stringify(st)).toBe(true);
+      for (const s of p.seats) expect(insideRoom(s.x, s.d)).toBe(true);
+    });
+  });
+  it('shiftRange содержит 0; у std минимум 0 (мольтон); |шаг| ≤ 10', () => {
+    for (const l of LAYOUTS) for (let rows = Math.min(1, rowsMax(l.id)); rows <= rowsMax(l.id); rows++) {
+      const [a, b] = shiftRange(l.id, rows);
+      expect(a <= 0 && b >= 0 && a >= -10 && b <= 10, `${l.id}/${rows}`).toBe(true);
+    }
+    expect(shiftRange('std', 5)[0]).toBe(0);
+    expect(shiftRange('empty', 0), 'пустой зал не двигается').toEqual([0, 0]);
+  });
+  it('rows=2 у std оставляет ранги 1–2 (пол и 0,2), пульты на месте', () => {
+    const p = placed({ id: 'std', rows: 2, shift: 0 });
+    expect(p.rows.map((r) => r.h)).toEqual([0, 0.2]);
+    expect(p.pults).toEqual(placed({ id: 'std', rows: 5, shift: 0 }).pults);
+    expect(seatCount({ id: 'std', rows: 2, shift: 0 })).toBe(36);
+  });
+  it('сдвиг двигает весь зал (ряды и пульты) вдоль оси планировки на 0,5 за шаг', () => {
+    const [, max] = shiftRange('std', 5);
+    expect(max).toBeGreaterThan(0);
+    const a = placed({ id: 'std', rows: 5, shift: 0 }), b = placed({ id: 'std', rows: 5, shift: 1 });
+    expect(b.rows[0].d0 - a.rows[0].d0).toBeCloseTo(0.5, 9);
+    expect(b.pults[0].d0 - a.pults[0].d0).toBeCloseTo(0.5, 9);
+    expect(b.rows[0].x0).toBe(a.rows[0].x0);
   });
 });
