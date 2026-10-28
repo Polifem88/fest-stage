@@ -371,7 +371,7 @@
 - Consumes: `ROOF`, `placed(stage.layout)`, `FIXTURES`, `DxfWriter` из `export/dxfWriter.js`; образец — `fest-chamber/export/*`.
 - Produces: `buildPlanDXF(stage)`, `buildSectionDXF(stage)`, `build3DDXF(stage)`, `buildGLB(stage)`. Слои DXF: `WALLS`, `DOORS`, `COLUMNS`, `CAPITAL`, `DIAGONALS`, `VFRAMES`, `TRUSSES`, `LEGS`, `DOMES`, `MOLTON`, `STANDS`, `SEATS`, `PULTS`, `FIXTURES`, `DIMS`, `TEXT`, `3D_OUTER_WALLS`. Без лучей и пятен.
 
-- [ ] **Step 1: Падающие тесты** (фиктивный `stage` с `venue`, `layout`, `fixtures.list`, как в блоке Камерной):
+- [x] **Step 1: Падающие тесты** (фиктивный `stage` с `venue`, `layout`, `fixtures.list`, как в блоке Камерной):
   ```js
   it('план: все слои, 49 блоков приборов, 20 куполов, std — 90 мест (блоки SEATS)', …);
   it('план после setLayout traverse — 84 места; empty — 0, слои STANDS/SEATS/PULTS пустые', …);
@@ -379,9 +379,9 @@
   it('3D DXF: 3DFACE и LINE в WCS (Z — высота), внешние стены на 3D_OUTER_WALLS', …);
   it('GLB: валидный glTF 2.0, односторонние внешние стены, без NaN', …);
   ```
-- [ ] **Step 2:** FAIL. **Step 3:** Реализовать. **Step 4:** `npx.cmd vitest run` — PASS.
-- [ ] **Step 5:** Ручная проверка: выгрузить 4 файла в браузере и открыть DXF в просмотрщике (например, LibreCAD или онлайн-вьюер), GLB — в `https://gltf-viewer.donmccurdy.com` (локально, файл не публикуется).
-- [ ] **Step 6:** Коммит: `Сцена под крышей: экспорт 2D/3D DXF и GLB с текущей планировкой зала`.
+- [x] **Step 2:** FAIL. **Step 3:** Реализовать. **Step 4:** `npx.cmd vitest run` — PASS.
+- [x] **Step 5:** Ручная проверка: выгрузить 4 файла в браузере и открыть DXF в просмотрщике (например, LibreCAD или онлайн-вьюер), GLB — в `https://gltf-viewer.donmccurdy.com` (локально, файл не публикуется).
+- [x] **Step 6:** Коммит: `Сцена под крышей: экспорт 2D/3D DXF и GLB с текущей планировкой зала`.
 
 ---
 

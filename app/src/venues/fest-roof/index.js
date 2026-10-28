@@ -16,6 +16,8 @@ import { buildHall } from './build/hall.js';
 import { FLOOR, hangs, poolK } from './build/floor.js';
 import { buildDims, buildGrid } from './build/overlays.js';
 import { ambientLights } from './build/ambient.js';
+import { buildPlanDXF, buildSectionDXF } from './export/dxf2d.js';
+import { build3DDXF, buildGLB } from './export/export3d.js';
 
 const R = ROOF.room;
 const MID_X = (R.x0 + R.x1) / 2, MID_D = (R.d0 + R.d1) / 2;
@@ -120,5 +122,10 @@ export default {
     };
   },
 
-  exports: {},
+  exports: {
+    planDXF: buildPlanDXF,
+    sectionDXF: buildSectionDXF,
+    dxf3d: build3DDXF,
+    glb: buildGLB,
+  },
 };

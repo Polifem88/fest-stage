@@ -8,6 +8,10 @@ import { ALL_TRUSSES } from '../../src/venues/fest-chamber/config/dimensions.js'
 import { FIXTURES as CHAMBER_FIXTURES } from '../../src/venues/fest-chamber/config/fixtures.js';
 import { buildPlanDXF as buildChamberPlanDXF, buildSectionDXF as buildChamberSectionDXF } from '../../src/venues/fest-chamber/export/dxf2d.js';
 import { build3DDXF as buildChamber3DDXF, buildGLB as buildChamberGLB, buildExportSceneForGLTF as buildChamberExportSceneForGLTF } from '../../src/venues/fest-chamber/export/export3d.js';
+import roofVenue from '../../src/venues/fest-roof/index.js';
+import { FIXTURES as ROOF_FIXTURES } from '../../src/venues/fest-roof/config/fixtures.js';
+import { buildPlanDXF as buildRoofPlanDXF, buildSectionDXF as buildRoofSectionDXF } from '../../src/venues/fest-roof/export/dxf2d.js';
+import { build3DDXF as buildRoof3DDXF, buildGLB as buildRoofGLB, buildExportSceneForGLTF as buildRoofExportScene } from '../../src/venues/fest-roof/export/export3d.js';
 
 describe('Ядро генератора DXF (DxfWriter)', () => {
   it('формирует валидные секции HEADER ($INSUNITS=6, $DWGCODEPAGE=ANSI_1251), TABLES, BLOCKS, ENTITIES, EOF и кодирует Windows-1251', () => {
@@ -262,5 +266,86 @@ describe('Камерная сцена: экспорт 2D и 3D (DXF и GLB)', ()
       }
     });
     expect(outerLeftDuctFaces).toBe(0);
+  });
+});
+
+describe('Сцена под крышей: экспорт 2D и 3D (DXF и GLB) с текущей планировкой зала', () => {
+  /** Фиктивный stage: площадка, планировка, приборы. */
+  const stageOf = (layout) => ({ venue: roofVenue, layout, fixtures: { list: ROOF_FIXTURES.map((f) => ({ ...f, on: true })) } });
+  const std = { id: 'std', rows: 5, shift: 0 };
+  /** Сущности DXF (разбор парами «код — значение»): тип, слой, коды Z. */
+  const ents = (dxf) => {
+    const L = dxf.split('\n').map((s) => s.trim());
+    let i = L.indexOf('ENTITIES') + 1;
+    const out = [];
+    let cur = null;
+    for (; i + 1 < L.length; i += 2) {
+      const code = L[i], val = L[i + 1];
+      if (code === '0') { if (val === 'ENDSEC') break; cur = { type: val, layer: null, z: [] }; out.push(cur); }
+      else if (cur && code === '8') cur.layer = val;
+      else if (cur && /^3[0-3]$/.test(code)) cur.z.push(+val);
+    }
+    return out;
+  };
+  const count = (dxf, type, layer) => ents(dxf).filter((e) => e.type === type && e.layer === layer).length;
+
+  it('план: все слои, 49 блоков приборов, 20 куполов, std — 90 мест (блоки SEATS)', () => {
+    const dxf = buildRoofPlanDXF(stageOf(std));
+    for (const layer of ['WALLS', 'DOORS', 'COLUMNS', 'CAPITAL', 'DIAGONALS', 'VFRAMES', 'TRUSSES', 'LEGS', 'DOMES', 'MOLTON', 'STANDS', 'SEATS', 'PULTS', 'FIXTURES', 'DIMS', 'TEXT']) {
+      expect(dxf, `слой ${layer}`).toContain(`\n2\n${layer}\n`);
+    }
+    expect(count(dxf, 'INSERT', 'FIXTURES')).toBe(49);
+    expect(count(dxf, 'INSERT', 'DOMES')).toBe(20);
+    expect(count(dxf, 'INSERT', 'SEATS')).toBe(90);
+    expect(ents(dxf).filter((e) => e.layer === 'STANDS').length).toBeGreaterThan(0);
+    expect(dxf.trim().endsWith('0\nEOF')).toBe(true);
+  });
+
+  it('план после смены планировки: traverse — 84 места; empty — 0, слои STANDS/SEATS/PULTS пустые', () => {
+    expect(count(buildRoofPlanDXF(stageOf({ id: 'traverse', rows: 3, shift: 0 })), 'INSERT', 'SEATS')).toBe(84);
+    const empty = buildRoofPlanDXF(stageOf({ id: 'empty', rows: 0, shift: 0 }));
+    for (const layer of ['STANDS', 'SEATS', 'PULTS']) {
+      expect(empty, `слой ${layer} объявлен`).toContain(`\n2\n${layer}\n`);
+      expect(ents(empty).filter((e) => e.layer === layer).length, layer).toBe(0);
+    }
+    // без stage — планировка по умолчанию
+    expect(count(buildRoofPlanDXF(null), 'INSERT', 'SEATS')).toBe(90);
+  });
+
+  it('разрез: отметки 3,15 / 3,45 / 4,45 / 4,70, гребёнка станков', () => {
+    const dxf = buildRoofSectionDXF(stageOf(std));
+    for (const t of ['±0,000', '+3,150', '+3,450', '+4,450', '+4,700']) expect(dxf, t).toContain(t);
+    expect(ents(dxf).filter((e) => e.layer === 'STANDS').length).toBeGreaterThanOrEqual(4);
+    expect(dxf).toContain('\n2\nFIXTURES\n');
+  });
+
+  it('3D DXF: 3DFACE и LINE в WCS (Z — высота), внешние стены на 3D_OUTER_WALLS', () => {
+    const dxf = buildRoof3DDXF(stageOf(std));
+    expect(dxf).toContain('\n0\n3DFACE\n');
+    for (const layer of ['3D_OUTER_WALLS', '3D_WALLS', '3D_CEILING', '3D_TRUSSES', '3D_HALL', '3D_FIXTURES']) expect(dxf, layer).toContain(`\n2\n${layer}\n`);
+    expect(count(dxf, '3DFACE', '3D_OUTER_WALLS')).toBeGreaterThan(0);
+    expect(count(dxf, '3DFACE', '3D_HALL')).toBeGreaterThan(0);
+    // Z (коды 30–33 у 3DFACE) — высота: в пределах пол…потолок; торцы наклонных ног V-косынок
+    // (брус 0,15) уходят под пол не глубже 0,05
+    const zs = ents(dxf).filter((e) => e.type === '3DFACE').flatMap((e) => e.z);
+    expect(zs.length).toBeGreaterThan(0);
+    expect(Math.min(...zs)).toBeGreaterThanOrEqual(-0.05);
+    expect(Math.max(...zs)).toBeLessThanOrEqual(4.71);
+    expect(dxf.trim().endsWith('0\nEOF')).toBe(true);
+  });
+
+  it('GLB: валидный glTF 2.0, односторонние материалы, без NaN; зал — по текущей планировке', async () => {
+    const buf = await buildRoofGLB(stageOf(std));
+    expect(buf).toBeInstanceOf(ArrayBuffer);
+    const dv = new DataView(buf);
+    expect(dv.getUint32(0, true)).toBe(0x46546C67);
+    expect(dv.getUint32(4, true)).toBe(2);
+    const gltf = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 20, dv.getUint32(12, true))));
+    expect(gltf.asset.version).toBe('2.0');
+    for (const mat of gltf.materials || []) expect(mat.doubleSided, mat.name).not.toBe(true);
+    for (const acc of gltf.accessors) for (const v of [...(acc.min || []), ...(acc.max || [])]) expect(Number.isFinite(v)).toBe(true);
+    const names = (s) => { const out = []; s.traverse((o) => out.push(o.name)); return out; };
+    expect(names(buildRoofExportScene(stageOf(std)))).toContain('Seats_90');
+    expect(names(buildRoofExportScene(stageOf({ id: 'arena', rows: 3, shift: 0 })))).toContain('Seats_82');
   });
 });
