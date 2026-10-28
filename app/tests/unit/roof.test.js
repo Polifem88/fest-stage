@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { ROOF, insideRoom, wallEnds, CEIL_RECTS, OBSTACLES } from '../../src/venues/fest-roof/config/dimensions.js';
 import { clipSegmentToRects } from '../../src/core/geom.js';
 import { LAYOUTS, STOCK, SEAT_PITCH, placed, shiftRange, seatCount, rowsMax, CLEAR } from '../../src/venues/fest-roof/config/layouts.js';
+import { FIXTURES, TYPES, SPECS, GROUPS, GROUP_SETS, countByType, onTruss } from '../../src/venues/fest-roof/config/fixtures.js';
 
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
 const wall = (id) => ROOF.walls.find((w) => w.id === id && !w.part);
@@ -251,5 +252,51 @@ describe('Сцена под крышей · планировки зала', () =
     expect(b.rows[0].d0 - a.rows[0].d0).toBeCloseTo(0.5, 9);
     expect(b.pults[0].d0 - a.pults[0].d0).toBeCloseTo(0.5, 9);
     expect(b.rows[0].x0).toBe(a.rows[0].x0);
+  });
+});
+
+describe('Сцена под крышей · свет', () => {
+  const byNo = (n) => FIXTURES.find((f) => String(f.no) === String(n));
+  it('49 приборов по схеме цеха, состав по типам', () => {
+    expect(FIXTURES).toHaveLength(49);
+    expect(countByType()).toEqual({ FRESNEL100: 7, PROF100_CW: 9, PROF_RGB: 2, P7X40: 9, BEYE640: 9, RAVEN150: 4, COMPC500: 8, LEDPAR933: 1 });
+  });
+  it('номера уникальны и идут по порядку 1…29, 50…62, 101…109 (формат ссылки); №13 есть, 8 и 10 — Q400 RGBALC', () => {
+    const nos = FIXTURES.map((f) => f.no);
+    expect(new Set(nos).size).toBe(49);
+    const want = [...Array.from({ length: 24 }, (_, i) => i + 1), 26, 28, 29, ...Array.from({ length: 13 }, (_, i) => i + 50), ...Array.from({ length: 9 }, (_, i) => i + 101)];
+    expect(nos).toEqual(want.filter((n) => ![25, 27].includes(n)));
+    expect(byNo(13)).toBeTruthy();
+    expect(byNo(8).type).toBe('PROF_RGB');
+    expect(byNo(10).type).toBe('PROF_RGB');
+    expect(byNo(109).type).toBe('LEDPAR933');
+  });
+  it('координаты по схеме: № 1 (−3,43; 0), № 50 (−2,5; 0), № 58 (2,5; 5), № 104 (1,72; 2,5), № 109 (−5; −5,95)', () => {
+    const at = (n) => [byNo(n).mount.x, byNo(n).mount.d];
+    expect(at(1)).toEqual([-3.43, 0]);
+    expect(at(50)).toEqual([-2.5, 0]);
+    expect(at(52)).toEqual([2.5, 0]);
+    expect(at(58)).toEqual([2.5, 5]);
+    expect(at(104)).toEqual([1.72, 2.5]);
+    expect(at(109)).toEqual([-5, -5.95]);
+    expect(at(28)).toEqual([6.27, 2.5]);
+  });
+  it('каждое крепление — в 0,03 от нижнего пояса какой-либо линии ферм и внутри её пролёта; все on: null', () => {
+    const T = ROOF.trusses;
+    for (const f of FIXTURES) {
+      expect(f.mount.on).toBeNull();
+      expect(Math.abs(f.mount.y - T.y0), `№ ${f.no}: высота`).toBeLessThanOrEqual(0.03);
+      const hit = T.lines.some((l) => (l.axis === 'd'
+        ? Math.abs(f.mount.d - l.at) < 1e-9 && f.mount.x >= l.a0 - 1e-9 && f.mount.x <= l.a1 + 1e-9
+        : Math.abs(f.mount.x - l.at) < 1e-9 && f.mount.d >= l.a0 - 1e-9 && f.mount.d <= l.a1 + 1e-9));
+      expect(hit, `№ ${f.no} на ферме`).toBe(true);
+    }
+    expect(onTruss('П0', 1.5)).toEqual({ on: null, x: 1.5, y: T.y0 - 0.02, d: 0 });
+  });
+  it('каждая группа входит в набор; все типы есть в справочнике и паспортах', () => {
+    const inSets = new Set(GROUP_SETS.flatMap((s) => s.groups));
+    for (const g of Object.keys(GROUPS)) expect(inSets.has(g), g).toBe(true);
+    for (const f of FIXTURES) { expect(TYPES[f.type], f.type).toBeTruthy(); expect(SPECS[f.type], f.type).toBeTruthy(); expect(GROUPS[f.group]).toBeTruthy(); }
+    expect(Object.keys(GROUPS)).toEqual(['FRONT', 'SIDE_L', 'SIDE_R', 'FRESNEL', 'COMPC', 'BEYE', 'RAVEN', 'BACK', 'SIDE_WASH', 'STORAGE']);
   });
 });
