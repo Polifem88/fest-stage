@@ -312,6 +312,14 @@ describe('Сцена под крышей: экспорт 2D и 3D (DXF и GLB) �
     expect(count(buildRoofPlanDXF(null), 'INSERT', 'SEATS')).toBe(90);
   });
 
+  it('план: номера по допущению со звёздочкой и сноской; в экспликации — суммарная мощность', () => {
+    const dxf = buildRoofPlanDXF(stageOf(std));
+    for (const no of ['13*', '104*', '108*']) expect(dxf, no).toContain(`\n1\n${no}\n`);
+    expect(dxf).not.toContain('\n1\n14*\n');
+    expect(dxf).toMatch(/\* [-—] номер по допущению/); // DxfWriter заменяет «—» на «-»
+    expect(dxf).toMatch(/[~≈] 13,0 кВт/); // 49 приборов: 13,03 кВт номинально; «≈» в 1251 → «~»
+  });
+
   it('разрез: отметки 3,15 / 3,45 / 4,45 / 4,70, гребёнка станков', () => {
     const dxf = buildRoofSectionDXF(stageOf(std));
     for (const t of ['±0,000', '+3,150', '+3,450', '+4,450', '+4,700']) expect(dxf, t).toContain(t);

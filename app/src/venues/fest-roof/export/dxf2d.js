@@ -16,6 +16,8 @@ const SHEET_TITLE = 'МЫТИЩИНСКИЙ ТЕАТР ДРАМЫ И КОМЕД�
 const fmtM = (v, d = 2) => Number(v).toFixed(d).replace('.', ',');
 // Визуальные константы чертежа
 const TXT = 0.16;
+/** Номинальная мощность из строки паспорта («500 Вт (до 650 Вт)», «≈ 27 Вт») — первое число, Вт. */
+const powerW = (s) => Number((String(s || '').match(/\d+(?:[.,]\d+)?/)?.[0] || '0').replace(',', '.'));
 
 /** Состояние для чертежа: планировка и приборы (без stage — по умолчанию). */
 export function exportState(stage) {
@@ -184,7 +186,7 @@ export function buildPlanDXF(stage) {
     const t = TYPES[f.type];
     const sc = t.scale || 1;
     dxf.addInsert(SHAPE_BLOCK[t.shape] || 'FX_SPOT', f.mount.x, f.mount.d, { layer: 'FIXTURES', scaleX: sc, scaleY: sc, scaleZ: sc });
-    dxf.addText(f.mount.x + 0.18, f.mount.d + 0.18, String(f.no), { layer: 'TEXT', height: 0.12, valign: 'middle' });
+    dxf.addText(f.mount.x + 0.18, f.mount.d + 0.18, f.assumed ? `${f.no}*` : String(f.no), { layer: 'TEXT', height: 0.12, valign: 'middle' });
   }
 
   // размеры
@@ -197,21 +199,24 @@ export function buildPlanDXF(stage) {
   const legX = R.x1 + 4.0;
   let y = R.d1 + 1.5;
   const rows = [];
-  let total = 0;
+  let total = 0, watts = 0;
   for (const [k, def] of Object.entries(TYPES)) {
     const n = fixtures.filter((f) => f.type === k && !f.hidden).length;
     if (!n) continue;
     total += n;
     const sp = SPECS[k] || {};
+    watts += n * powerW(sp.power);
     rows.push([k, def.name, String(n), sp.power || '-', sp.zoom || `${def.beam}°`, sp.weight || '-']);
   }
-  rows.push(['ИТОГО', 'Всего приборов на плане', String(total), '', '', '']);
+  rows.push(['ИТОГО', 'Всего приборов на плане', String(total), `≈ ${fmtM(watts / 1000, 1)} кВт`, '', '']);
   const t1 = dxf.addTable(legX, y, {
     title: 'ЭКСПЛИКАЦИЯ СВЕТОВОГО ОБОРУДОВАНИЯ',
     headers: [{ label: 'Код', width: 3.2, align: 'center' }, { label: 'Модель прибора', width: 8.6, align: 'left' }, { label: 'Шт', width: 2.0, align: 'center' }, { label: 'Мощность', width: 4.5, align: 'center' }, { label: 'Угол / Зум', width: 4.5, align: 'center' }, { label: 'Вес', width: 4.2, align: 'center' }],
     rows, layer: 'TEXT',
   });
-  y = t1.bottomY - 0.7;
+  y = t1.bottomY - 0.35;
+  dxf.addText(legX, y, '* — номер по допущению модели (на схеме цеха номера нет или он дублируется). Мощность — по паспортам, сумма номинальная.', { layer: 'TEXT', height: 0.14 });
+  y -= 0.5;
   const t2 = dxf.addTable(legX, y, {
     title: 'ГРУППЫ ПРИБОРОВ (ЛИНИИ DMX И ДИММЕРОВ НА СХЕМЕ НЕ УКАЗАНЫ)',
     headers: [{ label: 'Группа', width: 14, align: 'left' }, { label: 'Приборов', width: 3, align: 'center' }],

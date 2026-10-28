@@ -16,6 +16,7 @@ const WEB_T = 0.014; // стенка I-колонны
 const WEB_W = 0.08; // раскосы решётки капитальной фермы
 const CHANNEL_W = 0.10; // ширина полки швеллера
 const GRILLE_GAP = 0.004; // решётка венткороба — чуть перед гранью
+const GRILLE_FRAME = { t: 0.035, out: 0.02 }; // рамка решётки: ширина профиля и вынос от грани
 const EPS = 1e-6;
 
 /**
@@ -130,14 +131,23 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
   const v11 = ROOF.vent11, gr = v11.grille;
   batch.add('walls', M.attic, rect('x', v11.x1 + GRILLE_GAP, gr.d0, gr.d1, gr.y0, gr.y1, 1), { tag: 'grille' });
   batch.add('walls', M.mesh, rect('x', v11.x1 + GRILLE_GAP * 2, gr.d0, gr.d1, gr.y0, gr.y1, 1), { tag: 'grille', shadow: false });
+  // рамка решётки — контур в «чертеже» и на виде
+  const fx = v11.x1, fo = GRILLE_FRAME.out, ft = GRILLE_FRAME.t;
+  batch.add('walls', M.steel, [
+    box(fx, fx + fo, gr.y0 - ft, gr.y0, gr.d0 - ft, gr.d1 + ft),
+    box(fx, fx + fo, gr.y1, gr.y1 + ft, gr.d0 - ft, gr.d1 + ft),
+    box(fx, fx + fo, gr.y0, gr.y1, gr.d0 - ft, gr.d0),
+    box(fx, fx + fo, gr.y0, gr.y1, gr.d1, gr.d1 + ft),
+  ], { tag: 'grilleFrame', shadow: false });
 
-  // кирпичные цоколи стен 10 и 12
+  // кирпичные цоколи стен 10 и 12 (торец, упирающийся в короб 11, не строим — он внутри короба)
+  const inVent = (d) => d >= v11.d0 - EPS && d <= v11.d1 + EPS;
   for (const p of ROOF.plinths) {
     batch.add('walls', M.brickRed, [
       rect('y', p.h, p.x0, p.x1, p.d0, p.d1, 1),
       rect('x', p.x1, p.d0, p.d1, 0, p.h, 1),
-      rect('d', p.d0, p.x0, p.x1, 0, p.h, -1),
-      rect('d', p.d1, p.x0, p.x1, 0, p.h, 1),
+      inVent(p.d0) ? null : rect('d', p.d0, p.x0, p.x1, 0, p.h, -1),
+      inVent(p.d1) ? null : rect('d', p.d1, p.x0, p.x1, 0, p.h, 1),
     ], { tag: 'plinth' });
   }
 

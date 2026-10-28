@@ -35,8 +35,11 @@ export function buildEmitters(M) {
     cables.push(new THREE.CylinderGeometry(CABLE_R, CABLE_R, C - (D.bottomY + D.r), 4, 1, true).translate(p.x, (C + D.bottomY + D.r) / 2, -p.d));
     dutyPoints.push(P(p.x, D.bottomY, p.d));
   }
-  // купол — металлическая чаша (снизу закрыта светящимся диском)
+  // купол — металлическая чаша (снизу закрыта светящимся диском); в «чертеже» — цвет слоя «Свет» с рёбрами
   const shell = new THREE.Mesh(mergeAll(shells), M.steelGray);
+  shell.name = 'dutyDomeShells';
+  shell.userData.static = true;
+  shell.userData.layer = 'lights';
   const glow = new THREE.Mesh(mergeAll(discs), M.dutyBulb);
   glow.userData.emitter = 'duty';
   glow.name = 'dutyDomes';

@@ -208,7 +208,7 @@ export function lightPanel(stage, { compact = false } = {}) {
     h('h4', {}, 'Приборы по группам'),
     compact ? h('div', { class: 'hint' }, 'Тап по номеру — выбрать, долгое нажатие — вкл/выкл.') : h('div', { class: 'hint' }, `Щелчок по номеру — выбрать, двойной — вкл/выкл.${anyUnknown ? ' Фиолетовые — тип не указан в легенде.' : ''}`),
     details,
-    V.texts?.extraEquipment ? h('details', { class: 'extra-eq' }, h('summary', {}, 'Доп. оборудование (под спектакль)'), h('p', {}, V.texts.extraEquipment)) : null,
+    V.texts?.extraEquipment ? h('details', { class: 'extra-eq' }, h('summary', {}, '📦 Доп. оборудование (под спектакль)'), h('p', {}, V.texts.extraEquipment)) : null,
   );
 }
 

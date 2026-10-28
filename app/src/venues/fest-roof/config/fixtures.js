@@ -95,6 +95,9 @@ function build() {
 }
 
 export const FIXTURES = build();
+/** Номера, присвоенные по допущению (на схеме цеха номера нет или он дублируется) — на чертеже со звёздочкой. */
+export const ASSUMED_NOS = [13, 104, 108];
+for (const f of FIXTURES) if (ASSUMED_NOS.includes(f.no)) f.assumed = true;
 
 /** Сколько приборов каждого типа (во всех группах или только в groups). */
 export function countByType(groups = null) {

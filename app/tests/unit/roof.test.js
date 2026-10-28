@@ -474,3 +474,42 @@ describe('Сцена под крышей · паспорт, зал, пол пя�
     }
   });
 });
+
+describe('Сцена под крышей · правки ревью раунда 1', () => {
+  const build = () => { const b = new StaticBatch(); buildArchitecture(b, fakeM(), {}); return b.build(); };
+  const tris = (L, mat, pred) => {
+    let n = 0;
+    L.walls.traverse((o) => {
+      if (!o.isMesh || o.material.name !== mat) return;
+      const p = o.geometry.attributes.position, nr = o.geometry.attributes.normal;
+      for (let i = 0; i < p.count; i += 3) {
+        const xs = [0, 1, 2].map((k) => p.getX(i + k)), ds = [0, 1, 2].map((k) => -p.getZ(i + k));
+        if (pred({ x0: Math.min(...xs), x1: Math.max(...xs), d0: Math.min(...ds), d1: Math.max(...ds), nz: nr.getZ(i) })) n++;
+      }
+    });
+    return n;
+  };
+  it('торцы цоколей стен 10 и 12 не строятся там, где упираются в короб 11', () => {
+    const L = build(), v = ROOF.vent11;
+    const atPlinth = (t) => t.x0 >= -6.45 - 1e-6 && t.x1 <= -6.30 + 1e-6;
+    expect(tris(L, 'brickRed', (t) => atPlinth(t) && Math.abs(t.d0 - v.d0) < 1e-4 && Math.abs(t.d1 - v.d0) < 1e-4 && t.nz < -0.9), 'торец у d −0,45').toBe(0);
+    expect(tris(L, 'brickRed', (t) => atPlinth(t) && Math.abs(t.d0 - v.d1) < 1e-4 && Math.abs(t.d1 - v.d1) < 1e-4 && t.nz > 0.9), 'торец у d 1,95').toBe(0);
+    // дальние торцы (у стены 9 и у стены 13) на месте
+    expect(tris(L, 'brickRed', (t) => atPlinth(t) && Math.abs(t.d0 + 8.35) < 1e-4 && Math.abs(t.d1 + 8.35) < 1e-4)).toBeGreaterThan(0);
+  });
+  it('у решётки короба 11 есть рамка (статика — рёбра в «чертеже»)', () => {
+    const L = build();
+    const frame = L.walls.children.find((m) => m.userData.tag === 'grilleFrame');
+    expect(frame, 'меш рамки').toBeTruthy();
+    expect(frame.userData.static).toBe(true);
+  });
+  it('корпуса куполов в «чертеже» — материал слоя (статика), светящийся диск — эмиттер', () => {
+    const em = buildEmitters(fakeM());
+    const shell = em.groups.duty.children.find((m) => m.name === 'dutyDomeShells');
+    expect(shell.userData.static).toBe(true);
+    expect(shell.userData.layer).toBe('lights');
+  });
+  it('номера по допущению помечены: 13, 104, 108 (assumed)', () => {
+    expect(FIXTURES.filter((f) => f.assumed).map((f) => f.no)).toEqual([13, 104, 108]);
+  });
+});

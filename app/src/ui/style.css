@@ -109,7 +109,8 @@ details.grp summary small { color: var(--muted); font-weight: 400; }
 .step-val { text-align: center; font-variant-numeric: tabular-nums; }
 /* доп. оборудование под спектакль (текстом внизу панели «Свет») */
 .extra-eq { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px; font-size: 13px; }
-.extra-eq summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--muted); }
+.extra-eq summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--text); font-weight: 600; }
+.extra-eq summary:hover { color: var(--accent); }
 .extra-eq p { margin: 4px 0 0; line-height: 1.45; }
 
 /* фокус с клавиатуры */
