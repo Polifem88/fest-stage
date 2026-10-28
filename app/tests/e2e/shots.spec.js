@@ -127,7 +127,9 @@ test('стартовая страница: карточки сцен и реко
 
 // Остальные площадки каталога: все их виды + чертёж/размеры/сетка и свет.
 // Снимки: review/shots/<раунд>/<проект>/<площадка>/NN-<вид>.jpg. VENUE=chamber — только одна площадка.
-const OTHER_VENUES = (process.env.VENUE ? [process.env.VENUE] : ['chamber']).filter((v) => v !== 'big');
+const OTHER_VENUES = (process.env.VENUE ? [process.env.VENUE] : ['chamber', 'roof']).filter((v) => v !== 'big');
+/** Дополнительные снимки площадки: планировки трансформируемого зала. */
+const EXTRA_SHOTS = { roof: ['cross', 'traverse', 'arena'].flatMap((lo) => [`overview+lo-${lo}`, `plan+lo-${lo}`]) };
 for (const venue of OTHER_VENUES) {
   test(`снимки площадки: ${venue}`, async ({ page }, info) => {
     const mobile = !!info.project.use.isMobile;
@@ -137,7 +139,7 @@ for (const venue of OTHER_VENUES) {
     expect(await page.evaluate(() => window.__fest.venue())).toBe(venue);
     const views = await page.evaluate(() => window.__fest.views);
     const ortho = await page.evaluate(() => Object.entries(window.__fest.stage.views).filter(([, v]) => v.type === 'ortho').map(([k]) => k));
-    const specs = [...views, ...ortho.map((k) => `${k}+bp+dims`), ...ortho.slice(0, 1).map((k) => `${k}+bp+grid`), `${views[0]}+off+house`, `${views[0]}+nums`];
+    const specs = [...views, ...ortho.map((k) => `${k}+bp+dims`), ...ortho.slice(0, 1).map((k) => `${k}+bp+grid`), `${views[0]}+off+house`, `${views[0]}+nums`, ...(EXTRA_SHOTS[venue] || [])];
     let n = 0;
     for (const spec of specs) {
       await test.step(spec, async () => {

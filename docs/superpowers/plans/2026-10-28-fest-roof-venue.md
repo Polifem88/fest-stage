@@ -350,13 +350,13 @@
 **Files:**
 - Modify: `app/tests/e2e/venues.spec.js`, `app/tests/e2e/shots.spec.js`, `app/tests/e2e/perf.spec.js`, при необходимости `tests/e2e/helpers.js`; `fest-roof/index.js` (точки видов)
 
-- [ ] **Step 1: Тесты:**
+- [x] **Step 1: Тесты:**
   - `venues.spec.js`: проверку «скоро» перевести с `roof` на `foyer`. Добавить: открытие `#v=roof`; выбор в шапке; клик `.layout-btn[data-layout="traverse"]` → `__fest.layout().id === 'traverse'`, в хэше `lo`; память (roof traverse → chamber → roof: traverse); 10 циклов `setLayout` без роста `geometries/textures` (Review Focus 2); чертёж включён + `setLayout('arena')` → у всех мешей зала `material === bp`-материал (Review Focus 4); старые ссылки v1 и v2 big/chamber без `lo` — без изменений; на `mobile.html` все кнопки вкладки «Зал» ≥ 44 px.
   - `shots.spec.js`: `OTHER_VENUES` по умолчанию `['chamber', 'roof']`; для roof дополнительно снимки планировок `cross`, `traverse`, `arena` (вид `overview` и `plan`).
   - `perf.spec.js`: `otherCases` + `'roof:overview'`, `'roof:plan'`.
-- [ ] **Step 2:** `npm.cmd run build; npx.cmd playwright test tests/e2e/venues.spec.js` — PASS.
-- [ ] **Step 3:** `$env:VENUE='roof'; npm.cmd run shots` → смотреть `review/shots/<раунд>/*/roof/*.jpg`. Подобрать точки видов, чтобы планшет, зал, фермы и потолок читались (сравнить с фото «Общий вид», «Вид на потолок…»). Повторять до удовлетворительного результата.
-- [ ] **Step 4:** Коммит: `Сцена под крышей: e2e (планировки, память, утечки, 44 px), снимки и виды`.
+- [x] **Step 2:** `npm.cmd run build; npx.cmd playwright test tests/e2e/venues.spec.js` — PASS.
+- [x] **Step 3:** `$env:VENUE='roof'; npm.cmd run shots` → смотреть `review/shots/<раунд>/*/roof/*.jpg`. Подобрать точки видов, чтобы планшет, зал, фермы и потолок читались (сравнить с фото «Общий вид», «Вид на потолок…»). Повторять до удовлетворительного результата.
+- [x] **Step 4:** Коммит: `Сцена под крышей: e2e (планировки, память, утечки, 44 px), снимки и виды`.
 
 ---
 

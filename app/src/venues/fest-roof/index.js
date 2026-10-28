@@ -27,7 +27,7 @@ const lightPult = std.pults.find((p) => p.kind === 'light');
 
 /** Готовые точки обзора. Координаты: [x, y, d]. */
 const VIEWS = {
-  overview: { name: 'Общий вид', type: 'persp', pos: [12.5, 10.5, -13], target: [0.4, 1.0, -0.8], portraitPullback: true },
+  overview: { name: 'Общий вид', type: 'persp', pos: [11.5, 12.5, 12.5], target: [-0.3, 0.6, -1.6], portraitPullback: true },
   hall: { name: 'Из зала (3-й ряд)', type: 'persp', pos: [0.6, row3.h + EYE, (row3.d0 + row3.d1) / 2], target: [0, 1.4, 4.5] },
   booth: { name: 'С пульта света', type: 'persp', pos: [(lightPult.x0 + lightPult.x1) / 2, lightPult.h + EYE, (lightPult.d0 + lightPult.d1) / 2], target: [0.5, 1.2, 3.5] },
   stageToHall: { name: 'Со сцены в зал', type: 'persp', pos: [0, 1.7, 6.2], target: [0, 1.2, -4], portraitPullback: 0.4 },

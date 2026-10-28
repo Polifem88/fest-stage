@@ -21,7 +21,7 @@ export async function openApp(page, url) {
   return log;
 }
 
-/** Применить вид и модификаторы. Пример: 'hall+off+house'. Те же коды, что в scripts/smoke.mjs. */
+/** Применить вид и модификаторы. Пример: 'hall+off+house', 'plan+lo-arena'. Те же коды, что в scripts/smoke.mjs. */
 export async function applyShot(page, spec) {
   await page.evaluate((spec) => {
     const [view, ...mods] = spec.split('+');
@@ -34,6 +34,8 @@ export async function applyShot(page, spec) {
     f.flag('fixtureLabels', false); f.flag('grid', false);
     f.flag('haze', f.stage.profile.haze);
     f.select(null);
+    // трансформируемый зал — к планировке по умолчанию (у площадок без планировок — ничего)
+    if (f.layout?.()) f.setLayout({ id: f.stage.venue.layouts.default });
     // всплывающие подсказки от прошлого снимка убираем (иначе попадают в следующие кадры)
     document.querySelectorAll('.toast').forEach((t) => t.remove());
     f.setView(view);
@@ -53,6 +55,7 @@ export async function applyShot(page, spec) {
       if (m === 'low') { for (const id of ['Sh3', 'Sh5', 'Sh9']) f.setHeight(id, 2); f.setHeight('C2', 3); }
       if (m === 'sel53') f.selectFixture(53);
       if (m === 'selSh5') f.select({ kind: 'rig', id: 'Sh5' });
+      if (m.startsWith('lo-')) f.setLayout({ id: m.slice(3) }); // планировка зала: lo-traverse
     }
     f.renderNow();
   }, spec);
