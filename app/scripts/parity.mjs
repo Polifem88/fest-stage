@@ -195,9 +195,15 @@ async function stateFromLink(distDir, profile, venue, v1) {
 
 async function grabShot(page, spec, file) {
   await applyShot(page, spec);
-  await page.evaluate(() => { document.querySelectorAll('.toast').forEach((t) => t.remove()); window.__fest.renderNow(); });
+  // всплывающие подсказки и подсказка жестов телефона (.mhint гаснет сама через 3 с — гонка по времени) — не в кадр
+  const hideOverlays = () => {
+    document.querySelectorAll('.toast').forEach((t) => t.remove());
+    document.querySelectorAll('.mhint').forEach((e) => { e.style.display = 'none'; });
+  };
+  await page.evaluate(hideOverlays);
+  await page.evaluate(() => window.__fest.renderNow());
   await page.waitForTimeout(300);
-  await page.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove()));
+  await page.evaluate(hideOverlays);
   const png = await page.screenshot({ type: 'png', scale: 'css', animations: 'disabled', caret: 'hide' });
   wfile(file, png);
   return png;
