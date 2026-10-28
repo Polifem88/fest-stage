@@ -66,6 +66,7 @@ function validateLayouts(v, need) {
   for (const l of list) need(typeof l.id === 'string' && typeof l.name === 'string' && Number.isInteger(l.rowsMax) && l.rowsMax >= 0, `планировка ${l.id}: id, name, rowsMax ≥ 0`);
   need(ids.includes(lo.default), `layouts.default «${lo.default}» нет в списке`);
   need(lo.shiftStep > 0, 'layouts.shiftStep > 0');
+  need((v.layers || []).some((l) => l[0] === 'hall'), "layouts: нет слоя 'hall' (в него движок кладёт зал)");
   for (const k of ['build', 'range', 'seats']) need(typeof lo[k] === 'function', `нет layouts.${k}()`);
 }
 

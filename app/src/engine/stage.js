@@ -12,7 +12,7 @@ import { LabelManager } from '../core/labels.js';
 import { setDimsView, setGridView } from '../core/overlays.js';
 import { FixtureSystem, HAZE_DEFAULT } from '../systems/fixtures.js';
 import { LightingSystem } from '../systems/lighting.js';
-import { encodeState, decodeState, peekVenue, parseHash } from './state.js';
+import { encodeState, decodeState, peekVenue, parseHash, normLayout } from './state.js';
 import { SheetOverlay } from './blueprint.js';
 import { disposeTree, sharedSet } from './dispose.js';
 import { encodeDxfWindows1251 } from '../export/dxfWriter.js';
@@ -230,6 +230,11 @@ export class Stage {
     };
     const built = venue.build({ batch, M: this.M, labels: this.labels, profile: P, commitBatch, add }) || {};
     commitBatch();
+    // трансформируемый зал: группа слоя hall по планировке (до приборов — пол пятен знает планировку)
+    this.layout = null;
+    this._hallGroup = null;
+    this._bpOn = false; // «чертёж» к новой площадке применит _applyFlags ниже
+    if (venue.layouts) this._swapHall(normLayout(null, venue.layouts));
     this.rigging = built.rigging || null;
     this.emitters = built.emitters || null;
     // «включённый» материал светящихся мешей запоминаем сразу: первый _applyFlags может их погасить
@@ -275,6 +280,8 @@ export class Stage {
     disposeTree(this.dims, keep);
     disposeTree(this.grid, keep);
     this.layerGroups = null;
+    this._hallGroup = null;
+    this.layout = null;
     this.rigging = null;
     this.fixtures = null;
     this.lighting = null;
@@ -282,6 +289,47 @@ export class Stage {
     this.labels = null;
     this.renderer.renderLists.dispose();
     this.venue = null;
+  }
+
+  // ---------------------------------------------------------------------------
+  //  Трансформируемый зал (caps.layouts)
+  // ---------------------------------------------------------------------------
+  /**
+   * Сменить планировку зала: { id?, rows?, shift? } (shift — в шагах layouts.shiftStep).
+   * Новая планировка без rows/shift — все ряды, без сдвига. Значения зажимаются в допустимые пределы.
+   * @returns {boolean} false — у площадки нет трансформируемого зала
+   */
+  setLayout(partial = {}) {
+    const cfg = this.venue?.layouts;
+    if (!cfg) return false;
+    const cur = this.layout;
+    const p = partial.id && partial.id !== cur.id ? { rows: Infinity, shift: 0, ...partial } : { ...cur, ...partial };
+    const st = normLayout(p, cfg);
+    if (st.id === cur.id && st.rows === cur.rows && st.shift === cur.shift) return true;
+    this._swapHall(st);
+    this.fixtures.updateAll();
+    this.lighting.placeGroupLights();
+    this._shadowsDirty = true;
+    this.invalidate();
+    this.emit('layout', { ...st });
+    return true;
+  }
+
+  /** Заменить группу зала: пол пятен → новая группа → освободить старую → «чертёж», если включён. */
+  _swapHall(st) {
+    const venue = this.venue;
+    venue.fixtures.floor.setLayout?.(st);
+    const g = venue.layouts.build(st, { M: this.M, profile: this.profile });
+    g.name ||= 'hall:layout';
+    const hall = this.layerGroups.hall;
+    if (this._hallGroup) {
+      hall.remove(this._hallGroup);
+      disposeTree(this._hallGroup, sharedSet(this.M, this._bp, { off: this._off }));
+    }
+    hall.add(g);
+    this._hallGroup = g;
+    this.layout = st;
+    if (this._bpOn) this._bpApply(g, true);
   }
 
   /** Состояние площадки для памяти при переключении: механика, свет, слои, вид и точное положение камеры. */
@@ -556,7 +604,28 @@ export class Stage {
       this._bp.fixture = new THREE.MeshBasicMaterial({ color: 0xffffff });
     }
     scene.background = on ? new THREE.Color(0xffffff) : this.bgDark;
-    scene.traverse((o) => {
+    this._bpApply(scene, on);
+    if (this.rigging) {
+      for (const it of this.rigging.items.values()) {
+        if (on) { it.visual.userData.matOrig ||= it.visual.material; it.visual.material = this._bp[`rig:${it.cfg.kind}`] || this._bp['rig:batten']; }
+        else if (it.visual.userData.matOrig) it.visual.material = it.visual.userData.matOrig;
+      }
+      this.rigging.cables?.material.color.set(on ? 0x5b6470 : 0x8d939c);
+    }
+    this.lighting.root.visible = !on;
+    this.renderer.toneMapping = on ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
+    // светящиеся элементы приглушаем
+    for (const m of [this.fixtures.lenses]) m.visible = !on;
+    this._shadowsDirty = true;
+  }
+
+  /**
+   * Материалы «чертежа» для мешей поддерева root (вся сцена или новая группа зала после смены планировки).
+   * Статика (userData.static, userData.layer) — цвет слоя и рёбра; InstancedMesh кресел и приборов — по имени
+   * или userData.bpRole. Исходный материал хранится в userData.matOrig.
+   */
+  _bpApply(root, on) {
+    root.traverse((o) => {
       if (!o.isMesh) return;
       // кресла и корпуса приборов (InstancedMesh); площадка может пометить меш явно: userData.bpRole
       const instKey = o.userData.bpRole || (o.name === 'seatsFabric' ? 'seatF' : o.name === 'seatsFrame' ? 'seatK' : (o.name.startsWith('fixtures:') || o.name === 'fixtureBases' || o.name === 'fixtureClamps' || o.name.startsWith('portable')) ? 'fixture' : null);
@@ -583,18 +652,6 @@ export class Stage {
         }
       }
     });
-    if (this.rigging) {
-      for (const it of this.rigging.items.values()) {
-        if (on) { it.visual.userData.matOrig ||= it.visual.material; it.visual.material = this._bp[`rig:${it.cfg.kind}`] || this._bp['rig:batten']; }
-        else if (it.visual.userData.matOrig) it.visual.material = it.visual.userData.matOrig;
-      }
-      this.rigging.cables?.material.color.set(on ? 0x5b6470 : 0x8d939c);
-    }
-    this.lighting.root.visible = !on;
-    this.renderer.toneMapping = on ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
-    // светящиеся элементы приглушаем
-    for (const m of [this.fixtures.lenses]) m.visible = !on;
-    this._shadowsDirty = true;
   }
 
   // ---------------------------------------------------------------------------
@@ -861,6 +918,7 @@ export class Stage {
       layers: { ...this.layers },
       portable: { ...this.fixtures.portable },
       view: this.view,
+      layout: this.layout ? { ...this.layout } : null,
     };
   }
   stateString() { return encodeState(this.getState(), this.venue); }
@@ -877,6 +935,8 @@ export class Stage {
     if (!st) return false;
     if (st.venue && st.venue !== this.venue.id) return false;
     if (this.rigging) for (const [id, h] of Object.entries(st.heights || {})) this.rigging.setHeight(id, h);
+    // планировка зала — до приборов: пятна пересчитываются по новому полу
+    if (st.layout && this.layout) this.setLayout(st.layout);
     if (st.fixturesOn) { this.fixtures.list.forEach((f, i) => { f.on = !!st.fixturesOn[i]; }); this.fixtures.updateAll(); this._lightsChanged(); }
     if (st.portable && this.fixtures.portableCfg) this.setPortable(st.portable.mode, st.portable.count);
     if (st.flags) { Object.assign(this.flags, st.flags); this._applyFlags(); }

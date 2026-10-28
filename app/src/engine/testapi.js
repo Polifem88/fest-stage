@@ -27,6 +27,9 @@ export function exposeTestApi(stage) {
     light: (setId, on) => (setId === 'all' ? stage.setAllStage(on) : stage.setGroupSet(setId, on)),
     /** Переносные приборы (если есть): mode 'off' | 'floor' | 'stand', count. */
     portable: (mode, count) => stage.setPortable(mode, count),
+    /** Планировка трансформируемого зала: { id, rows, shift } или null; setLayout({ id?, rows?, shift? }). */
+    layout: () => (stage.layout ? { ...stage.layout } : null),
+    setLayout: (p) => stage.setLayout(typeof p === 'string' ? { id: p } : p),
     flag: (k, v) => stage.setFlag(k, v),
     layer: (k, v) => stage.setLayer(k, v),
     select: (sel) => stage.select(sel),
