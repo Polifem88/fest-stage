@@ -1,5 +1,5 @@
 // Сцена под крышей: геометрия помещения и конструкции, планировки зала, свет, сборка.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { ROOF, insideRoom, wallEnds, CEIL_RECTS, OBSTACLES } from '../../src/venues/fest-roof/config/dimensions.js';
 import { clipSegmentToRects } from '../../src/core/geom.js';
 import { LAYOUTS, STOCK, SEAT_PITCH, placed, shiftRange, seatCount, rowsMax, CLEAR } from '../../src/venues/fest-roof/config/layouts.js';
@@ -389,5 +389,88 @@ describe('Сцена под крышей · сборка', () => {
 
   it('mobile: треугольников ферм меньше, чем на компьютере', () => {
     expect(triCount(build(true).trusses)).toBeLessThan(triCount(build(false).trusses));
+  });
+
+  it('конструкция под потолком без граней «вверх» — сверху (план, общий вид) не закрывает зал', () => {
+    const L = build();
+    const st = L.ceiling.children.find((m) => m.userData.tag === 'structure');
+    const n = st.geometry.attributes.normal;
+    let up = 0;
+    for (let i = 0; i < n.count; i++) if (n.getY(i) > 0.9) up++;
+    expect(up).toBe(0);
+    expect(n.count).toBeGreaterThan(0);
+  });
+});
+
+describe('Сцена под крышей · паспорт, зал, пол пятен', () => {
+  let roof, FLOOR, buildHall, validateVenue, CATALOG;
+  beforeAll(async () => {
+    roof = (await import('../../src/venues/fest-roof/index.js')).default;
+    ({ FLOOR } = await import('../../src/venues/fest-roof/build/floor.js'));
+    ({ buildHall } = await import('../../src/venues/fest-roof/build/hall.js'));
+    ({ validateVenue } = await import('../../src/venues/contract.js'));
+    ({ CATALOG } = await import('../../src/venues/catalog.js'));
+  });
+  const down = (x, d, y = 3.13) => [new THREE.Vector3(x, y, -d), new THREE.Vector3(0, -1, 0)];
+
+  it('validateVenue(roof) — без ошибок', () => {
+    expect(validateVenue(roof)).toEqual([]);
+    expect(roof.id).toBe('roof');
+    expect(roof.caps).toEqual({ rigging: false, counterweights: false, portable: false, duty: true, houseLight: false, layouts: true });
+    expect(roof.layers.map((l) => l[0])).toEqual(['hall', 'walls', 'ceiling', 'trusses', 'lights', 'molton']);
+    expect(Object.keys(roof.views)).toEqual(['overview', 'hall', 'booth', 'stageToHall', 'ceiling', 'storage', 'plan', 'section']);
+    expect(roof.layouts.list.map((l) => [l.id, l.rowsMax])).toEqual([['std', 5], ['empty', 0], ['cross', 5], ['crossRev', 5], ['traverse', 3], ['arena', 3]]);
+    expect(roof.layouts.default).toBe('std');
+    expect(roof.texts.extraEquipment).toMatch(/Phoenix Wash 760z/);
+  });
+  it('meta.type/seats совпадают с catalog.js', () => {
+    const e = CATALOG.find((c) => c.id === 'roof');
+    expect(e.status).toBe(roof.status);
+    expect(e.type).toBe(roof.meta.type);
+    expect(e.seats).toBe(roof.meta.seats);
+    expect(roof.meta.seats).toBe(90);
+  });
+  it('trace: луч вниз над станком h 0,8 std → y 0,8, zone 1; при empty → y 0, zone 0', () => {
+    FLOOR.setLayout({ id: 'std', rows: 5, shift: 0 });
+    let hit = FLOOR.trace(...down(0, -4.5));
+    expect(hit.floor).toBe(true);
+    expect(hit.point.y).toBeCloseTo(0.8, 6);
+    expect(FLOOR.zone(hit.point)).toBe(1);
+    hit = FLOOR.trace(...down(0, -0.5)); // ряд 1 — на полу
+    expect(hit.point.y).toBeCloseTo(0, 6);
+    expect(FLOOR.zone(hit.point)).toBe(0);
+    FLOOR.setLayout({ id: 'empty', rows: 0, shift: 0 });
+    hit = FLOOR.trace(...down(0, -4.5));
+    expect(hit.point.y).toBeCloseTo(0, 6);
+    expect(FLOOR.zone(hit.point)).toBe(0);
+    FLOOR.setLayout({ id: 'std', rows: 5, shift: 0 });
+  });
+  it('trace: луч в стену не выходит за контур', () => {
+    const dirs = [[1, -0.05, 0], [-1, -0.05, 0], [0, -0.05, 1], [0, -0.05, -1], [1, -0.1, 1], [-1, -0.02, -1]];
+    for (const [x, y, z] of dirs) {
+      const hit = FLOOR.trace(new THREE.Vector3(0.5, 3.1, -1), new THREE.Vector3(x, y, z).normalize());
+      expect(hit.point, JSON.stringify([x, y, z])).toBeTruthy();
+      const [px, pd] = [hit.point.x, -hit.point.z];
+      const zones = [...ROOF.rects, [ROOF.corridor.x0, ROOF.corridor.x1, ROOF.corridor.d0, ROOF.corridor.d1]];
+      expect(zones.some(([x0, x1, d0, d1]) => px >= x0 - 1e-6 && px <= x1 + 1e-6 && pd >= d0 - 1e-6 && pd <= d1 + 1e-6), `(${px}; ${pd})`).toBe(true);
+    }
+  });
+  it('clip: уникальный ключ кэша шейдера pool-roof', () => {
+    const mat = new THREE.MeshBasicMaterial();
+    FLOOR.clip(mat);
+    expect(mat.customProgramCacheKey()).toBe('pool-roof');
+  });
+  it('buildHall: число экземпляров стульев = seatCount для каждой планировки; мешей ≤ 8', () => {
+    const M = fakeM();
+    for (const l of LAYOUTS) for (let rows = Math.min(1, rowsMax(l.id)); rows <= rowsMax(l.id); rows++) {
+      const st = { id: l.id, rows, shift: 0 };
+      const g = buildHall(st, { M });
+      const seats = g.children.find((c) => c.name === 'seatsFabric');
+      expect(seats.count, JSON.stringify(st)).toBe(seatCount(st));
+      let meshes = 0;
+      g.traverse((o) => { if (o.isMesh) meshes++; });
+      expect(meshes).toBeLessThanOrEqual(8);
+      g.traverse((o) => { if (o.isMesh && !o.isInstancedMesh) expect(o.geometry.attributes.position.count).toBeGreaterThan(0); });
+    }
   });
 });

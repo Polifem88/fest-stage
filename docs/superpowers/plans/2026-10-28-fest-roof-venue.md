@@ -331,7 +331,7 @@
   - `index.js`: `id 'roof'`, `name 'Сцена под крышей'`, `status 'draft'`, `meta { type: 'Трансформируемый зал под капитальными фермами', seats: 90 }`, `caps { rigging:false, counterweights:false, portable:false, duty:true, houseLight:false, layouts:true }`, `layers` (spec §7, именно в этом порядке), `views` (spec §8), `defaultView 'overview'`, `camera { maxDistance: 45 }`, `rigging: null`, `layouts { list: LAYOUTS.map((l) => ({ id: l.id, name: l.name, rowsMax: max(rank) или 0 })), default:'std', shiftStep:0.5, range: shiftRange, seats: seatCount, build: buildHall }`, `fixtures { …, floor: FLOOR, hangs: () => true, poolK, powerOf, lineText: () => 'на схеме не указаны', aimNote }`, `lightPlans { full: [FRONT, SIDES, WASH(shadow), HEADS, BACK, STORAGE], lite: [FRONT_SIDE, STAGE] }`, `texts.extraEquipment` (spec §5.3), `exports: {}` (заполнится в Task 11).
   - `catalog.js`: `{ id:'roof', name:'Сцена под крышей', short:'Под крышей', status:'draft', type: <как meta.type>, seats: 90 }`. `registry.js`: `roof: () => import('./fest-roof/index.js')`.
 
-- [ ] **Step 1: Падающие тесты:**
+- [x] **Step 1: Падающие тесты:**
   ```js
   it('validateVenue(roof) — без ошибок', …);
   it('meta.type/seats совпадают с catalog.js', …);
@@ -339,9 +339,9 @@
   it('trace: луч в стену не выходит за контур', …);
   it('buildHall: число экземпляров стульев = seatCount для каждой планировки', …);
   ```
-- [ ] **Step 2:** FAIL. **Step 3:** Реализовать. **Step 4:** `npx.cmd vitest run` — PASS (включая `boundaries.test.js`).
-- [ ] **Step 5:** Ручная проверка: `npm.cmd run dev` → `http://localhost:5173/desktop.html#v=roof` — сцена строится без ошибок консоли, вкладка «Зал» переключает планировки.
-- [ ] **Step 6:** Коммит: `Сцена под крышей (черновик): зал по планировкам, пол пятен, паспорт, подключение в каталог`.
+- [x] **Step 2:** FAIL. **Step 3:** Реализовать. **Step 4:** `npx.cmd vitest run` — PASS (включая `boundaries.test.js`).
+- [x] **Step 5:** Ручная проверка: `npm.cmd run dev` → `http://localhost:5173/desktop.html#v=roof` — сцена строится без ошибок консоли, вкладка «Зал» переключает планировки.
+- [x] **Step 6:** Коммит: `Сцена под крышей (черновик): зал по планировкам, пол пятен, паспорт, подключение в каталог`.
 
 ---
 

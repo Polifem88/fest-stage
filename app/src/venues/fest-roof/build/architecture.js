@@ -18,6 +18,28 @@ const CHANNEL_W = 0.10; // ширина полки швеллера
 const GRILLE_GAP = 0.004; // решётка венткороба — чуть перед гранью
 const EPS = 1e-6;
 
+/**
+ * Убрать грани, смотрящие вверх (нормаль Y > UP_NY): у элементов под потолком они изнутри не видны,
+ * а сверху (план, общий вид снаружи) закрывали бы зал. Возвращает неиндексированную геометрию.
+ */
+const UP_NY = 0.9;
+export function dropUpFaces(g) {
+  const s = g.index ? g.toNonIndexed() : g;
+  if (s !== g) g.dispose();
+  s.computeVertexNormals();
+  const pos = s.attributes.position, nor = s.attributes.normal;
+  const keep = [];
+  for (let i = 0; i < pos.count; i += 3) {
+    const ny = (nor.getY(i) + nor.getY(i + 1) + nor.getY(i + 2)) / 3;
+    if (ny <= UP_NY) for (let k = 0; k < 3; k++) keep.push(pos.getX(i + k), pos.getY(i + k), pos.getZ(i + k));
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(keep, 3));
+  out.computeVertexNormals();
+  s.dispose();
+  return out;
+}
+
 /** Брус сечением w × h между точками p и q (THREE.Vector3): грань h — вертикальная. */
 export function strut(p, q, w, h = w) {
   const dx = q.x - p.x, dy = q.y - p.y, dz = q.z - p.z;
@@ -203,6 +225,6 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
       }
     }
   }
-  batch.add('ceiling', M.steel, steel, { tag: 'structure' });
+  batch.add('ceiling', M.steel, steel.map(dropUpFaces), { tag: 'structure' });
   return { mobile };
 }
