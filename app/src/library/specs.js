@@ -31,4 +31,6 @@ export const SPECS = {
   ETCJR_ZOOM: { power: '575 Вт (макс.)', source: 'лампа HPL 575 Вт', zoom: '25–50°, ручной зум', color: 'гель-фильтр в рамке', weight: '5,3 кг', dmx: 'через диммер', ip: '—', confidence: 'высокая (Source Four jr Zoom)', url: 'https://www.etcconnect.com/Products/Legacy/Lighting-Fixtures/Source-Four-jr/Features.aspx' },
   ETCJR36:  { power: '575 Вт (макс.)', source: 'лампа HPL 575 Вт', zoom: 'фикс. 36°', color: 'гель-фильтр в рамке', weight: '4,5 кг', dmx: 'через диммер', ip: '—', confidence: 'высокая (Source Four jr 36°)', url: 'https://www.etcconnect.com/Products/Legacy/Lighting-Fixtures/Source-Four-jr/Features.aspx' },
   ETC_50:   { power: '575 Вт (до 750 Вт)', source: 'лампа HPL 575 Вт', zoom: 'фикс. 50°, сменный тубус', color: 'гель-фильтр в рамке', weight: '6,3 кг', dmx: 'через диммер', ip: '—', confidence: 'высокая', url: 'https://support.etcconnect.com/ETC/Fixtures/Source_Four/Source_Four_ERS_and_HID/Fixture_and_Shipping_Weights_of_Source_Four' },
+  // паспорт производителя не найден (29.10.2026): мощность — по обозначению модели «933» (9 × 3 Вт), остальное уточнить в цехе
+  LEDPAR933: { power: '≈ 27 Вт (9 × 3 Вт)', source: 'LED 9 × 3 Вт', zoom: '—', color: '—', weight: '—', dmx: '—', ip: '—', confidence: 'низкая (по обозначению модели, паспорт не найден)', url: 'https://involight.ru/' },
 };

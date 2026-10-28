@@ -51,6 +51,8 @@ export const TYPES = {
   ETCJR_ZOOM: { name: 'ETC Source Four Jr Zoom (25–50°)', shape: 'profile', beam: 36, lamp: true, scale: 0.72 },
   ETCJR36: { name: 'ETC Source Four Jr 36°', shape: 'profile', beam: 36, lamp: true, scale: 0.7 },
   ETC_50: { name: 'ETC Source Four 50°', shape: 'profile', beam: 50, lamp: true, scale: 0.85 },
+  // --- Сцена под крышей (только добавлять в конец: порядок = палитра цветов чертежа) ------
+  LEDPAR933: { name: 'Involight LedPar 933', shape: 'ledpar', beam: 25, scale: 0.7 },
 };
 
 /**
