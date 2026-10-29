@@ -74,7 +74,7 @@ export default {
   name: 'Большая сцена',
   status: 'ready',
   meta: { type: 'Сцена с порталом, приподнятым планшетом и подвижной механизацией', seats: DIM.hall.rows * DIM.hall.seatsPerRow },
-  caps: { rigging: true, counterweights: true, portable: true, duty: true, houseLight: true },
+  caps: { rigging: true, counterweights: true, portable: true, duty: true, houseLight: true, layouts: false },
   layers: [['hall', 'Зрительный зал'], ['walls', 'Стены и потолок коробки'], ['galleries', 'Галереи'], ['rigging', 'Механика'], ['lights', 'Свет (приборы)']],
   views: VIEWS,
   defaultView: 'overview',
@@ -82,6 +82,7 @@ export default {
   // ссылки v1 (до каталога сцен): сколько было приборов и слоёв — новые, добавленные в конец, останутся включены
   linkV1: { fixtures: 124, layers: 5 },
   rigging: { list: RIGGING, describe: describeRig },
+  layouts: null,
   fixtures: {
     list: FIXTURES,
     types: TYPES,

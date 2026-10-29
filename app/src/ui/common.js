@@ -3,6 +3,7 @@
 // из stage.venue: панели пересобираются при смене сцены (см. desktop.js / mobile.js).
 import { RIG_KINDS, kindsPresent } from '../library/rigKinds.js';
 import { THEATRE_NAME } from '../venues/registry.js';
+import { seatsLabel } from '../venues/catalog.js';
 import { HAZE_DEFAULT } from '../systems/fixtures.js';
 
 export const fmt = (v, n = 2) => Number(v).toFixed(n).replace('.', ',');
@@ -207,6 +208,7 @@ export function lightPanel(stage, { compact = false } = {}) {
     h('h4', {}, 'Приборы по группам'),
     compact ? h('div', { class: 'hint' }, 'Тап по номеру — выбрать, долгое нажатие — вкл/выкл.') : h('div', { class: 'hint' }, `Щелчок по номеру — выбрать, двойной — вкл/выкл.${anyUnknown ? ' Фиолетовые — тип не указан в легенде.' : ''}`),
     details,
+    V.texts?.extraEquipment ? h('details', { class: 'extra-eq' }, h('summary', {}, '📦 Доп. оборудование (под спектакль)'), h('p', {}, V.texts.extraEquipment)) : null,
   );
 }
 
@@ -241,6 +243,64 @@ export function fixtureSearch(stage, { compact = false } = {}) {
   const findBtn = h('button', { class: 'btn', onclick: doFind }, compact ? '🔍' : 'Найти');
   if (compact) findBtn.setAttribute('aria-label', 'Найти');
   return h('div', { class: 'search-row' }, search, findBtn);
+}
+
+/**
+ * Трансформируемый зал (caps.layouts): готовые планировки, сколько рядов и сдвиг всего зала.
+ * Ряды убирают задние (верхние) ряды; сдвиг — поперёк рядов, шаг layouts.shiftStep, пределы — range().
+ */
+export function layoutPanel(stage, { compact = false } = {}) {
+  const cfg = stage.venue.layouts;
+  const step = cfg.shiftStep;
+  const cur = () => stage.layout;
+  const btns = cfg.list.map((l) => {
+    const seats = h('small', { class: 'layout-seats' });
+    const b = h('button', { class: 'btn layout-btn', 'data-layout': l.id, onclick: () => stage.setLayout({ id: l.id }) },
+      h('span', { class: 'lbl' }, l.name), seats);
+    b._seats = seats;
+    b._id = l.id;
+    return b;
+  });
+  const stepper = (key, label) => {
+    const val = h('output', { class: 'step-val', 'aria-live': 'polite' });
+    const minus = h('button', { class: 'btn step-btn', 'data-step': `${key}-`, 'aria-label': `${label}: меньше`, onclick: () => stage.setLayout({ [key]: cur()[key] - 1 }) }, '−');
+    const plus = h('button', { class: 'btn step-btn', 'data-step': `${key}+`, 'aria-label': `${label}: больше`, onclick: () => stage.setLayout({ [key]: cur()[key] + 1 }) }, '+');
+    const row = h('div', { class: 'step-row', role: 'group', 'aria-label': label }, h('span', { class: 'step-name' }, label), minus, val, plus);
+    return { row, val, minus, plus };
+  };
+  const rows = stepper('rows', 'Рядов');
+  const shift = stepper('shift', 'Сдвиг');
+  const steppers = h('div', { class: 'steppers' }, rows.row, shift.row);
+  const shiftText = (n) => (n === 0 ? '0 м' : `${n > 0 ? '+' : '−'}${fmt(Math.abs(n) * step, 1)} м`);
+  const upd = () => {
+    const st = cur();
+    const it = cfg.list.find((l) => l.id === st.id);
+    for (const b of btns) {
+      const on = b._id === st.id;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
+      const l = cfg.list.find((x) => x.id === b._id);
+      const n = cfg.seats(on ? st : { id: l.id, rows: l.rowsMax, shift: 0 });
+      b._seats.textContent = seatsLabel(n) || 'без мест';
+    }
+    steppers.hidden = it.rowsMax === 0;
+    const [s0, s1] = cfg.range(st.id, st.rows);
+    rows.val.textContent = `${st.rows} из ${it.rowsMax}`;
+    rows.minus.disabled = st.rows <= Math.min(1, it.rowsMax);
+    rows.plus.disabled = st.rows >= it.rowsMax;
+    shift.val.textContent = shiftText(st.shift);
+    shift.minus.disabled = st.shift <= s0;
+    shift.plus.disabled = st.shift >= s1;
+  };
+  stage.on('layout', upd);
+  stage.on('state', upd);
+  upd();
+  return h('div', { class: 'panel-layout' },
+    h('h4', {}, 'Планировка зала'),
+    h('div', { class: `layout-list ${compact ? 'grid-2' : 'grid-1'}` }, btns),
+    steppers,
+    h('div', { class: 'hint' }, `«Рядов» убирает задние ряды, «Сдвиг» двигает весь зал поперёк рядов с шагом ${fmt(step, 1)} м.`),
+  );
 }
 
 /** Слои (по площадке) и инструменты. */

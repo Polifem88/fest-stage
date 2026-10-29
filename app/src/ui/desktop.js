@@ -2,7 +2,7 @@
 // Оболочка (шапка, карточка, поиск) живёт всё время; панели площадки пересобираются при смене сцены.
 import './style.css';
 import { Stage } from '../engine/stage.js';
-import { h, rigPanel, lightPanel, layersPanel, viewsPanel, infoCard, quickBar, shareLink, toast, fixtureSearch, dragBadge, exportButtons } from './common.js';
+import { h, rigPanel, lightPanel, layoutPanel, layersPanel, viewsPanel, infoCard, quickBar, shareLink, toast, fixtureSearch, dragBadge, exportButtons } from './common.js';
 import { venueBrand } from './venuePicker.js';
 import { THEATRE_NAME } from '../venues/registry.js';
 import { exposeTestApi } from '../engine/testapi.js';
@@ -104,6 +104,7 @@ export async function startDesktop() {
       const tabs = [
         caps.rigging ? ['rig', '⚙', 'Механика', () => rigPanel(stage)] : null,
         ['light', '💡', 'Свет', () => lightPanel(stage)],
+        caps.layouts ? ['hall', '🪑', 'Зал', () => layoutPanel(stage)] : null,
         ['layers', '🗂', 'Слои', () => layersPanel(stage)],
         ['views', '👁', 'Виды', () => viewsPanel(stage)],
       ].filter(Boolean);
@@ -125,6 +126,7 @@ export async function startDesktop() {
         h('li', {}, 'Левая кнопка мыши — вращать, правая — сдвигать, колесо — приближать.'),
         caps.rigging ? h('li', {}, 'Наведите на штанкет или софит (он подсветится) и тяните вверх-вниз — он поедет. Стрелки ↑/↓ двигают выбранный штанкет на 5 см, с Shift — на 50 см.') : null,
         h('li', {}, 'Щелчок по прибору — карточка с номером и типом, его можно выключить.'),
+        caps.layouts ? h('li', {}, 'Вкладка «Зал» — готовые планировки зрительских мест; «Рядов» убирает задние ряды, «Сдвиг» двигает весь зал. Планировка сохраняется в ссылке и в чертежах.') : null,
         h('li', {}, 'Вкладка «Виды» — готовые ракурсы, план, разрез, сохранение и ссылка.'),
         h('li', {}, 'Заголовок слева вверху — выбор сцены театра.'),
         h('li', {}, 'Esc — снять выбор, выключить рулетку, закрыть это окно.'),

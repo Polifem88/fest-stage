@@ -45,7 +45,10 @@
    Номера приборов уникальны.
 4. **Модуль** — `index.js`: поменяйте `id`, `name`, `status`, `meta`, `caps`, `layers`
    (порядок слоёв — порядок битов в ссылке: у опубликованной площадки только добавлять в конец),
-   `lightPlans`, `camera.maxDistance`. Пол для пятен света — `rectFloor(...)` из `systems/fixtures.js`.
+   `lightPlans`, `camera.maxDistance`. Пол для пятен света — `rectFloor(...)` из `systems/fixtures.js`
+   (для сложного пола — свой `trace/zone/clip` с уникальным ключом шейдера `pool-<id>`).
+   Шаблон — для неизменного зала (`caps.layouts: false`, `layouts: null`); трансформируемый зал
+   (сменные планировки, обязательный слой `'hall'`) — по образцу `venues/fest-roof/`.
 5. **Каталог и реестр** — описание сцены в `venues/catalog.js`:
    `{ id: '<id>', name: '…', short: '…', status: 'draft', type: 'Чёрный кабинет', seats: N }`;
    загрузчик — в словарь `LOADERS` файла `venues/registry.js`: `<id>: () => import('./<папка>/index.js')`.

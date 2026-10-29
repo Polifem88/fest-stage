@@ -11,6 +11,7 @@ export { THEATRE_NAME, APP_TITLE, DEFAULT_VENUE, LEGACY_VENUE } from './catalog.
 const LOADERS = {
   big: () => import('./fest-big/index.js'),
   chamber: () => import('./fest-chamber/index.js'),
+  roof: () => import('./fest-roof/index.js'),
 };
 
 export const VENUES = CATALOG.map((v) => ({ ...v, load: v.status !== 'soon' ? LOADERS[v.id] || null : null }));

@@ -13,7 +13,7 @@ export const APP_TITLE = 'Театр ФЭСТ · 3D-каталог сцен';
 export const CATALOG = [
   { id: 'big', name: 'Большая сцена', short: 'Большая', status: 'ready', type: 'Сцена с порталом, приподнятым планшетом и подвижной механизацией', seats: 390 },
   { id: 'chamber', name: 'Камерная сцена', short: 'Камерная', status: 'ready', type: 'Аудитория с фиксированным амфитеатром', seats: 102 },
-  { id: 'roof', name: 'Сцена под крышей', short: 'Под крышей', status: 'soon' },
+  { id: 'roof', name: 'Сцена под крышей', short: 'Под крышей', status: 'ready', type: 'Трансформируемый зал под капитальными фермами', seats: 90 },
   { id: 'foyer', name: 'Фойе', short: 'Фойе', status: 'soon' },
   { id: 'studio', name: 'Студия мультимедиа', short: 'Студия', status: 'soon' },
 ];

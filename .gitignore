@@ -19,3 +19,7 @@ app/review/modular/compare/
 app/review/modular/parity-report.*
 app/review/modular/bbox.mjs
 app/review/modular/
+
+# рабочие выгрузки DXF/GLB площадок и скрипты/снимки ревьюеров — только локально (отчёты .md коммитятся)
+app/review/*-dev/
+app/review/*-r*/*-shots/

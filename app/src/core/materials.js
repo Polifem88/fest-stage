@@ -120,6 +120,42 @@ function greyPanelTex() {
   });
 }
 
+// Рифлёный профнастил потолка: текстура 1 × 1 м, 5 волн (шаг 0,2 м) вдоль U — направление задаёт развёртка
+function ribbedTex(base, light, dark, ribs = 5) {
+  return canvasTex(256, (g, S) => {
+    g.fillStyle = base;
+    g.fillRect(0, 0, S, S);
+    const w = S / ribs;
+    for (let i = 0; i < ribs; i++) {
+      const gr = g.createLinearGradient(i * w, 0, (i + 1) * w, 0);
+      gr.addColorStop(0, dark);
+      gr.addColorStop(0.3, light);
+      gr.addColorStop(0.55, base);
+      gr.addColorStop(1, dark);
+      g.fillStyle = gr;
+      g.fillRect(i * w, 0, w, S);
+    }
+  });
+}
+
+// Рифлёный алюминий настила станка («чечевица»): текстура 0,25 × 0,25 м
+function treadTex() {
+  return canvasTex(128, (g, S) => {
+    g.fillStyle = '#8d9196';
+    g.fillRect(0, 0, S, S);
+    const n = 4, c = S / n;
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < n; x++) {
+        const cx = x * c + c / 2, cy = y * c + c / 2, a = (x + y) % 2 ? Math.PI / 4 : -Math.PI / 4;
+        g.save(); g.translate(cx, cy); g.rotate(a);
+        g.fillStyle = '#b4b8bd'; g.fillRect(-c * 0.32, -2, c * 0.64, 3);
+        g.fillStyle = '#5f6368'; g.fillRect(-c * 0.32, 1, c * 0.64, 2);
+        g.restore();
+      }
+    }
+  });
+}
+
 function meshTex() {
   // сетка-рабица (альфа)
   return canvasTex(128, (g, S) => {
@@ -214,6 +250,15 @@ export function createMaterials() {
     ledStrip: new THREE.MeshBasicMaterial({ color: 0xf4f6ff }),
     houseLamp: new THREE.MeshBasicMaterial({ color: 0xfff4dd }),
     blueLed: new THREE.MeshBasicMaterial({ color: 0x2a3cff }),
+    // --- добавлять только в конец (порядок создания материалов = порядок отрисовки готовых площадок) ---
+    // рыжий кирпич со светлым швом (открытая кладка)
+    brickRed: std({ map: brickTex('#8e4a2e', '#bdb2a3', 0.1), roughness: 0.95 }),
+    // тёмный рифлёный профнастил потолка
+    deckRibbed: std({ map: ribbedTex('#26282c', '#3a3d42', '#141517'), roughness: 0.7, metalness: 0.35 }),
+    // серый рифлёный алюминий верха станка
+    aluDeck: std({ map: treadTex(), roughness: 0.55, metalness: 0.5 }),
+    // чёрный мольтон (бархат): виден с обеих сторон
+    molton: std({ color: 0x0b0b0c, roughness: 1, side: THREE.DoubleSide }),
   };
   // масштаб повтора текстур (метров на повтор)
   m.floor.userData.uvScale = 2;
@@ -226,6 +271,9 @@ export function createMaterials() {
   m.decoCeiling.userData.uvScale = 1.2;
   m.hallWood.userData.uvScale = 0.6;
   m.mesh.userData.uvScale = 0.25;
+  m.brickRed.userData.uvScale = 1;
+  m.deckRibbed.userData.uvScale = 1;
+  m.aluDeck.userData.uvScale = 0.25;
   for (const [k, v] of Object.entries(m)) v.name = k;
   return m;
 }

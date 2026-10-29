@@ -41,7 +41,7 @@ test.describe('FPS', () => {
     // haze — дымка: на телефоне по умолчанию выключена, замер с ней — для сведения
     const cases = mobile ? ['overview', 'hall', 'plan', 'section', 'hall+haze', 'overview+low'] : ['overview', 'hall', 'flyGallery', 'plan+bp'];
     // остальные площадки каталога: общий вид и план (venue:вид)
-    const otherCases = ['chamber:overview', 'chamber:plan'];
+    const otherCases = ['chamber:overview', 'chamber:plan', 'roof:overview', 'roof:plan'];
     const results = [];
     for (const spec of [...cases, ...otherCases]) {
       const [venue, shot] = spec.includes(':') ? spec.split(':') : ['big', spec];

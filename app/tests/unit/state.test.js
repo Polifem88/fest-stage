@@ -81,6 +81,46 @@ describe('Ссылка: формат v2', () => {
   });
 });
 
+describe('Ссылка: планировка зала (lo)', () => {
+  // фиктивная площадка с трансформируемым залом (на основе Камерной — нужны приборы и слои)
+  const fake = {
+    ...chamber,
+    caps: { ...chamber.caps, layouts: true },
+    layouts: {
+      list: [{ id: 'a', name: 'А', rowsMax: 5 }, { id: 'b', name: 'Б', rowsMax: 3 }, { id: 'c', name: 'Пусто', rowsMax: 0 }],
+      default: 'a',
+      shiftStep: 0.5,
+      range: () => [-4, 4],
+      seats: () => 0,
+      build: () => null,
+    },
+  };
+  const base = stateOf(fake);
+  const raw = (s) => JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0))));
+
+  it('ссылка хранит планировку lo', () => {
+    const s = encodeState({ ...base, layout: { id: 'b', rows: 2, shift: -3 } }, fake);
+    expect(raw(s).lo).toEqual([1, 2, -3]);
+    expect(decodeState(s, fake).layout).toEqual({ id: 'b', rows: 2, shift: -3 });
+  });
+  it('ссылка без lo — планировка по умолчанию', () => {
+    const s = encodeState({ ...base, layout: undefined }, fake);
+    expect(decodeState(s, fake).layout).toEqual({ id: 'a', rows: 5, shift: 0 });
+  });
+  it('площадка без layouts — layout null, lo не пишется', () => {
+    const s = encodeState(stateOf(big, { layout: { id: 'a', rows: 1, shift: 0 } }), big);
+    expect('lo' in raw(s)).toBe(false);
+    expect(decodeState(s, big).layout).toBeNull();
+  });
+  it('неизвестный индекс lo → по умолчанию; rows и shift зажимаются', () => {
+    const forged = (lo) => b64(JSON.stringify({ ...raw(encodeState(base, fake)), lo }));
+    expect(decodeState(forged([9, 99, 0]), fake).layout).toEqual({ id: 'a', rows: 5, shift: 0 });
+    expect(decodeState(forged([1, 0, 99]), fake).layout).toEqual({ id: 'b', rows: 1, shift: 4 });
+    expect(decodeState(forged([2, 7, 3]), fake).layout, 'у планировки без рядов rows = 0').toEqual({ id: 'c', rows: 0, shift: 3 });
+    expect(decodeState(forged('мусор'), fake).layout).toEqual({ id: 'a', rows: 5, shift: 0 });
+  });
+});
+
 describe('Хэш ссылки', () => {
   it('#v=…&s=… и старый #s=…', () => {
     expect(parseHash('#v=chamber&s=abc_-1')).toEqual({ v: 'chamber', s: 'abc_-1' });

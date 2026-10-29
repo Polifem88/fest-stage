@@ -84,6 +84,39 @@ export function prism(pts, y0, y1) {
   return g;
 }
 
+/**
+ * Части отрезка a→b (точки [x, d]) внутри объединения прямоугольников rects = [[x0, x1, d0, d1], …]
+ * (ортогональный контур помещения). Куски — по ходу отрезка от a к b; смежные и перекрытые — слиты.
+ * Нужна, чтобы балки и диагонали, уходящие в стены, не торчали снаружи помещения.
+ * @returns {Array<[[number, number], [number, number]]>}
+ */
+export function clipSegmentToRects(a, b, rects) {
+  const EPS = 1e-9;
+  const dx = b[0] - a[0], dd = b[1] - a[1];
+  const spans = [];
+  for (const [x0, x1, d0, d1] of rects) {
+    // Лианг — Барски: параметр t ∈ [0, 1] внутри прямоугольника
+    let t0 = 0, t1 = 1;
+    const clip = (p, q) => {
+      if (Math.abs(p) < EPS) return q >= -EPS;
+      const r = q / p;
+      if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; } else { if (r < t0) return false; if (r < t1) t1 = r; }
+      return true;
+    };
+    if (clip(-dx, a[0] - x0) && clip(dx, x1 - a[0]) && clip(-dd, a[1] - d0) && clip(dd, d1 - a[1]) && t1 - t0 > EPS) spans.push([t0, t1]);
+  }
+  spans.sort((p, q) => p[0] - q[0]);
+  const merged = [];
+  for (const s of spans) {
+    const last = merged.at(-1);
+    if (last && s[0] <= last[1] + EPS) last[1] = Math.max(last[1], s[1]);
+    else merged.push([...s]);
+  }
+  const r9 = (v) => Math.round(v * 1e9) / 1e9 + 0; // + 0: без «−0»
+  const at = (t) => [r9(a[0] + dx * t), r9(a[1] + dd * t)];
+  return merged.map(([t0, t1]) => [at(t0), at(t1)]);
+}
+
 /** UV в метрах по доминирующей нормали (простая «коробочная» развёртка). */
 export function worldUV(g, scale = 1) {
   const pos = g.attributes.position, nor = g.attributes.normal;
