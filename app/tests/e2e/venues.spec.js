@@ -144,6 +144,8 @@ test('Сцена под крышей: ссылка, вкладка «Зал», �
   expect(await page.evaluate(() => window.__fest.layout())).toEqual({ id: 'std', rows: 5, shift: 0 });
   expect(await page.evaluate(() => window.__fest.stage.layers.ceiling), 'слой «Потолок и балки» скрыт по умолчанию').toBe(false);
   expect(await page.evaluate(() => window.__fest.stage.layerGroups.ceiling.visible), 'группа мешей потолка невидима').toBe(false);
+  expect(await page.evaluate(() => window.__fest.stage.layers.duty), 'слой «Свет (дежурка)» включён по умолчанию').toBe(true);
+  expect(await page.evaluate(() => window.__fest.stage.layerGroups.duty.visible), 'группа дежурки видима').toBe(true);
   await expect(page.locator(`${tabSel(info)}[data-tab="rig"]`)).toHaveCount(0);
   await expect(page.locator(`${tabSel(info)}[data-tab="hall"]`)).toHaveCount(1);
   await page.locator(`${tabSel(info)}[data-tab="hall"]`).click();

@@ -445,7 +445,7 @@ describe('Сцена под крышей · паспорт, зал, пол пя�
     expect(validateVenue(roof)).toEqual([]);
     expect(roof.id).toBe('roof');
     expect(roof.caps).toEqual({ rigging: false, counterweights: false, portable: false, duty: true, houseLight: false, layouts: true });
-    expect(roof.layers.map((l) => l[0])).toEqual(['hall', 'walls', 'ceiling', 'trusses', 'lights', 'molton']);
+    expect(roof.layers.map((l) => l[0])).toEqual(['hall', 'walls', 'ceiling', 'trusses', 'lights', 'molton', 'duty']);
     expect(Object.keys(roof.views)).toEqual(['overview', 'hall', 'booth', 'stageToHall', 'ceiling', 'storage', 'plan', 'section']);
     expect(roof.layouts.list.map((l) => [l.id, l.rowsMax])).toEqual([['std', 5], ['empty', 0], ['cross', 5], ['crossRev', 5], ['traverse', 3], ['arena', 3]]);
     expect(roof.layouts.default).toBe('std');
@@ -455,6 +455,11 @@ describe('Сцена под крышей · паспорт, зал, пол пя�
     const ceil = roof.layers.find((l) => l[0] === 'ceiling');
     expect(ceil).toBeDefined();
     expect(ceil[2]?.hidden || ceil[2]?.default === false).toBe(true);
+  });
+  it('20 купольных светильников находятся в слое «duty» (Свет (дежурка))', () => {
+    const layer = roof.layers.find((l) => l[0] === 'duty');
+    expect(layer).toBeDefined();
+    expect(layer[1]).toBe('Свет (дежурка)');
   });
   it('meta.type/seats совпадают с catalog.js', () => {
     const e = CATALOG.find((c) => c.id === 'roof');
@@ -540,7 +545,7 @@ describe('Сцена под крышей · правки ревью раунда
     const em = buildEmitters(fakeM());
     const shell = em.groups.duty.children.find((m) => m.name === 'dutyDomeShells');
     expect(shell.userData.static).toBe(true);
-    expect(shell.userData.layer).toBe('lights');
+    expect(shell.userData.layer).toBe('duty');
   });
   it('номера по допущению помечены: 13, 104, 108 (assumed)', () => {
     expect(FIXTURES.filter((f) => f.assumed).map((f) => f.no)).toEqual([13, 104, 108]);

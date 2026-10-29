@@ -70,6 +70,7 @@ export default {
     ['trusses', 'Фермы', { bp: 0xe2e5ea }],
     ['lights', 'Свет (приборы)'],
     ['molton', 'Мольтон', { bp: 0xc9ccd1 }],
+    ['duty', 'Свет (дежурка)', { bp: 0x8a8f98 }],
   ],
   views: VIEWS,
   defaultView: 'overview',
@@ -112,7 +113,8 @@ export default {
     buildTrusses(ctx.batch, ctx.M, { mobile });
     ctx.commitBatch();
     const em = buildEmitters(ctx.M);
-    ctx.add('lights', em.groups.duty, em.groups.house);
+    ctx.add('duty', em.groups.duty);
+    ctx.add('lights', em.groups.house);
     ctx.add('molton', buildMolton(ctx.M));
     return {
       rigging: null,
