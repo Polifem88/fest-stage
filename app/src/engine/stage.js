@@ -206,7 +206,7 @@ export class Stage {
     this.controls.maxDistance = venue.camera?.maxDistance ?? 70;
     this.labels = new LabelManager();
     const batch = new StaticBatch();
-    this.layers = Object.fromEntries(venue.layers.map(([k]) => [k, true]));
+    this.layers = Object.fromEntries(venue.layers.map(([k, , opt]) => [k, opt?.hidden ? false : (opt?.default ?? true)]));
     this.layerGroups = null;
     const commitBatch = () => {
       if (this.layerGroups) return;

@@ -14,8 +14,8 @@ import { SPECS } from '../library/specs.js';
  * @property {{type:string, seats?:number, note?:string}} meta   — паспорт; type/seats сверяются тестом с catalog.js
  *           (список сцен и стартовая страница берут данные из catalog.js)
  * @property {Capabilities} caps               — что есть на площадке; интерфейс скрывает остальное
- * @property {Array<[string, string, {bp?:number}?]>} layers
- *           слои [ключ, подпись, {bp: цвет в «чертеже»}]; порядок = порядок битов в ссылке, НЕ МЕНЯТЬ
+ * @property {Array<[string, string, {bp?:number, hidden?:boolean, default?:boolean}?]>} layers
+ *           слои [ключ, подпись, {bp: цвет в «чертеже», hidden?: скрыт по умолчанию}]; порядок = порядок битов в ссылке, НЕ МЕНЯТЬ
  *           у опубликованной площадки (только добавлять в конец). Слой 'lights' обязателен.
  * @property {Record<string, View>} views      — готовые точки обзора; порядок = порядок кнопок
  * @property {string} defaultView

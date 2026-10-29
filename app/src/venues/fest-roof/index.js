@@ -66,7 +66,7 @@ export default {
   layers: [
     ['hall', 'Зрительный зал'],
     ['walls', 'Стены'],
-    ['ceiling', 'Потолок и балки', { bp: 0xe8e9eb }],
+    ['ceiling', 'Потолок и балки', { bp: 0xe8e9eb, default: false, hidden: true }],
     ['trusses', 'Фермы', { bp: 0xe2e5ea }],
     ['lights', 'Свет (приборы)'],
     ['molton', 'Мольтон', { bp: 0xc9ccd1 }],

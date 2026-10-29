@@ -442,6 +442,11 @@ describe('Сцена под крышей · паспорт, зал, пол пя�
     expect(roof.layouts.default).toBe('std');
     expect(roof.texts.extraEquipment).toMatch(/Phoenix Wash 760z/);
   });
+  it('слой «ceiling» (Потолок и балки) скрыт по умолчанию (hidden: true, default: false)', () => {
+    const ceil = roof.layers.find((l) => l[0] === 'ceiling');
+    expect(ceil).toBeDefined();
+    expect(ceil[2]?.hidden || ceil[2]?.default === false).toBe(true);
+  });
   it('meta.type/seats совпадают с catalog.js', () => {
     const e = CATALOG.find((c) => c.id === 'roof');
     expect(e.status).toBe(roof.status);

@@ -142,6 +142,8 @@ test('Сцена под крышей: ссылка, вкладка «Зал», �
   expect(await page.evaluate(() => window.__fest.venue())).toBe('roof');
   // ссылка без lo — «Стандарт», все ряды, без сдвига
   expect(await page.evaluate(() => window.__fest.layout())).toEqual({ id: 'std', rows: 5, shift: 0 });
+  expect(await page.evaluate(() => window.__fest.stage.layers.ceiling), 'слой «Потолок и балки» скрыт по умолчанию').toBe(false);
+  expect(await page.evaluate(() => window.__fest.stage.layerGroups.ceiling.visible), 'группа мешей потолка невидима').toBe(false);
   await expect(page.locator(`${tabSel(info)}[data-tab="rig"]`)).toHaveCount(0);
   await expect(page.locator(`${tabSel(info)}[data-tab="hall"]`)).toHaveCount(1);
   await page.locator(`${tabSel(info)}[data-tab="hall"]`).click();
