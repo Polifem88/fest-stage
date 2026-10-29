@@ -402,14 +402,22 @@ describe('Сцена под крышей · сборка', () => {
     expect(triCount(build(true).trusses)).toBeLessThan(triCount(build(false).trusses));
   });
 
-  it('конструкция под потолком без граней «вверх» — сверху (план, общий вид) не закрывает зал', () => {
+  it('X-образные диагональные балки и конструкция под потолком — замкнутого квадратного сечения 0,15 × 0,15 (есть и верхние, и нижние, и боковые грани)', () => {
+    const DG = ROOF.diagonals;
+    expect(DG.w).toBe(0.15);
+    expect(near(DG.y1 - DG.y0, 0.15)).toBe(true);
     const L = build();
     const st = L.ceiling.children.find((m) => m.userData.tag === 'structure');
     const n = st.geometry.attributes.normal;
-    let up = 0;
-    for (let i = 0; i < n.count; i++) if (n.getY(i) > 0.9) up++;
-    expect(up).toBe(0);
-    expect(n.count).toBeGreaterThan(0);
+    let up = 0, down = 0, side = 0;
+    for (let i = 0; i < n.count; i++) {
+      if (n.getY(i) > 0.9) up++;
+      else if (n.getY(i) < -0.9) down++;
+      else side++;
+    }
+    expect(up).toBeGreaterThan(0);
+    expect(down).toBeGreaterThan(0);
+    expect(side).toBeGreaterThan(0);
   });
 });
 

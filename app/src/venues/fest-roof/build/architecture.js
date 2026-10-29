@@ -19,10 +19,7 @@ const GRILLE_GAP = 0.004; // решётка венткороба — чуть п
 const GRILLE_FRAME = { t: 0.035, out: 0.02 }; // рамка решётки: ширина профиля и вынос от грани
 const EPS = 1e-6;
 
-/**
- * Убрать грани, смотрящие вверх (нормаль Y > UP_NY): у элементов под потолком они изнутри не видны,
- * а сверху (план, общий вид снаружи) закрывали бы зал. Возвращает неиндексированную геометрию.
- */
+/** Убрать верхнюю грань (нормаль Y > UP_NY) у подшитых к настилу швеллеров, чтобы не полосили план сверху. */
 const UP_NY = 0.9;
 export function dropUpFaces(g) {
   const s = g.index ? g.toNonIndexed() : g;
@@ -181,11 +178,11 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
   batch.add('ceiling', M.deckRibbed, [polygonFace(poly, C, false), rect('y', C, NICHE9[0], NICHE9[1], NICHE9[2], NICHE9[3], -1)], { tag: 'deck', shadow: false });
 
   const steel = [];
-  // швеллеры вдоль d с шагом channels.step
+  // швеллеры вдоль d с шагом channels.step (верх на отметке настила — без верхней грани, чтобы не полосили план)
   const CH = ROOF.channels;
   for (let x = ROOF.room.x0 + CH.step / 2; x < ROOF.room.x1; x += CH.step) {
     for (const [p, q] of clipSegmentToRects([x, ROOF.room.d0], [x, ROOF.room.d1], CEIL_RECTS)) {
-      steel.push(box(x - CHANNEL_W / 2, x + CHANNEL_W / 2, CH.y0, CH.y1, p[1], q[1]));
+      steel.push(dropUpFaces(box(x - CHANNEL_W / 2, x + CHANNEL_W / 2, CH.y0, CH.y1, p[1], q[1])));
     }
   }
 
@@ -217,7 +214,7 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
     }
   }
 
-  // одиночные диагонали крест-накрест на уровне нижнего пояса
+  // одиночные диагонали 0,15 × 0,15 крест-накрест на уровне нижнего пояса
   const DG = ROOF.diagonals, yd = (DG.y0 + DG.y1) / 2;
   for (const [a, b] of DG.bays) {
     for (const [p, q] of clipSegmentToRects(a, b, CEIL_RECTS)) steel.push(strut(P(p[0], yd, p[1]), P(q[0], yd, q[1]), DG.w, DG.y1 - DG.y0));
@@ -235,6 +232,6 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
       }
     }
   }
-  batch.add('ceiling', M.steel, steel.map(dropUpFaces), { tag: 'structure' });
+  batch.add('ceiling', M.steel, steel, { tag: 'structure' });
   return { mobile };
 }

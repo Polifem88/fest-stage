@@ -145,7 +145,15 @@ export function buildPlanDXF(stage) {
       else { dxf.addLine(p[0], p[1] - o, q[0], q[1] - o, { layer: 'CAPITAL' }); dxf.addLine(p[0], p[1] + o, q[0], q[1] + o, { layer: 'CAPITAL' }); }
     }
   }
-  for (const [a, b] of ROOF.diagonals.bays) for (const [p, q] of clipSegmentToRects(a, b, CEIL_RECTS)) dxf.addLine(p[0], p[1], q[0], q[1], { layer: 'DIAGONALS' });
+  const DG = ROOF.diagonals;
+  for (const [a, b] of DG.bays) {
+    for (const [p, q] of clipSegmentToRects(a, b, CEIL_RECTS)) {
+      const dx = q[0] - p[0], dd = q[1] - p[1], L = Math.hypot(dx, dd) || 1;
+      const ox = (-dd / L) * (DG.w / 2), od = (dx / L) * (DG.w / 2);
+      dxf.addLine(p[0] - ox, p[1] - od, q[0] - ox, q[1] - od, { layer: 'DIAGONALS' });
+      dxf.addLine(p[0] + ox, p[1] + od, q[0] + ox, q[1] + od, { layer: 'DIAGONALS' });
+    }
+  }
   for (const v of ROOF.vFrames) {
     const mid = (v.faceA + v.faceB) / 2;
     for (const [p, q] of clipSegmentToRects([v.x, v.faceA], [v.x, v.faceB], ROOF.rects)) {
