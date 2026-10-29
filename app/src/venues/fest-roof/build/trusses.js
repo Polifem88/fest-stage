@@ -1,4 +1,4 @@
-// Фермы 30 × 30 (труба Ø32) Сцены под крышей: сетка 2,5 × 2,5, добавка у стены 3 и три вертикальные стойки.
+// Фермы 30 × 30 (труба Ø50, раскосы Ø16) Сцены под крышей: сетка 2,5 × 2,5, добавка у стены 3 и три вертикальные стойки.
 // Жёсткий подвес к капитальным балкам и диагоналям (подвесы не моделируются — фермы примыкают к ним).
 // На компьютере — пояса и решётка, на телефоне — только пояса (меньше треугольников).
 import { box, P } from '../../../core/geom.js';
@@ -18,7 +18,7 @@ function chordOffsets(T) {
 
 /** Ферма вдоль линии l (axis 'd' — вдоль X на d = at; 'x' — вдоль d на x = at). */
 function trussLine(l, T, seg, lacing) {
-  const r = T.tube / 2;
+  const r = T.tube / 2, rb = T.brace / 2;
   const pt = (along, across, y) => (l.axis === 'd' ? P(along, y, l.at + across) : P(l.at + across, y, along));
   const out = [];
   const ch = chordOffsets(T);
@@ -33,17 +33,17 @@ function trussLine(l, T, seg, lacing) {
     for (let i = 0; i < n; i++) {
       const a0 = l.a0 + (len * i) / n, a1 = l.a0 + (len * (i + 1)) / n;
       const [u, v] = i % 2 ? [p, q] : [q, p];
-      out.push(tubeBetween(pt(a0, u[0], u[1]), pt(a1, v[0], v[1]), r * 0.6, seg.lacing));
+      out.push(tubeBetween(pt(a0, u[0], u[1]), pt(a1, v[0], v[1]), rb, seg.lacing));
     }
   }
   // торцевые рамки
-  for (const a of [l.a0, l.a1]) for (const [p, q] of [[bl, br], [tl, tr], [bl, tl], [br, tr]]) out.push(tubeBetween(pt(a, p[0], p[1]), pt(a, q[0], q[1]), r * 0.6, seg.lacing));
+  for (const a of [l.a0, l.a1]) for (const [p, q] of [[bl, br], [tl, tr], [bl, tl], [br, tr]]) out.push(tubeBetween(pt(a, p[0], p[1]), pt(a, q[0], q[1]), rb, seg.lacing));
   return out;
 }
 
 /** Вертикальная стойка 30 × 30 от пола до низа ферм. */
 function trussLeg(leg, T, seg, lacing) {
-  const r = T.tube / 2, s = T.size / 2 - T.tube / 2;
+  const r = T.tube / 2, rb = T.brace / 2, s = T.size / 2 - T.tube / 2;
   const corners = [[-s, -s], [s, -s], [s, s], [-s, s]];
   const out = corners.map(([cx, cd]) => tubeBetween(P(leg.x + cx, 0, leg.d + cd), P(leg.x + cx, T.y0, leg.d + cd), r, seg.chord));
   if (lacing) {
@@ -53,7 +53,7 @@ function trussLeg(leg, T, seg, lacing) {
       for (let i = 0; i < n; i++) {
         const y0 = (T.y0 * i) / n, y1 = (T.y0 * (i + 1)) / n;
         const [u, v] = i % 2 ? [[ax, ad], [bx, bd]] : [[bx, bd], [ax, ad]];
-        out.push(tubeBetween(P(leg.x + u[0], y0, leg.d + u[1]), P(leg.x + v[0], y1, leg.d + v[1]), r * 0.6, seg.lacing));
+        out.push(tubeBetween(P(leg.x + u[0], y0, leg.d + u[1]), P(leg.x + v[0], y1, leg.d + v[1]), rb, seg.lacing));
       }
     }
   }

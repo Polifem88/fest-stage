@@ -76,6 +76,7 @@ describe('Сцена под крышей · геометрия', () => {
 
   it('фермы: зазор 0,10 до короба 11 (x −5,25) и до стены 13 (d 7,75); 7 поперечных и 5 продольных линий; добавка до x 7,35; обрубок d −2,5 до x 5,5; смещённая d −2,25', () => {
     const T = ROOF.trusses, s = T.size / 2;
+    expect([T.size, T.tube, T.brace]).toEqual([0.3, 0.05, 0.016]);
     const main = T.lines.filter((l) => !l.extra);
     expect(main.filter((l) => l.axis === 'd')).toHaveLength(7);
     expect(main.filter((l) => l.axis === 'x')).toHaveLength(5);
