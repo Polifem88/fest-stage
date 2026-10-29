@@ -5,15 +5,17 @@
 // Эталон снимается с сборки до переделки (например, с master) и дальше не меняется.
 //
 // Запуск (из каталога app):
-//   node scripts/parity.mjs capture [distDir]   — снять эталон; по умолчанию distDir =
-//                                                  review/modular/baseline/dist-master,
-//                                                  результат — review/modular/baseline/<площадка>/
+//   node scripts/parity.mjs capture <distDir>   — снять эталон со СВЕЖЕЙ сборки (на master или до правок:
+//                                                  npm run build → копия dist в review/modular/baseline/dist-<метка>);
+//                                                  без каталога — ошибка; результат — review/modular/baseline/<площадка>/,
+//                                                  в manifest.json — дата, коммит, каталог сборки
 //   node scripts/parity.mjs compare [distDir]   — сравнить сборку (по умолчанию dist) с эталоном;
 //                                                  отчёт — review/modular/parity-report.json и .md,
 //                                                  артефакты сравнения — review/modular/compare/<площадка>/;
 //                                                  код выхода 1 при любом расхождении.
-// Самопроверка: node scripts/parity.mjs compare <distDir эталона> — должно быть 100%.
-// Площадки и их сценарии — VENUES ниже (big, chamber).
+// Самопроверка: node scripts/parity.mjs compare <distDir эталона> — должно быть 100 % (обязательна после capture).
+// Площадки и их сценарии — VENUES ниже: все площадки со статусом 'ready' (проверяет tests/unit/parity-config.test.js).
+// Площадка с трансформируемым залом — layouts: true (в сравнение состояния входит и планировка).
 //
 // Что сравнивается (для каждой площадки):
 //   а) экспорт (сценарии площадки): DXF плана, разреза, 3D — строки, SHA-256 должен совпасть
@@ -33,6 +35,7 @@
 // stage.loadState(), exportPlanDXF, exportSectionDXF, export3DDXF, exportGLB, stage.profile.
 // Сборке без loadVenue (до каталога сцен) открывается только Большая сцена — Камерную такой эталон не снимет.
 import { chromium, devices } from '@playwright/test';
+import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -78,6 +81,12 @@ const VENUES = {
   },
 };
 const STATE_KEYS = ['heights', 'fixturesOn', 'flags', 'layers', 'portable', 'view'];
+/** Ключи состояния площадки: с трансформируемым залом (VENUES[id].layouts) сравнивается и планировка. */
+const stateKeysOf = (venue) => (VENUES[venue]?.layouts ? [...STATE_KEYS, 'layout'] : STATE_KEYS);
+/** Коммит, на котором снят эталон (для отчёта); вне git — null. */
+function gitCommit() {
+  try { return execSync('git rev-parse --short HEAD', { cwd: APP, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return null; }
+}
 const PROFILES = {
   desktop: { file: 'desktop.html', ctx: { viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 } },
   iphone: { file: 'mobile.html', ctx: (() => { const d = { ...devices['iPhone 13'], deviceScaleFactor: 1 }; delete d.defaultBrowserType; return d; })() },
@@ -235,7 +244,7 @@ async function capture(distDir) {
   const timings = {};
   // эталон прежнего формата (только Большая сцена, в корне baseline) — убрать
   for (const d of ['exports', 'state', 'shots']) rmSync(join(BASE, d), { recursive: true, force: true });
-  const manifest = { created: new Date().toISOString(), distDir, venues: {} };
+  const manifest = { created: new Date().toISOString(), distDir, commit: gitCommit(), venues: {} };
   for (const venue of Object.keys(VENUES)) manifest.venues[venue] = await captureVenue(distDir, venue, timings);
   manifest.timings = timings;
   manifest.consoleErrors = consoleErrors;
@@ -247,7 +256,8 @@ async function captureVenue(distDir, venue, timings) {
   const cfg = VENUES[venue];
   const VB = join(BASE, venue);
   rmSync(VB, { recursive: true, force: true });
-  const m = { exports: {}, state: {}, shots: {} };
+  const m = { exports: {}, state: {}, shots: {}, stateKeys: stateKeysOf(venue) };
+  const keys = m.stateKeys;
 
   // а) экспорт — desktop
   let t0 = Date.now();
@@ -268,7 +278,7 @@ async function captureVenue(distDir, venue, timings) {
       const s = await grabState(page, sc);
       const fromLink = await stateFromLink(distDir, profile, venue, s.v1);
       const rec = { profile, scenario: sc, v1: s.v1, state: s.state, stateFromLink: fromLink.state, loadOk: fromLink.ok,
-        linkRoundTripExact: diffState(s.state, fromLink.state).errors.length === 0 };
+        linkRoundTripExact: diffState(s.state, fromLink.state, keys).errors.length === 0 };
       wjson(join(VB, 'state', `${profile}-${fname(sc)}.json`), rec);
       m.state[`${profile}/${sc}`] = { file: `${profile}-${fname(sc)}.json`, linkRoundTripExact: rec.linkRoundTripExact };
     }
@@ -303,9 +313,9 @@ function deepDiff(a, b, path, out) {
   if (a !== b) out.errors.push(`${path}: ${JSON.stringify(a)} → ${JSON.stringify(b)}`);
 }
 /** Сравнение состояний по ключам STATE_KEYS (лишние ключи верхнего уровня игнорируются). */
-function diffState(a, b) {
+function diffState(a, b, keys = STATE_KEYS) {
   const out = { errors: [], warnings: [] };
-  for (const k of STATE_KEYS) {
+  for (const k of keys) {
     if (!b || !(k in b)) out.errors.push(`${k}: отсутствует`);
     else deepDiff(a[k], b[k], k, out);
   }
@@ -351,7 +361,7 @@ async function compare(distDir) {
   const manifest = JSON.parse(readFileSync(join(BASE, 'manifest.json'), 'utf8'));
   if (!manifest.venues) throw new Error('эталон прежнего формата (только Большая сцена) — переснимите: node scripts/parity.mjs capture <dist>');
   rmSync(CMP, { recursive: true, force: true });
-  const report = { created: new Date().toISOString(), distDir, baseline: manifest.created, exports: [], state: [], shots: [], timings };
+  const report = { created: new Date().toISOString(), distDir, baseline: manifest.created, baselineCommit: manifest.commit || null, baselineDist: manifest.distDir, venues: Object.keys(manifest.venues), exports: [], state: [], shots: [], timings };
   const diffPage = await newPage('desktop');
   await diffPage.setContent('<!doctype html><title>diff</title>');
   for (const [venue, vm] of Object.entries(manifest.venues)) await compareVenue(distDir, venue, vm, report, diffPage);
@@ -372,6 +382,7 @@ async function compare(distDir) {
 
 async function compareVenue(distDir, venue, vm, report, diffPage) {
   const { timings } = report;
+  const keys = vm.stateKeys || STATE_KEYS; // ключи — как при снятии эталона
   const VB = join(BASE, venue), VC = join(CMP, venue);
   // а) экспорт
   let t0 = Date.now();
@@ -400,9 +411,9 @@ async function compareVenue(distDir, venue, vm, report, diffPage) {
     for (const sc of scenarios) {
       const rec = JSON.parse(readFileSync(join(VB, 'state', `${profile}-${fname(sc)}.json`), 'utf8'));
       const s = await grabState(page, sc);
-      const live = diffState(rec.state, s.state);
+      const live = diffState(rec.state, s.state, keys);
       const link = await stateFromLink(distDir, profile, venue, rec.v1);
-      const fromLink = diffState(rec.stateFromLink, link.state);
+      const fromLink = diffState(rec.stateFromLink, link.state, keys);
       if (!link.ok) fromLink.errors.unshift('loadState вернул false');
       report.state.push({ venue, profile, scenario: sc, check: 'scenario', ok: !live.errors.length, errors: live.errors.slice(0, 20), warnings: live.warnings.slice(0, 20) });
       report.state.push({ venue, profile, scenario: sc, check: 'link', ok: !fromLink.errors.length, errors: fromLink.errors.slice(0, 20), warnings: fromLink.warnings.slice(0, 20) });
@@ -428,7 +439,8 @@ async function compareVenue(distDir, venue, vm, report, diffPage) {
 function toMarkdown(r) {
   const L = [];
   L.push(`# Паритет: ${r.summary.pass ? '✅ ПРОЙДЕН' : '❌ РАСХОЖДЕНИЯ'}`, '');
-  L.push(`Сборка: \`${r.distDir}\`  ·  эталон от ${r.baseline}  ·  отчёт ${r.created}`, '');
+  L.push(`Сборка: \`${r.distDir}\`  ·  эталон от ${r.baseline}${r.baselineCommit ? ` (коммит ${r.baselineCommit})` : ''}, \`${r.baselineDist}\`  ·  отчёт ${r.created}`, '');
+  L.push(`Площадки: ${r.venues.join(', ')}`, '');
   L.push(`Экспорт ${r.summary.exports} · состояние ${r.summary.state} · снимки ${r.summary.shots}`, '');
   L.push('## Экспорт', '', '| Площадка | Сценарий | Файл | Итог | SHA-256 эталона | SHA-256 новой |', '|---|---|---|---|---|---|');
   for (const e of r.exports) L.push(`| ${e.venue} | ${e.scenario} | ${e.kind} | ${e.ok ? '✅' : '❌'} | \`${e.base.slice(0, 16)}…\` | \`${e.got.slice(0, 16)}…\` |`);
@@ -450,10 +462,17 @@ function toMarkdown(r) {
 // ---------------------------------------------------------------------------
 const [mode, distArg] = process.argv.slice(2);
 if (!['capture', 'compare'].includes(mode)) {
-  console.error('Использование: node scripts/parity.mjs capture|compare [distDir]');
+  console.error('Использование: node scripts/parity.mjs capture <distDir> | compare [distDir]');
   process.exit(2);
 }
-const distDir = resolve(APP, distArg || (mode === 'capture' ? 'review/modular/baseline/dist-master' : 'dist'));
+// эталон — только с явно указанной свежей сборки (старая замороженная сборка по умолчанию давала неверный эталон)
+if (mode === 'capture' && !distArg) {
+  console.error('Укажите каталог свежей сборки эталона: на master (или до правок) npm run build → скопировать dist\n'
+    + 'в review/modular/baseline/dist-<метка> → node scripts/parity.mjs capture review/modular/baseline/dist-<метка>\n'
+    + '→ самопроверка: node scripts/parity.mjs compare review/modular/baseline/dist-<метка> (должно быть 100 %).');
+  process.exit(2);
+}
+const distDir = resolve(APP, distArg || 'dist');
 for (const f of ['desktop.html', 'mobile.html']) if (!existsSync(join(distDir, f))) { console.error(`нет ${join(distDir, f)}`); process.exit(2); }
 
 const T0 = Date.now();
@@ -470,7 +489,7 @@ try {
     console.log('  ошибки консоли:', m.consoleErrors.length);
   } else {
     const r = await compare(distDir);
-    console.log(`Паритет: ${r.summary.pass ? 'ПРОЙДЕН' : 'РАСХОЖДЕНИЯ'}  экспорт ${r.summary.exports}, состояние ${r.summary.state}, снимки ${r.summary.shots}`);
+    console.log(`Паритет: ${r.summary.pass ? 'ПРОЙДЕН' : 'РАСХОЖДЕНИЯ'}  площадки ${r.venues.join(', ')}  экспорт ${r.summary.exports}, состояние ${r.summary.state}, снимки ${r.summary.shots}`);
     for (const s of r.shots.filter((x) => !x.ok)) console.log(`  ✗ снимок ${s.venue}/${s.profile}/${s.spec}: ${s.pct}% (max Δ ${s.maxDiff})`);
     for (const e of r.exports.filter((x) => !x.ok)) console.log(`  ✗ экспорт ${e.venue} ${e.scenario} ${e.kind}`);
     for (const s of r.state.filter((x) => !x.ok)) console.log(`  ✗ состояние ${s.venue}/${s.profile}/${s.scenario}/${s.check}: ${s.errors[0]}`);

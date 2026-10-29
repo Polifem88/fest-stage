@@ -20,6 +20,6 @@ app/review/modular/parity-report.*
 app/review/modular/bbox.mjs
 app/review/modular/
 
-# Сцена под крышей: рабочие выгрузки DXF/GLB и скрипты/снимки ревьюеров — только локально (отчёты .md коммитятся)
-app/review/roof-dev/
-app/review/roof-r*/*-shots/
+# рабочие выгрузки DXF/GLB площадок и скрипты/снимки ревьюеров — только локально (отчёты .md коммитятся)
+app/review/*-dev/
+app/review/*-r*/*-shots/
