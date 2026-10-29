@@ -417,6 +417,6 @@
 ### Task 16: Выпуск
 
 - [x] **Step 1:** После одобрения пользователем — `status: 'ready'` в `index.js` и `catalog.js`. `npm.cmd run check`.
-- [ ] **Step 2:** Бэкап после завершения: `powershell -ExecutionPolicy Bypass -File app/scripts/backup.ps1 -Force` → отчёт «VERIFIED (100% MATCH)» для зеркала и снимка, ZIP проверен.
-- [ ] **Step 3:** `npm.cmd run dev` → пользователь проверяет на локальном сервере (`desktop.html#v=roof`, `mobile.html#v=roof`).
-- [ ] **Step 4:** Только после явного «ок» пользователя: `git checkout master; git merge --no-ff roof; git push origin master` (публикация GitHub Pages через `pages.yml`). Проверить, что `check.yml`/`pages.yml` прошли.
+- [x] **Step 2:** Бэкап после завершения: `powershell -ExecutionPolicy Bypass -File app/scripts/backup.ps1 -Force` → отчёт «VERIFIED (100% MATCH)» для зеркала и снимка, ZIP проверен.
+- [x] **Step 3:** `npm.cmd run dev` → пользователь проверяет на локальном сервере (`desktop.html#v=roof`, `mobile.html#v=roof`).
+- [x] **Step 4:** Только после явного «ок» пользователя: `git checkout master; git merge --no-ff roof; git push origin master` (публикация GitHub Pages через `pages.yml`). Проверить, что `check.yml`/`pages.yml` прошли.
