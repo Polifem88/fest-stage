@@ -104,7 +104,7 @@ await page.evaluate(() => window.__fest.renderNow());
 
 ## 5. Паритет-харнесс готовых площадок (`scripts/parity.mjs`)
 
-Гарантия 100 % стабильности готовых площадок (`status: 'ready'`, сейчас Большая и Камерная) при доработках общего кода, экспорта и рефакторинге. Площадки и их сценарии — объект `VENUES` в `app/scripts/parity.mjs`; что все `ready` из `catalog.js` есть в `VENUES`, проверяет `tests/unit/parity-config.test.js`.
+Гарантия 100 % стабильности готовых площадок (`status: 'ready'`, сейчас Большая, Камерная и Сцена под крышей) при доработках общего кода, экспорта и рефакторинге. Площадки и их сценарии — объект `VENUES` в `app/scripts/parity.mjs`; что все `ready` из `catalog.js` есть в `VENUES`, проверяет `tests/unit/parity-config.test.js`.
 
 ```powershell
 # 1. Эталон — со СВЕЖЕЙ сборки master (или до правок); capture без каталога не запускается

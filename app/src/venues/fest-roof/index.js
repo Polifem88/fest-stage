@@ -58,7 +58,7 @@ const LIGHT_PLANS = {
 export default {
   id: 'roof',
   name: 'Сцена под крышей',
-  status: 'draft',
+  status: 'ready',
   meta: { type: 'Трансформируемый зал под капитальными фермами', seats: seatCount({ id: std.id, rows: rowsMax(std.id), shift: 0 }) },
   // фермы на жёстком подвесе — механики нет; переносных приборов нет; зального света нет; зал трансформируется
   caps: { rigging: false, counterweights: false, portable: false, duty: true, houseLight: false, layouts: true },

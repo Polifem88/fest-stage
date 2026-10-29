@@ -31,7 +31,7 @@ test('переключение сцены через список в загол�
   // «скоро» — видна, но не открывается; ответ — строкой внутри списка (тост под модальной шторкой не виден)
   await page.locator('.brand-btn').click();
   for (const id of ['foyer', 'studio']) await expect(page.locator(`.venue-item[data-venue="${id}"]`)).toHaveAttribute('aria-disabled', 'true');
-  await expect(page.locator('.venue-item[data-venue="roof"]'), 'Сцена под крышей открывается (черновик)').not.toHaveAttribute('aria-disabled', 'true');
+  await expect(page.locator('.venue-item[data-venue="roof"]'), 'Сцена под крышей открывается').not.toHaveAttribute('aria-disabled', 'true');
   // aria-disabled — кнопка всё же нажимается (показывает пояснение), Playwright без force ждал бы «включения»
   await page.locator('.venue-item[data-venue="foyer"]').click({ force: true });
   await expect(page.locator('.venue-note')).toContainText('готовится');

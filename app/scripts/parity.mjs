@@ -79,6 +79,16 @@ const VENUES = {
     exports: ['default', 'onlyRow1'],
     states: ['default', 'onlyRow1', 'plan+bp+dims+grid', 'off+house+haze55'],
   },
+  roof: {
+    // трансформируемый зал: в сравнение состояния входит планировка; снимки — виды площадки + планировки
+    layouts: true,
+    shots: async (page) => [
+      ...(await VENUES.chamber.shots(page)),
+      ...['cross', 'traverse', 'arena'].flatMap((lo) => [`overview+lo-${lo}`, `plan+lo-${lo}`]),
+    ],
+    exports: ['default', 'lo-traverse', 'lo-cross-r4-s3'],
+    states: ['default', 'lo-traverse', 'lo-cross-r4-s3', 'plan+bp+dims+grid', 'off+house+haze55'],
+  },
 };
 const STATE_KEYS = ['heights', 'fixturesOn', 'flags', 'layers', 'portable', 'view'];
 /** Ключи состояния площадки: с трансформируемым залом (VENUES[id].layouts) сравнивается и планировка. */
@@ -137,6 +147,7 @@ async function applyScenario(page, name) {
   await page.evaluate((name) => {
     const f = window.__fest;
     f.stage.allTo('rest');
+    if (f.layout?.()) f.setLayout({ id: f.stage.venue.layouts.default }); // трансформируемый зал — к планировке по умолчанию
     f.light('all', true);
     f.portable('off', 8);
     for (const [k, v] of Object.entries(window.__parityInitFlags)) f.flag(k, v);
@@ -151,6 +162,8 @@ async function applyScenario(page, name) {
       case 'plan+bp+dims+grid': f.setView('plan'); f.flag('blueprint', true); f.flag('dims', true); f.flag('grid', true); break;
       case 'pfloor6+haze55': f.portable('floor', 6); f.flag('hazeDensity', 0.55); break;
       case 'off+house+haze55': f.light('all', false); f.flag('house', true); f.flag('hazeDensity', 0.55); break;
+      case 'lo-traverse': f.setLayout({ id: 'traverse' }); break;
+      case 'lo-cross-r4-s3': f.setLayout({ id: 'cross', rows: 4, shift: 3 }); break;
       default: throw new Error(`неизвестный сценарий ${name}`);
     }
     f.renderNow();
