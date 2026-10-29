@@ -251,7 +251,7 @@ export default {
    export const CATALOG = [
      { id: 'big', name: 'Большая сцена', short: 'Большая', status: 'ready', type: 'Сцена-коробка с порталом', seats: 390 },
      { id: 'chamber', name: 'Камерная сцена', short: 'Камерная', status: 'ready', type: 'Чёрный кабинет', seats: 102 },
-     { id: 'roof', name: 'Сцена под крышей', short: 'Под крышей', status: 'ready', type: 'Трансформируемый зал под капитальными фермами', seats: 90 },
+     { id: 'roof', name: 'Сцена под крышей', short: 'Под крышей', status: 'ready', type: 'Трансформируемый зал в стиле «лофт»', seats: 90 },
      // ...
    ];
    ```
