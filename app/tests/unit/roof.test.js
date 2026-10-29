@@ -419,6 +419,15 @@ describe('Сцена под крышей · сборка', () => {
     expect(down).toBeGreaterThan(0);
     expect(side).toBeGreaterThan(0);
   });
+
+  it('Y-образные раскосы (V-косынки) у стен 6 и 10 находятся в слое «walls» (tag: braces), а не в «ceiling»', () => {
+    const L = build();
+    const braces = L.walls.children.find((m) => m.userData.tag === 'braces');
+    expect(braces, 'меш раскосов в walls').toBeTruthy();
+    expect(braces.material.name).toBe('steel');
+    expect(braces.geometry.attributes.position.count).toBeGreaterThan(0);
+    expect(L.ceiling.children.find((m) => m.userData.tag === 'braces')).toBeUndefined();
+  });
 });
 
 describe('Сцена под крышей · паспорт, зал, пол пятен', () => {

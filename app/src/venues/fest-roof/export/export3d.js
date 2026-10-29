@@ -170,7 +170,7 @@ export function buildExportSceneForGLTF(stage) {
   const root = new THREE.Scene();
   root.name = 'FEST_Roof_Stage';
   const L = staticLayers(M, false);
-  const names = { walls: 'Architecture_Walls_Columns', ceiling: 'Ceiling_Capital_Beams_Diagonals_VFrames', trusses: 'Trusses_30x30_And_Legs' };
+  const names = { walls: 'Architecture_Walls_Columns_Braces', ceiling: 'Ceiling_Capital_Beams_Diagonals', trusses: 'Trusses_30x30_And_Legs' };
   for (const [k, n] of Object.entries(names)) if (L[k]) root.add(bake(L[k], n, M));
   const hall = buildHall(layout, { M });
   const hallGrp = bake(hall, `Hall_${layout.id}`, M);

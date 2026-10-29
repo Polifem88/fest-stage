@@ -1,8 +1,8 @@
 // Архитектура и конструкция Сцены под крышей:
 //  • слой walls — пол, стены (рыжий кирпич / чёрные) с дверями и проёмом, тупик коридора, венткороба 9 и 11
-//    с решёткой, кирпичные цоколи, I-колонны;
-//  • слой ceiling — рифлёный настил, швеллеры, капитальные фермы (решётка Уоррена), одиночные диагонали,
-//    V-косынки. Всё, что уходит в стены (балки к замурованным колоннам), обрезано контуром помещения.
+//    с решёткой, кирпичные цоколи, I-колонны, Y-образные раскосы между колоннами у стен 6 и 10;
+//  • слой ceiling — рифлёный настил, швеллеры, капитальные фермы (решётка Уоррена), одиночные диагонали.
+//    Всё, что уходит в стены (балки к замурованным колоннам), обрезано контуром помещения.
 // Все размеры — config/dimensions.js; здесь только визуальные константы деталей.
 import * as THREE from 'three';
 import { box, rect, wallWithHoles, P, clipSegmentToRects } from '../../../core/geom.js';
@@ -220,7 +220,8 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
     for (const [p, q] of clipSegmentToRects(a, b, CEIL_RECTS)) steel.push(strut(P(p[0], yd, p[1]), P(q[0], yd, q[1]), DG.w, DG.y1 - DG.y0));
   }
 
-  // V-косынки: нога основание → узел, плечи узел → верх колонны и узел → середина пролёта
+  // Y-образные раскосы (V-косынки) между колоннами у стен 6 и 10: перенесены в слой «Стены»
+  const braces = [];
   for (const v of ROOF.vFrames) {
     const mid = (v.faceA + v.faceB) / 2;
     for (const face of [v.faceA, v.faceB]) {
@@ -228,10 +229,11 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
       const base = [v.x, 0, face], node = [v.x, v.node.y, face + dir * v.node.off];
       const top = [v.x, v.topY, face], centre = [v.x, v.topY, mid];
       for (const [a, b] of [[base, node], [node, top], [node, centre]]) {
-        for (const [p, q] of clip3(a, b, ROOF.rects)) steel.push(strut(V(p), V(q), v.w));
+        for (const [p, q] of clip3(a, b, ROOF.rects)) braces.push(strut(V(p), V(q), v.w));
       }
     }
   }
+  batch.add('walls', M.steel, braces, { tag: 'braces' });
   batch.add('ceiling', M.steel, steel, { tag: 'structure' });
   return { mobile };
 }
