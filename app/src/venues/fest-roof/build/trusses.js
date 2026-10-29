@@ -8,7 +8,7 @@ import { ROOF } from '../config/dimensions.js';
 // Визуальные константы
 const LACE_PITCH = 0.3; // шаг раскосов решётки (≈ 45° при сечении 0,30)
 const SEG = { desktop: { chord: 8, lacing: 5 }, mobile: { chord: 6, lacing: 4 } };
-const PLATE = { size: 0.42, thick: 0.012 }; // опорная плита стойки
+const PLATE = { size: 0.36, thick: 0.012 }; // опорная плита стойки
 
 /** Четыре пояса квадратной фермы: смещения поперёк оси [поперёк, высота]. */
 function chordOffsets(T) {

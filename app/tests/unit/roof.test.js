@@ -94,12 +94,22 @@ describe('Сцена под крышей · геометрия', () => {
     expect([off.a0, off.a1]).toEqual([5.15, 7.35]);
     expect(off.at - s, 'смещённая проходит перед колонной').toBeGreaterThan(-2.65 + 0.2);
     expect(near(wall('3').at - (7.35 + s), 0.1), 'зазор до стены 3').toBe(true);
+    // короткие вставки до перенесённых вертикальных стоек
+    expect(ex.some((l) => l.axis === 'd' && near(l.at, 1.1) && near(l.a0, 7.35) && near(l.a1, 8.1))).toBe(true);
+    expect(ex.some((l) => l.axis === 'x' && near(l.at, -5) && near(l.a0, -8.35) && near(l.a1, -7.5))).toBe(true);
   });
 
-  it('3 стойки: (7,35;5), (−5;−7,5), (−3,05;7,5)', () => {
-    expect(ROOF.trusses.legs).toEqual([{ x: 7.35, d: 5 }, { x: -5, d: -7.5 }, { x: -3.05, d: 7.5 }]);
+  it('3 стойки: (7,95;1,1) в нише стен 2–3 с зазором 0,05, (−5;−8,2) вплотную к стене 9, (−3,05;7,5)', () => {
+    const s = ROOF.trusses.size / 2;
+    expect(ROOF.trusses.legs).toEqual([{ x: 7.95, d: 1.1 }, { x: -5, d: -8.2 }, { x: -3.05, d: 7.5 }]);
+    // в нише между стенами 2 (x 8,15) и торцом стены 3 (d 0,90): зазор по 0,05
+    expect(near(wall('2').at - (7.95 + s), 0.05)).toBe(true);
+    expect(near(1.1 - s - 0.9, 0.05)).toBe(true);
+    expect(7.95 - s).toBeGreaterThan(wall('3').at);
+    // за мольтоном вплотную к стене 9 (d −8,35)
+    expect(near(-8.2 - s, -8.35)).toBe(true);
     // у стены 13: ось −3,05, ближняя грань −3,20 — в 1,0 от края проёма −4,20
-    expect(near(-3.05 - ROOF.trusses.size / 2 - ROOF.corridor.x1, 1.0)).toBe(true);
+    expect(near(-3.05 - s - ROOF.corridor.x1, 1.0)).toBe(true);
   });
 
   it('20 куполов: внутри ячеек, ≥ 0,35 в плане от осей капитальных балок и диагоналей', () => {
