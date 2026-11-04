@@ -6,6 +6,7 @@ import { STUDIO, ceilingItems, trussFootprints } from '../../src/venues/fest-stu
 import { FIXTURES, TYPES, SPECS, GROUPS, GROUP_SETS, LIGHT_PLANS } from '../../src/venues/fest-studio/config/fixtures.js';
 import { panelUV } from '../../src/venues/fest-studio/build/panels.js';
 import { buildArchitecture } from '../../src/venues/fest-studio/build/architecture.js';
+import { cycPatches, buildCyclorama, FLOOR_LIFT } from '../../src/venues/fest-studio/build/cyclorama.js';
 
 const fakeM = () => new Proxy({}, { get: (t, p) => (t[p] ||= new THREE.MeshBasicMaterial({ name: String(p) })) });
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
@@ -213,4 +214,90 @@ describe('Студия · архитектура и панели', () => {
     expect(Math.abs(area - expected) / expected).toBeLessThan(0.02);
   });
 });
+
+/**
+ * Отклонение точки (x, y, d) от теоретической поверхности циклорамы
+ * (плоские грани + четверти цилиндров R + две ⅛ сферы R в углах, пол поднят на FLOOR_LIFT).
+ */
+function cycSurfaceDeviation(x, y, d, c = STUDIO.cyc, lift = FLOOR_LIFT) {
+  const r = c.r, ry = r - lift;
+  const cx = x < c.x0 + r ? c.x0 + r : x > c.x1 - r ? c.x1 - r : x;
+  const cd = d > c.d1 - r ? c.d1 - r : d;
+  const cy = y < r ? r : y;
+  const dx = (x - cx) / r;
+  const dd = (d - cd) / r;
+  const dy = y < r ? (r - y) / ry : 0;
+  // На плоских участках одна из координат на границе (|dx|=1, dd=1 или dy=1), остальные = 0;
+  // на дугах и сферах вектор (dx, dy, dd) имеет единичную длину (нормированный радиус = 1) -> масштаб * r.
+  return Math.abs(Math.hypot(dx, dy, dd) - 1) * r;
+}
+
+describe('Студия · циклорама', () => {
+  it('все вершины и середины рёбер cycPatches лежат на поверхности, в пределах габаритов, нормали — внутрь', () => {
+    const c = STUDIO.cyc, arc = 16;
+    const patches = cycPatches(c, { arc });
+    expect(patches).toHaveLength(11);
+    const maxChordErr = c.r * (1 - Math.cos(Math.PI / (4 * arc))) + 1e-6;
+    const center = new THREE.Vector3(0, c.h / 2, -(c.d0 + c.d1) / 2);
+    for (const g of patches) {
+      const pos = g.attributes.position, nor = g.attributes.normal;
+      expect(pos.count).toBeGreaterThan(0);
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i), y = pos.getY(i), d = -pos.getZ(i);
+        expect(y >= FLOOR_LIFT - 1e-6 && y <= c.h + 1e-6).toBe(true);
+        expect(d >= c.d0 - 1e-6 && d <= c.d1 + 1e-6).toBe(true);
+        expect(Math.abs(x) <= c.x1 + 1e-6).toBe(true);
+        expect(cycSurfaceDeviation(x, y, d, c)).toBeLessThanOrEqual(1e-6);
+        // нормаль смотрит внутрь циклорамы
+        const toCenter = center.clone().sub(new THREE.Vector3(x, y, -d));
+        const n = new THREE.Vector3(nor.getX(i), nor.getY(i), nor.getZ(i));
+        expect(n.dot(toCenter)).toBeGreaterThan(0);
+      }
+      // середины треугольников отклоняются не более чем на стрелку хорды дуги (в сферическом углу — по двум осям кривизны)
+      for (let i = 0; i < pos.count; i += 3) {
+        const mx = (pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2)) / 3;
+        const my = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
+        const md = -(pos.getZ(i) + pos.getZ(i + 1) + pos.getZ(i + 2)) / 3;
+        expect(cycSurfaceDeviation(mx, my, md, c)).toBeLessThanOrEqual(maxChordErr * 2);
+      }
+    }
+  });
+
+  it('сумма площадей треугольников совпадает с аналитической площадью циклорамы (допуск 1 % при arc = 16)', () => {
+    const c = STUDIO.cyc, r = c.r;
+    const W = (c.x1 - c.x0) - 2 * r; // плоская ширина между дугами: 6,05 − 1,40 = 4,65
+    const D = (c.d1 - c.d0) - r;     // плоская глубина боковых стенок: 3,975 − 0,70 = 3,275
+    const H = c.h - r;               // плоская высота выше нижнего скругления: 3,90 − 0,70 = 3,20
+    const flatArea = W * D + W * H + 2 * (D * H);
+    const cylArea = (Math.PI * r / 2) * (W + 2 * D + 2 * H);
+    const sphArea = Math.PI * r * r; // две ⅛ сферы (площадь сферы 4πr²) = 2 × (πr²/2) = πr²
+    const analytic = flatArea + cylArea + sphArea;
+
+    const batch = new StaticBatch();
+    buildCyclorama(batch, fakeM(), { mobile: false });
+    const L = batch.build();
+    let meshSum = 0;
+    L.cyc.traverse((o) => { if (o.isMesh) meshSum += meshArea(o); });
+    expect(Math.abs(meshSum - analytic) / analytic).toBeLessThan(0.01);
+  });
+
+  it('кромки соседних участков совпадают: вершины на линии y = r у задней стенки и задней дуги идентичны', () => {
+    const c = STUDIO.cyc;
+    const patches = cycPatches(c, { arc: 16 });
+    const key = (x, y, d) => `${x.toFixed(6)},${y.toFixed(6)},${d.toFixed(6)}`;
+    // Находим заднюю стенку (все вершины d = d1, y >= r) и заднюю нижнюю дугу (x ∈ [x0+r, x1-r], y <= r, d >= d1-r)
+    const ptsAtYr = (g) => {
+      const pos = g.attributes.position, set = new Set();
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i), y = pos.getY(i), d = -pos.getZ(i);
+        if (near(y, c.r, 1e-5) && near(d, c.d1, 1e-5)) set.add(key(x, y, d));
+      }
+      return [...set].sort();
+    };
+    const withSeam = patches.map(ptsAtYr).filter((a) => a.length >= 2);
+    expect(withSeam).toHaveLength(2);
+    expect(withSeam[0]).toEqual(withSeam[1]);
+  });
+});
+
 
