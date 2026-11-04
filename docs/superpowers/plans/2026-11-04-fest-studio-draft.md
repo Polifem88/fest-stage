@@ -251,11 +251,11 @@ it('Сцена под крышей: число треугольников фер
   - overlays: размеры «Ширина 6,10», «Глубина 12,60», «Потолок 5,65», «Верхние фермы 5,20», «Нижние фермы 3,25», «Циклорама 3,90», «Шаг ферм 2,50»; сетка 1 м по прямоугольнику помещения, ось X = 0 и линия d = 0 красным, подпись `STUDIO.zeroLineLabel`.
   - `catalog.js`: `{ id: 'studio', name: 'Студия мультимедиа', short: 'Студия', status: 'draft', type: 'Съёмочный павильон с циклорамой' }`; `registry.js`: `studio: () => import('./fest-studio/index.js')`.
 
-- [ ] **Step 1: Write the failing tests:** в `state.test.js` «Ссылка: формат v2» добавить `studio` в перебор (`import studio from '../../src/venues/fest-studio/index.js'`): кодирование/раскодирование с `fixturesOn: []` и выключенным слоем `cyc` возвращает тот же `venue`, слои и вид. Контракт (`venues.contract.test.js`) подхватит студию сам.
-- [ ] **Step 2:** FAIL.
-- [ ] **Step 3:** реализовать `overlays.js`, `index.js`, правки каталога и реестра.
-- [ ] **Step 4:** `npx.cmd vitest run` → PASS (контракт, границы, состояние).
-- [ ] **Step 5: Commit** «Студия: паспорт площадки (draft), каталог и реестр — открывается по #v=studio».
+- [x] **Step 1: Write the failing tests:** в `state.test.js` «Ссылка: формат v2» добавить `studio` в перебор (`import studio from '../../src/venues/fest-studio/index.js'`): кодирование/раскодирование с `fixturesOn: []` и выключенным слоем `cyc` возвращает тот же `venue`, слои и вид. Контракт (`venues.contract.test.js`) подхватит студию сам.
+- [x] **Step 2:** FAIL.
+- [x] **Step 3:** реализовать `overlays.js`, `index.js`, правки каталога и реестра.
+- [x] **Step 4:** `npx.cmd vitest run` → PASS (контракт, границы, состояние).
+- [x] **Step 5: Commit** «Студия: паспорт площадки (draft), каталог и реестр — открывается по #v=studio».
 
 ---
 
