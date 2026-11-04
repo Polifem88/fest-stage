@@ -135,7 +135,48 @@ export function cycPatches(c = STUDIO.cyc, { arc = ARC_SEG.desktop, lift = FLOOR
   ];
 }
 
+/**
+ * Белое заполнение торцов под передними нижними закруглёнными углами циклорамы (d = d0):
+ * два криволинейных треугольника между боковой дугой R = 0,70, полом и внешней боковой кромкой.
+ */
+export function cycFrontCaps(c = STUDIO.cyc, { arc = ARC_SEG.desktop, lift = FLOOR_LIFT } = {}) {
+  const r = c.r, ry = r - lift;
+  const cx0 = c.x0 + r, cx1 = c.x1 - r;
+  const H = Math.PI / 2;
+  const yArc = (u) => r - ry * Math.cos(u * H);
+  const rArc = (u) => r * Math.sin(u * H);
+  const z0 = -c.d0;
+
+  const makeCap = (cornerX, ptX, reverse) => {
+    const pos = [], nor = [];
+    for (let i = 0; i < arc; i++) {
+      const u0 = i / arc, u1 = (i + 1) / arc;
+      const xA = ptX(u0), yA = yArc(u0);
+      const xB = ptX(u1), yB = yArc(u1);
+      if (reverse) {
+        pos.push(cornerX, lift, z0, xB, yB, z0, xA, yA, z0);
+      } else {
+        pos.push(cornerX, lift, z0, xA, yA, z0, xB, yB, z0);
+      }
+      // нормаль наклонена вверх к потолочным светильникам, чтобы торец освещался в тон дуге циклорамы
+      nor.push(0, 0.82, 0.57, 0, 0.82, 0.57, 0, 0.82, 0.57);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    return g;
+  };
+
+  return [
+    makeCap(c.x0, (u) => cx0 - rArc(u), false),
+    makeCap(c.x1, (u) => cx1 + rArc(u), true),
+  ];
+}
+
 export function buildCyclorama(batch, M, { mobile = false } = {}) {
   const arc = mobile ? ARC_SEG.mobile : ARC_SEG.desktop;
-  batch.add('cyc', M.cyc, cycPatches(STUDIO.cyc, { arc }), { tag: 'cyc' });
+  batch.add('cyc', M.cyc, [
+    ...cycPatches(STUDIO.cyc, { arc }),
+    ...cycFrontCaps(STUDIO.cyc, { arc }),
+  ], { tag: 'cyc' });
 }

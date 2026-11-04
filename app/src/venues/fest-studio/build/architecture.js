@@ -3,7 +3,7 @@
 //    двустворчатая дверь выхода, техническая дверь, окно операторской (5 секций);
 //  • слой ceiling — ореховые панели потолка (5,65), 2 кассеты кондиционера 0,80 × 0,80, 4 диффузора 0,60 × 0,60.
 // Все размеры — config/dimensions.js; здесь только визуальные константы деталей.
-import { box, rect, wallWithHoles } from '../../../core/geom.js';
+import { rect, wallWithHoles } from '../../../core/geom.js';
 import { STUDIO } from '../config/dimensions.js';
 import { panelUV } from './panels.js';
 
@@ -16,6 +16,7 @@ const CASSETTE_H = 0.035; // выступание корпуса кассеты 
 const CASSETTE_GRILLE_PAD = 0.05; // отступ решётки от края корпуса кассеты
 const DIFFUSER_H = 0.022; // выступание корпуса диффузора вниз от потолка
 const DIFFUSER_INNER = 0.36; // внутренний квадрат диффузора
+const DIFFUSER_GRILLE_PAD = 0.03; // отступ решётки внутри диффузора
 
 export function buildArchitecture(batch, M) {
   const R = STUDIO.room, C = R.ceiling;
@@ -102,17 +103,23 @@ export function buildArchitecture(batch, M) {
   //  4. ОКНО ОПЕРАТОРСКОЙ (5 секций, чёрная рама, тёмное стекло, фон операторской)
   // ===========================================================================
   const f = WIN_FRAME, wd0 = W.d - WIN_DEPTH, wd1 = W.d;
-  const winFrames = [
-    box(W.x0, W.x1, W.y0, W.y0 + f, wd0, wd1),
-    box(W.x0, W.x1, W.y1 - f, W.y1, wd0, wd1),
-    box(W.x0, W.x0 + f, W.y0 + f, W.y1 - f, wd0, wd1),
-    box(W.x1 - f, W.x1, W.y0 + f, W.y1 - f, wd0, wd1),
-  ];
   const secW = (W.x1 - W.x0) / W.sections;
-  for (let i = 1; i < W.sections; i++) {
-    const xm = W.x0 + secW * i;
-    winFrames.push(box(xm - f / 2, xm + f / 2, W.y0 + f, W.y1 - f, wd0, wd1));
+  const winHoles = [];
+  const winReveals = [];
+  for (let i = 0; i < W.sections; i++) {
+    const sx0 = W.x0 + secW * i + (i === 0 ? f : f / 2);
+    const sx1 = W.x0 + secW * (i + 1) - (i === W.sections - 1 ? f : f / 2);
+    const sy0 = W.y0 + f, sy1 = W.y1 - f;
+    winHoles.push({ a0: sx0, a1: sx1, b0: sy0, b1: sy1 });
+    winReveals.push(
+      rect('y', sy0, sx0, sx1, wd0, wd1, 1),
+      rect('y', sy1, sx0, sx1, wd0, wd1, -1),
+    );
   }
+  const winFrames = [
+    ...wallWithHoles('d', wd1, W.x0, W.x1, W.y0, W.y1, 1, winHoles),
+    ...winReveals,
+  ];
   batch.add('walls', M.blackWall, winFrames, { tag: 'windowFrame', shadow: false });
   batch.add('walls', M.glass, rect('d', W.d - WIN_GLASS_INSET, W.x0 + f, W.x1 - f, W.y0 + f, W.y1 - f, 1), { tag: 'windowGlass', shadow: false });
   batch.add('walls', M.booth, rect('d', wd0, W.x0, W.x1, W.y0, W.y1, 1), { tag: 'windowBack', shadow: false });
@@ -126,17 +133,18 @@ export function buildArchitecture(batch, M) {
   const grilles = [];
   for (const c of STUDIO.cassettes) {
     const h = c.size / 2;
-    plastic.push(box(c.x - h, c.x + h, C - CASSETTE_H, C, c.d0, c.d1));
+    plastic.push(rect('y', C - CASSETTE_H, c.x - h, c.x + h, c.d0, c.d1, -1));
     const gp = CASSETTE_GRILLE_PAD;
     // rect('y') уже имеет UV 0..1 на прямоугольнике — текстура решётки ложится ровно на кассету
     grilles.push(rect('y', C - CASSETTE_H - 0.002, c.x - h + gp, c.x + h - gp, c.d0 + gp, c.d1 - gp, -1));
   }
   for (const df of STUDIO.diffusers) {
-    const h = df.size / 2, hi = DIFFUSER_INNER / 2;
+    const h = df.size / 2, hi = DIFFUSER_INNER / 2, dp = DIFFUSER_GRILLE_PAD;
     plastic.push(
-      box(df.x - h, df.x + h, C - DIFFUSER_H, C, df.d - h, df.d + h),
-      box(df.x - hi, df.x + hi, C - DIFFUSER_H - 0.008, C - DIFFUSER_H, df.d - hi, df.d + hi),
+      rect('y', C - DIFFUSER_H, df.x - h, df.x + h, df.d - h, df.d + h, -1),
+      rect('y', C - DIFFUSER_H - 0.008, df.x - hi, df.x + hi, df.d - hi, df.d + hi, -1),
     );
+    grilles.push(rect('y', C - DIFFUSER_H - 0.01, df.x - hi + dp, df.x + hi - dp, df.d - hi + dp, df.d + hi - dp, -1));
   }
   batch.add('ceiling', M.plasticWhite, plastic, { tag: 'ceilingFixtures', shadow: false });
   batch.add('ceiling', M.ventGrille, grilles, { tag: 'cassetteGrilles', shadow: false, uv: false });

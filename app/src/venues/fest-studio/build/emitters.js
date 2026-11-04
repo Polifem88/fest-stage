@@ -28,7 +28,10 @@ export function buildEmitters(M) {
   const rims = [], discs = [], dutyPoints = [];
   const yDisc = C - RIM_H - DISC_EPS;
   for (const p of D.list) {
-    rims.push(new THREE.CylinderGeometry(D.r, D.r, RIM_H, DISC_SEG, 1, false).translate(p.x, C - RIM_H / 2, -p.d));
+    rims.push(
+      new THREE.CylinderGeometry(D.r, D.r, RIM_H, DISC_SEG, 1, true).translate(p.x, C - RIM_H / 2, -p.d),
+      new THREE.CircleGeometry(D.r, DISC_SEG).rotateX(Math.PI / 2).translate(p.x, C - RIM_H, -p.d),
+    );
     discs.push(new THREE.CircleGeometry(D.r * 0.84, DISC_SEG).rotateX(Math.PI / 2).translate(p.x, yDisc, -p.d));
     dutyPoints.push(P(p.x, yDisc, p.d));
   }

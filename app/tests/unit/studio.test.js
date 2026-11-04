@@ -275,7 +275,8 @@ describe('Студия · циклорама', () => {
     const flatArea = W * D + W * H + 2 * (D * H);
     const cylArea = (Math.PI * r / 2) * (W + 2 * D + 2 * H);
     const sphArea = Math.PI * r * r; // две ⅛ сферы (площадь сферы 4πr²) = 2 × (πr²/2) = πr²
-    const analytic = flatArea + cylArea + sphArea;
+    const capArea = 2 * r * r * (1 - Math.PI / 4); // два передних нижних торца под боковыми дугами на d = 0
+    const analytic = flatArea + cylArea + sphArea + capArea;
 
     const batch = new StaticBatch();
     buildCyclorama(batch, fakeM(), { mobile: false });

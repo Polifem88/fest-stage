@@ -288,11 +288,11 @@ it('Сцена под крышей: число треугольников фер
 **Files:**
 - Modify: `app/tests/e2e/shots.spec.js` (`OTHER_VENUES` по умолчанию `['chamber', 'roof', 'studio']`), `app/tests/e2e/perf.spec.js` (`otherCases` + `'studio:overview', 'studio:plan'`)
 
-- [ ] **Step 1:** `$env:VENUE='studio'; npm.cmd run shots` → все снимки непустые; просмотреть `review/shots/<раунд>/*/studio/`: геометрия против фото `data/studio/Фото` (циклорама, углы, швы панелей, окно, ниши, фермы и вставки, светильники/кассеты/диффузоры), «чертёж» без штриховки на дугах, нет z-fighting. Уточнить точки видов в `index.js`. Найденные расхождения — правка конфига/построителя + повтор снимков.
-- [ ] **Step 2:** `npm.cmd run check` → код 0 (Vitest, сборка, весь Playwright: размер ≤ 1,3 МБ, кнопки ≥ 44 px, утечки при смене сцен, FPS).
-- [ ] **Step 3:** `node scripts/parity.mjs compare` → код 0, в отчёте `big, chamber, roof` — 100 %.
-- [ ] **Step 4: Commit** «Студия: снимки и FPS в e2e, виды уточнены по снимкам».
-- [ ] **Step 5:** если `git rev-list --count HEAD` кратно 10 — `npm.cmd run backup` (сверка числа файлов и байтов, `tar -tf`).
+- [x] **Step 1:** `$env:VENUE='studio'; npm.cmd run shots` → все снимки непустые; просмотреть `review/shots/<раунд>/*/studio/`: геометрия против фото `data/studio/Фото` (циклорама, углы, швы панелей, окно, ниши, фермы и вставки, светильники/кассеты/диффузоры), «чертёж» без штриховки на дугах, нет z-fighting. Уточнить точки видов в `index.js`. Найденные расхождения — правка конфига/построителя + повтор снимков.
+- [x] **Step 2:** `npm.cmd run check` → код 0 (Vitest, сборка, весь Playwright: размер ≤ 1,3 МБ, кнопки ≥ 44 px, утечки при смене сцен, FPS).
+- [x] **Step 3:** `node scripts/parity.mjs compare` → код 0, в отчёте `big, chamber, roof` — 100 %.
+- [x] **Step 4: Commit** «Студия: снимки и FPS в e2e, виды уточнены по снимкам».
+- [x] **Step 5:** если `git rev-list --count HEAD` кратно 10 — `npm.cmd run backup` (сверка числа файлов и байтов, `tar -tf`).
 
 ---
 

@@ -101,9 +101,12 @@ export async function startMobile() {
       showTab();
       quickSlot.replaceChildren(quickBar(stage, { withLabels: false }));
       exportSlot.replaceChildren(...exportButtons(stage, { onAction: () => setShare(false), role: 'menuitem' }));
+      const noFixtures = !stage.fixtures.list.length;
       hint.textContent = caps.rigging
         ? 'Один палец — вращать · два — масштаб и сдвиг · тап — выбрать, потом тянуть'
-        : 'Один палец — вращать · два — масштаб и сдвиг · тап — выбрать прибор';
+        : noFixtures
+          ? 'Один палец — вращать · два — масштаб и сдвиг'
+          : 'Один палец — вращать · два — масштаб и сдвиг · тап — выбрать прибор';
       document.title = `${stage.venue.name} · ${THEATRE_NAME} (телефон)`;
     });
   };

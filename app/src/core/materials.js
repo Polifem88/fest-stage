@@ -169,33 +169,44 @@ function meshTex() {
   }, { srgb: false });
 }
 
-// Мелкоперфорированные ореховые панели с чёрным глянцевым нащельником 2 см по швам (тайл = 1 модуль панели)
+// Мелкоперфорированные ореховые панели с чёрным глянцевым нащельником 2 см по швам (тайл = 1 модуль панели).
+// Размер холста по V пропорционален модулю, чтобы плотность перфорации, тон и толщина шва
+// на стеновых (1,22 × 2,42 м) и потолочных (1,22 × 0,62 м) панелях были одинаковыми.
 function walnutPerfTex(modU, modV, seam = 0.02) {
-  return canvasTex(256, (g, S) => {
-    const r = rng(23);
-    g.fillStyle = '#8b5a36';
-    g.fillRect(0, 0, S, S);
-    // прожилки древесины ореха
-    for (let i = 0; i < 72; i++) {
-      g.fillStyle = i % 3 === 0 ? 'rgba(255,220,185,0.05)' : `rgba(55,28,12,${0.07 + r() * 0.1})`;
-      g.fillRect(r() * S, 0, 1 + r() * 2.5, S);
-    }
-    // мелкая перфорация
-    g.fillStyle = 'rgba(24,12,6,0.28)';
-    for (let y = 4; y < S; y += 8) {
-      for (let x = 4; x < S; x += 8) g.fillRect(x, y, 2, 2);
-    }
-    // чёрный нащельник (2 см) по краям модуля (u = 0, v = 0)
-    const su = Math.max(4, Math.round((seam / modU) * S));
-    const sv = Math.max(4, Math.round((seam / modV) * S));
-    g.fillStyle = '#0c0d0f';
-    g.fillRect(0, 0, su, S);
-    g.fillRect(0, 0, S, sv);
-    // тонкий блик глянцевого нащельника
-    g.fillStyle = 'rgba(255,255,255,0.12)';
-    g.fillRect(1, 0, 1, S);
-    g.fillRect(0, 1, S, 1);
-  });
+  const W = 256;
+  const H = modV > 1 ? 512 : 128;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  const r = rng(23);
+  // кремово-коричневый оттенок ореховых панелей (одинаковый для стен и потолка)
+  g.fillStyle = '#8d6749';
+  g.fillRect(0, 0, W, H);
+  // мягкие кремовые и коричневые прожилки древесины
+  for (let i = 0; i < 80; i++) {
+    g.fillStyle = i % 3 === 0 ? 'rgba(242,224,200,0.07)' : `rgba(62,40,24,${0.06 + r() * 0.08})`;
+    g.fillRect(r() * W, 0, 1 + r() * 2.5, H);
+  }
+  // мелкая перфорация с одинаковым шагом в метрах на стенах и потолке
+  g.fillStyle = 'rgba(42,28,18,0.22)';
+  for (let y = 4; y < H; y += 8) {
+    for (let x = 4; x < W; x += 8) g.fillRect(x, y, 2, 2);
+  }
+  // чёрный нащельник (2 см) по краям модуля (u = 0, v = 0)
+  const su = Math.max(3, Math.round((seam / modU) * W));
+  const sv = Math.max(3, Math.round((seam / modV) * H));
+  g.fillStyle = '#0c0d0f';
+  g.fillRect(0, 0, su, H);
+  g.fillRect(0, 0, W, sv);
+  // тонкий блик глянцевого нащельника
+  g.fillStyle = 'rgba(255,255,255,0.12)';
+  g.fillRect(1, 0, 1, H);
+  g.fillRect(0, 1, W, 1);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 4;
+  return t;
 }
 
 // Лицевая панель потолочной кассеты кондиционера: центральная решётка и 4 щели жалюзи по сторонам

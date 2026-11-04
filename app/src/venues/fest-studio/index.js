@@ -19,11 +19,11 @@ const R = STUDIO.room;
 
 /** Готовые точки обзора. Координаты: [x, y, d]. */
 const VIEWS = {
-  overview: { name: 'Общий вид', type: 'persp', pos: [6.0, 9.0, -14.0], target: [0, 1.5, 0], portraitPullback: true },
+  overview: { name: 'Общий вид', type: 'persp', pos: [-6.5, 8.5, -13.5], target: [0.2, 1.4, -0.5], portraitPullback: true },
   camera: { name: 'На циклораму', type: 'persp', pos: [0, 1.6, -6.0], target: [0, 1.4, 3.0] },
   booth: { name: 'Из операторской', type: 'persp', pos: [0.2, 4.1, -7.6], target: [0, 1.0, 2.0] },
   cycToExit: { name: 'С циклорамы к выходу', type: 'persp', pos: [0, 1.7, 3.0], target: [1.5, 1.4, -8.0] },
-  ceiling: { name: 'Фермы и потолок (снизу)', type: 'persp', pos: [-1.0, 1.2, -2.0], target: [0.5, 5.4, 1.0] },
+  ceiling: { name: 'Фермы и потолок (снизу)', type: 'persp', pos: [0.8, 1.0, -3.8], target: [-0.3, 5.4, 1.2] },
   plan: { name: 'План сверху', type: 'ortho', dir: 'top', center: [0, 0, -2.475], height: 14.5, width: 9 },
   section: { name: 'Разрез сбоку', type: 'ortho', dir: 'side', center: [0, 2.8, -2.475], height: 6.8, width: 14.5 },
 };
