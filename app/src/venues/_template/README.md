@@ -14,6 +14,7 @@
 |---|---|
 | `layout.js` | Чистая раскладка без Three.js: глубины ферм `trussDs`, пролёт `trussXRange`, пояса `trussChords`, подвесы `hangerXs`, ряды и места `rowFrontD` / `seatLayout` / `seatCount`. Её же используют развес приборов и юнит-тесты. |
 | `build.js` | `buildBlackBox(ctx, cfg)` — строит всё сразу; по отдельности: `trussGeometry(...)` (3 пояса + раскосы «зигзагом» на трёх гранях + торцевые рамки, одна склеенная геометрия), `buildSeats`, `buildEmitters`, `tubeBetween`. |
+| `trusses.js` | Общий построитель 4-поясных квадратных ферм и вертикальных стоек/вставок (`trussLineTubes`, `trussPostTubes`, `chordOffsets`, `TRUSS_SEG`, `LACE_PITCH`). Возвращает массив геометрий труб; материал (`M.truss` или `M.trussAlu`) выбирает площадка (`fest-roof`, `fest-studio`). |
 | `overlays.js` | `blackBoxViews(cfg)` — готовые виды; `blackBoxDims(cfg)` — список размеров; `blackBoxGrid(labels, cfg)` — сетка 1 м с осями и оцифровкой; `blackBoxOverlays` — оба наложения для движка; `blackBoxAmbient(plan, cfg, dutyRows)` — дежурный и зальный свет. |
 | `index.js` | Реэкспорт всего перечисленного. |
 

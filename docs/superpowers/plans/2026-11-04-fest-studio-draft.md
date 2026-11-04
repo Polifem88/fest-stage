@@ -301,8 +301,8 @@ it('Сцена под крышей: число треугольников фер
 **Files:**
 - Modify: `GEMINI.md` (шапка: «Студия мультимедиа (черновик: геометрия, фермы, циклорама, потолок)»; §1 п. 2 — общий построитель ферм `_template/trusses.js`; правило «площадка без приборов» в §1 п. 1), `.agents/skills/venue-module-authoring/SKILL.md` (§3/§5: `_template/trusses.js`, площадка без приборов, параметрическая циклорама), `app/src/venues/_template/README.md` (раздел о `trusses.js`).
 
-- [ ] **Step 1:** правки документации; `npx.cmd vitest run tests/unit/boundaries.test.js` → PASS. (§8 GEMINI.md заказчика уже закоммичен в `studio`, `b70c50e`.)
-- [ ] **Step 2: Commit** «Документация: Студия мультимедиа (черновик), общий построитель ферм, площадка без приборов».
+- [x] **Step 1:** правки документации; `npx.cmd vitest run tests/unit/boundaries.test.js` → PASS. (§8 GEMINI.md заказчика уже закоммичен в `studio`, `b70c50e`.)
+- [x] **Step 2: Commit** «Документация: Студия мультимедиа (черновик), общий построитель ферм, площадка без приборов».
 - [ ] **Step 3:** локальный сервер (`npm.cmd run dev`, порт 5173) → ссылки заказчику на desktop/mobile `#v=studio`; ждать его подтверждения. Замечания — правки + повтор Task 8 шагов 2–3.
 - [ ] **Step 4:** финальное ревью всей ветки (субагент уровня pro, `superpowers:requesting-code-review`) — только после подтверждения заказчика; при отказе — самопроверка по тому же навыку.
 - [ ] **Step 5:** `git switch master; git merge --no-ff studio` → `npm.cmd run check` на `master` → `git push origin master` (публикация GitHub Pages), `git push origin studio`.
