@@ -58,6 +58,7 @@ export class SheetOverlay {
     // строки: [цвет, текст, вид значка]
     const { types, typeColors } = st.fixtures;
     const items = [...rows.map(([t, n]) => [typeColors[t], `${types[t].name} — ${n}`, 'box']), ...rigLegend(st.venue).map(([c, s]) => [c, s, 'line'])];
+    if (!items.length) return null;
     // по возможности одной колонкой (уже — меньше закрывает чертёж); если не влезает по высоте — в 2–3;
     // на «Плане сцены» — широкой полосой внизу (там свободна полоса под авансценой)
     const maxRows = rowsLimit || Math.max(6, Math.floor((h * 0.85 - pad * 2 - lh * 2) / lh));

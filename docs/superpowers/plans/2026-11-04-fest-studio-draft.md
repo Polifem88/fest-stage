@@ -303,7 +303,7 @@ it('Сцена под крышей: число треугольников фер
 
 - [x] **Step 1:** правки документации; `npx.cmd vitest run tests/unit/boundaries.test.js` → PASS. (§8 GEMINI.md заказчика уже закоммичен в `studio`, `b70c50e`.)
 - [x] **Step 2: Commit** «Документация: Студия мультимедиа (черновик), общий построитель ферм, площадка без приборов».
-- [ ] **Step 3:** локальный сервер (`npm.cmd run dev`, порт 5173) → ссылки заказчику на desktop/mobile `#v=studio`; ждать его подтверждения. Замечания — правки + повтор Task 8 шагов 2–3.
-- [ ] **Step 4:** финальное ревью всей ветки (субагент уровня pro, `superpowers:requesting-code-review`) — только после подтверждения заказчика; при отказе — самопроверка по тому же навыку.
-- [ ] **Step 5:** `git switch master; git merge --no-ff studio` → `npm.cmd run check` на `master` → `git push origin master` (публикация GitHub Pages), `git push origin studio`.
-- [ ] **Step 6:** бэкап по правилу 10 коммитов (`git rev-list --count HEAD % 10 === 0` → `npm.cmd run backup`).
+- [x] **Step 3:** локальный сервер (`npm.cmd run dev`, порт 5173) → ссылки заказчику на desktop/mobile `#v=studio`; ждать его подтверждения. Замечания — правки + повтор Task 8 шагов 2–3.
+- [x] **Step 4:** финальное ревью всей ветки (субагент уровня pro, `superpowers:requesting-code-review`) — только после подтверждения заказчика; при отказе — самопроверка по тому же навыку.
+- [x] **Step 5:** `git switch master; git merge --no-ff studio` → `npm.cmd run check` на `master` → `git push origin master` (публикация GitHub Pages), `git push origin studio`.
+- [x] **Step 6:** бэкап по правилу 10 коммитов (`git rev-list --count HEAD % 10 === 0` → `npm.cmd run backup`).

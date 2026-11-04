@@ -8,6 +8,7 @@ import { STUDIO } from '../config/dimensions.js';
 // Визуальные константы
 export const FLOOR_LIFT = 0.003; // подъём белого пола циклорамы над серым полом против z-fighting
 const ARC_SEG = { desktop: 16, mobile: 8 };
+const CAP_NORMAL = [0, 0.82, 0.57]; // наклон нормали торца вверх к потолочным светильникам
 
 /** Аналитическая внутренняя нормаль в точке (x, y, d) скруглённой оболочки циклорамы. */
 function inwardNormal(x, y, d, c, lift = FLOOR_LIFT) {
@@ -159,7 +160,7 @@ export function cycFrontCaps(c = STUDIO.cyc, { arc = ARC_SEG.desktop, lift = FLO
         pos.push(cornerX, lift, z0, xA, yA, z0, xB, yB, z0);
       }
       // нормаль наклонена вверх к потолочным светильникам, чтобы торец освещался в тон дуге циклорамы
-      nor.push(0, 0.82, 0.57, 0, 0.82, 0.57, 0, 0.82, 0.57);
+      nor.push(...CAP_NORMAL, ...CAP_NORMAL, ...CAP_NORMAL);
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));

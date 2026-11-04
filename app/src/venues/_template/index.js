@@ -4,5 +4,6 @@
 //  Как сделать новую площадку — README.md рядом. Пример — venues/fest-chamber/.
 // =============================================================================
 export { buildBlackBox, buildSeats, buildEmitters, trussGeometry, tubeBetween } from './build.js';
+export { trussLineTubes, trussPostTubes, chordOffsets, TRUSS_SEG, LACE_PITCH } from './trusses.js';
 export { blackBoxViews, blackBoxDims, blackBoxGrid, blackBoxOverlays, blackBoxAmbient } from './overlays.js';
 export { trussDs, trussXRange, trussChords, trussTopY, triHeight, hangerXs, rowFrontD, rowFloorY, seatCount, seatLayout, lastRowBackD } from './layout.js';
