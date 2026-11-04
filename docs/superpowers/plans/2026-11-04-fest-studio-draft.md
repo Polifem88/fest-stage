@@ -64,7 +64,7 @@
 
 **Files:** нет изменений кода (результат — `review/modular/baseline/`, не в git).
 
-- [ ] **Step 1:** `git switch master` (незакоммиченная правка `GEMINI.md` §8 заказчика переносится между ветками — не трогать и не коммитить); из `app`: `npm.cmd run build`.
+- [ ] **Step 1:** рабочее дерево чистое; `git switch master`; из `app`: `npm.cmd run build`.
 - [ ] **Step 2:** скопировать `app/dist` в `review/modular/baseline/dist-studio-base` (PowerShell `Copy-Item -Recurse`).
 - [ ] **Step 3:** `node scripts/parity.mjs capture review/modular/baseline/dist-studio-base` — без ошибок; в отчёте — площадки `big, chamber, roof`.
 - [ ] **Step 4:** самопроверка `node scripts/parity.mjs compare review/modular/baseline/dist-studio-base` → код 0, 100 %. Иначе эталон негоден — разобраться до правок.
@@ -301,9 +301,9 @@ it('Сцена под крышей: число треугольников фер
 **Files:**
 - Modify: `GEMINI.md` (шапка: «Студия мультимедиа (черновик: геометрия, фермы, циклорама, потолок)»; §1 п. 2 — общий построитель ферм `_template/trusses.js`; правило «площадка без приборов» в §1 п. 1), `.agents/skills/venue-module-authoring/SKILL.md` (§3/§5: `_template/trusses.js`, площадка без приборов, параметрическая циклорама), `app/src/venues/_template/README.md` (раздел о `trusses.js`).
 
-- [ ] **Step 1:** правки документации; `npx.cmd vitest run tests/unit/boundaries.test.js` → PASS. В `GEMINI.md` уже лежит незакоммиченный §8 заказчика: коммитить файл вместе с ним — только с его согласия.
+- [ ] **Step 1:** правки документации; `npx.cmd vitest run tests/unit/boundaries.test.js` → PASS. (§8 GEMINI.md заказчика уже закоммичен в `studio`, `b70c50e`.)
 - [ ] **Step 2: Commit** «Документация: Студия мультимедиа (черновик), общий построитель ферм, площадка без приборов».
 - [ ] **Step 3:** локальный сервер (`npm.cmd run dev`, порт 5173) → ссылки заказчику на desktop/mobile `#v=studio`; ждать его подтверждения. Замечания — правки + повтор Task 8 шагов 2–3.
-- [ ] **Step 4:** финальное ревью всей ветки (субагент уровня pro, `superpowers:requesting-code-review`).
+- [ ] **Step 4:** финальное ревью всей ветки (субагент уровня pro, `superpowers:requesting-code-review`) — только после подтверждения заказчика; при отказе — самопроверка по тому же навыку.
 - [ ] **Step 5:** `git switch master; git merge --no-ff studio` → `npm.cmd run check` на `master` → `git push origin master` (публикация GitHub Pages), `git push origin studio`.
 - [ ] **Step 6:** бэкап по правилу 10 коммитов (`git rev-list --count HEAD % 10 === 0` → `npm.cmd run backup`).
