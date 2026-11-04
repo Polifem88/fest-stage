@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { encodeState, decodeState, peekVenue, parseHash } from '../../src/engine/state.js';
 import big from '../../src/venues/fest-big/index.js';
 import chamber from '../../src/venues/fest-chamber/index.js';
+import studio from '../../src/venues/fest-studio/index.js';
 
 const b64 = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
@@ -46,10 +47,11 @@ describe('Ссылка: старый формат v1 (до каталога сц
 });
 
 describe('Ссылка: формат v2', () => {
-  for (const venue of [big, chamber]) {
+  for (const venue of [big, chamber, studio]) {
     it(`${venue.name}: туда и обратно без потерь`, () => {
       const lights = venue.fixtures.list.map((_, i) => i % 3 !== 0);
-      const st = stateOf(venue, { fixturesOn: lights, view: Object.keys(venue.views).at(-1), layers: { ...stateOf(venue).layers, lights: false } });
+      const offLayer = venue.layers.some(([k]) => k === 'cyc') ? { cyc: false } : { lights: false };
+      const st = stateOf(venue, { fixturesOn: lights, view: Object.keys(venue.views).at(-1), layers: { ...stateOf(venue).layers, ...offLayer } });
       if (venue.rigging) st.heights[venue.rigging.list[3].id] = 2.35;
       const s = encodeState(st, venue);
       expect(peekVenue(s)).toBe(venue.id);

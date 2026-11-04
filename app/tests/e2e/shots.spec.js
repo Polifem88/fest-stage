@@ -127,7 +127,7 @@ test('стартовая страница: карточки сцен и реко
 
 // Остальные площадки каталога: все их виды + чертёж/размеры/сетка и свет.
 // Снимки: review/shots/<раунд>/<проект>/<площадка>/NN-<вид>.jpg. VENUE=chamber — только одна площадка.
-const OTHER_VENUES = (process.env.VENUE ? [process.env.VENUE] : ['chamber', 'roof']).filter((v) => v !== 'big');
+const OTHER_VENUES = (process.env.VENUE ? [process.env.VENUE] : ['chamber', 'roof', 'studio']).filter((v) => v !== 'big');
 /** Дополнительные снимки площадки: планировки трансформируемого зала. */
 const EXTRA_SHOTS = { roof: ['cross', 'traverse', 'arena'].flatMap((lo) => [`overview+lo-${lo}`, `plan+lo-${lo}`]) };
 for (const venue of OTHER_VENUES) {

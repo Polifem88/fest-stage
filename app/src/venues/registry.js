@@ -12,6 +12,7 @@ const LOADERS = {
   big: () => import('./fest-big/index.js'),
   chamber: () => import('./fest-chamber/index.js'),
   roof: () => import('./fest-roof/index.js'),
+  studio: () => import('./fest-studio/index.js'),
 };
 
 export const VENUES = CATALOG.map((v) => ({ ...v, load: v.status !== 'soon' ? LOADERS[v.id] || null : null }));

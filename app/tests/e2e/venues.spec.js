@@ -30,7 +30,9 @@ test('переключение сцены через список в загол�
 
   // «скоро» — видна, но не открывается; ответ — строкой внутри списка (тост под модальной шторкой не виден)
   await page.locator('.brand-btn').click();
-  for (const id of ['foyer', 'studio']) await expect(page.locator(`.venue-item[data-venue="${id}"]`)).toHaveAttribute('aria-disabled', 'true');
+  for (const id of ['foyer']) await expect(page.locator(`.venue-item[data-venue="${id}"]`)).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.locator('.venue-item[data-venue="studio"]')).not.toHaveAttribute('aria-disabled', 'true');
+  await expect(page.locator('.venue-item[data-venue="studio"]')).toContainText('черновик');
   await expect(page.locator('.venue-item[data-venue="roof"]'), 'Сцена под крышей открывается').not.toHaveAttribute('aria-disabled', 'true');
   // aria-disabled — кнопка всё же нажимается (показывает пояснение), Playwright без force ждал бы «включения»
   await page.locator('.venue-item[data-venue="foyer"]').click({ force: true });
@@ -232,3 +234,32 @@ test('Сцена под крышей на телефоне: кнопки вкл�
   expect(small).toEqual([]);
   expectNoErrors(log);
 });
+
+test('студия: черновик без приборов', async ({ page }, info) => {
+  const mobile = !!info.project.use.isMobile;
+  const log = await openApp(page, `${pageOf(info)}#v=studio`);
+  expect(await page.evaluate(() => window.__fest.venue())).toBe('studio');
+  expect((await canvasStats(page)).std, 'Студия: кадр не пустой').toBeGreaterThan(4);
+
+  await expect(page.locator('.panel-light [data-id="duty"]')).toHaveCount(1);
+  await expect(page.locator('.panel-light')).toContainText('Развес света — в следующей версии');
+  await expect(page.locator('.panel-light [data-id="stage"]')).toHaveCount(0);
+  await expect(page.locator('.panel-light [data-id="haze"]')).toHaveCount(0);
+  await expect(page.locator('.panel-light .haze-row')).toHaveCount(0);
+  await expect(page.locator('[data-id="q-stage"]')).toHaveCount(0);
+  await expect(page.locator('[data-id="q-haze"]')).toHaveCount(0);
+  await expect(page.locator('.panel-layers [data-id="l-cyc"]')).toHaveCount(1);
+  await expect(page.locator('.panel-layers [data-id="l-lights"]')).toHaveCount(0);
+  if (!mobile) await expect(page.locator('.top-search')).toBeHidden();
+
+  const glbBytes = await page.evaluate(async () => (await window.__fest.exportGLB()).byteLength);
+  expect(glbBytes).toBeGreaterThan(1000);
+
+  await page.evaluate(() => window.__fest.loadVenue('roof'));
+  await expect(page.locator('.panel-light [data-id="stage"]')).toHaveCount(1);
+  await expect(page.locator('.panel-light [data-id="haze"]')).toHaveCount(1);
+  await expect(page.locator('.panel-layers [data-id="l-lights"]')).toHaveCount(1);
+  if (!mobile) await expect(page.locator('.top-search')).toBeVisible();
+  expectNoErrors(log);
+});
+

@@ -15,7 +15,7 @@ export const CATALOG = [
   { id: 'chamber', name: 'Камерная сцена', short: 'Камерная', status: 'ready', type: 'Аудитория с фиксированным амфитеатром', seats: 102 },
   { id: 'roof', name: 'Сцена под крышей', short: 'Под крышей', status: 'ready', type: 'Трансформируемый зал в стиле «лофт»', seats: 90 },
   { id: 'foyer', name: 'Фойе', short: 'Фойе', status: 'soon' },
-  { id: 'studio', name: 'Студия мультимедиа', short: 'Студия', status: 'soon' },
+  { id: 'studio', name: 'Студия мультимедиа', short: 'Студия', status: 'draft', type: 'Съёмочный павильон с циклорамой' },
 ];
 
 /** Склонение числа зрительских мест («390 мест», «102 места»). */

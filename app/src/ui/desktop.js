@@ -69,11 +69,12 @@ export async function startDesktop() {
   };
 
   const quickSlot = h('div', { class: 'quick-slot' });
+  const topSearch = h('div', { class: 'top-search' }, fixtureSearch(stage));
   const top = h('header', { class: 'topbar' },
     venueBrand(stage, { onBefore: () => { setExport(false); setHelp(false); } }),
     quickSlot,
     h('div', { class: 'top-actions' },
-      h('div', { class: 'top-search' }, fixtureSearch(stage)),
+      topSearch,
       exportBtn,
       h('button', { class: 'btn', title: 'Скриншот в PNG', onclick: () => { stage.screenshot(); toast('Скриншот сохранён в «Загрузки»'); } }, '📷 PNG'),
       h('button', { class: 'btn', title: 'Скопировать ссылку с текущим состоянием', onclick: () => shareLink(stage) }, '🔗 Ссылка'),
@@ -101,6 +102,8 @@ export async function startDesktop() {
     quickSlot.inert = false;
     unmount = stage.scope(() => {
       const caps = stage.venue.caps;
+      const noFixtures = !stage.fixtures.list.length;
+      topSearch.hidden = noFixtures;
       const tabs = [
         caps.rigging ? ['rig', '⚙', 'Механика', () => rigPanel(stage)] : null,
         ['light', '💡', 'Свет', () => lightPanel(stage)],
@@ -125,7 +128,7 @@ export async function startDesktop() {
       helpList.replaceChildren(...[
         h('li', {}, 'Левая кнопка мыши — вращать, правая — сдвигать, колесо — приближать.'),
         caps.rigging ? h('li', {}, 'Наведите на штанкет или софит (он подсветится) и тяните вверх-вниз — он поедет. Стрелки ↑/↓ двигают выбранный штанкет на 5 см, с Shift — на 50 см.') : null,
-        h('li', {}, 'Щелчок по прибору — карточка с номером и типом, его можно выключить.'),
+        !noFixtures ? h('li', {}, 'Щелчок по прибору — карточка с номером и типом, его можно выключить.') : null,
         caps.layouts ? h('li', {}, 'Вкладка «Зал» — готовые планировки зрительских мест; «Рядов» убирает задние ряды, «Сдвиг» двигает весь зал. Планировка сохраняется в ссылке и в чертежах.') : null,
         h('li', {}, 'Вкладка «Виды» — готовые ракурсы, план, разрез, сохранение и ссылка.'),
         h('li', {}, 'Заголовок слева вверху — выбор сцены театра.'),
