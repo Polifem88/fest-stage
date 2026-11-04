@@ -169,6 +169,60 @@ function meshTex() {
   }, { srgb: false });
 }
 
+// Мелкоперфорированные ореховые панели с чёрным глянцевым нащельником 2 см по швам (тайл = 1 модуль панели)
+function walnutPerfTex(modU, modV, seam = 0.02) {
+  return canvasTex(256, (g, S) => {
+    const r = rng(23);
+    g.fillStyle = '#8b5a36';
+    g.fillRect(0, 0, S, S);
+    // прожилки древесины ореха
+    for (let i = 0; i < 72; i++) {
+      g.fillStyle = i % 3 === 0 ? 'rgba(255,220,185,0.05)' : `rgba(55,28,12,${0.07 + r() * 0.1})`;
+      g.fillRect(r() * S, 0, 1 + r() * 2.5, S);
+    }
+    // мелкая перфорация
+    g.fillStyle = 'rgba(24,12,6,0.28)';
+    for (let y = 4; y < S; y += 8) {
+      for (let x = 4; x < S; x += 8) g.fillRect(x, y, 2, 2);
+    }
+    // чёрный нащельник (2 см) по краям модуля (u = 0, v = 0)
+    const su = Math.max(4, Math.round((seam / modU) * S));
+    const sv = Math.max(4, Math.round((seam / modV) * S));
+    g.fillStyle = '#0c0d0f';
+    g.fillRect(0, 0, su, S);
+    g.fillRect(0, 0, S, sv);
+    // тонкий блик глянцевого нащельника
+    g.fillStyle = 'rgba(255,255,255,0.12)';
+    g.fillRect(1, 0, 1, S);
+    g.fillRect(0, 1, S, 1);
+  });
+}
+
+// Лицевая панель потолочной кассеты кондиционера: центральная решётка и 4 щели жалюзи по сторонам
+function cassetteGrilleTex() {
+  return canvasTex(128, (g, S) => {
+    g.fillStyle = '#e6e8ec';
+    g.fillRect(0, 0, S, S);
+    // центральная решётка забора воздуха
+    const m = Math.round(S * 0.24), w = S - m * 2;
+    g.fillStyle = '#b8bdc6';
+    g.fillRect(m, m, w, w);
+    g.strokeStyle = '#555a63';
+    g.lineWidth = 2;
+    for (let i = m + 4; i < S - m; i += 6) {
+      g.beginPath(); g.moveTo(m + 2, i); g.lineTo(S - m - 2, i); g.stroke();
+    }
+    // четыре выпускные щели по периметру
+    g.fillStyle = '#2c3036';
+    const slotL = Math.round(S * 0.56), slotW = 7, pad = 10;
+    const s0 = Math.round((S - slotL) / 2);
+    g.fillRect(s0, pad, slotL, slotW);
+    g.fillRect(s0, S - pad - slotW, slotL, slotW);
+    g.fillRect(pad, s0, slotW, slotL);
+    g.fillRect(S - pad - slotW, s0, slotW, slotL);
+  });
+}
+
 export function radialTex() {
   return canvasTex(128, (g, S) => {
     const gr = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
@@ -259,6 +313,19 @@ export function createMaterials() {
     aluDeck: std({ map: treadTex(), roughness: 0.55, metalness: 0.5 }),
     // чёрный мольтон (бархат): виден с обеих сторон
     molton: std({ color: 0x0b0b0c, roughness: 1, side: THREE.DoubleSide }),
+    // натуральный алюминий ферм
+    trussAlu: std({ color: 0xc8cdd4, metalness: 0.72, roughness: 0.35 }),
+    // мелкоперфорированные ореховые панели стен (модуль 1,22 × 2,42 м) и потолка (1,22 × 0,62 м)
+    walnutWall: std({ map: walnutPerfTex(1.22, 2.42, 0.02), roughness: 0.78 }),
+    walnutCeil: std({ map: walnutPerfTex(1.22, 0.62, 0.02), roughness: 0.78 }),
+    // белая матовая циклорама
+    cyc: std({ color: 0xf2f2ef, roughness: 0.96, metalness: 0 }),
+    // серый полуматовый наливной пол (однотонный)
+    floorPoured: std({ color: 0x5c6066, roughness: 0.65, metalness: 0.05 }),
+    // белый пластик кассет кондиционера и диффузоров
+    plasticWhite: std({ color: 0xe8eaed, roughness: 0.55, metalness: 0.05 }),
+    // решётка кассеты кондиционера
+    ventGrille: std({ map: cassetteGrilleTex(), roughness: 0.6, metalness: 0.1 }),
   };
   // масштаб повтора текстур (метров на повтор)
   m.floor.userData.uvScale = 2;
@@ -274,6 +341,9 @@ export function createMaterials() {
   m.brickRed.userData.uvScale = 1;
   m.deckRibbed.userData.uvScale = 1;
   m.aluDeck.userData.uvScale = 0.25;
+  m.walnutWall.userData.uvScale = 1;
+  m.walnutCeil.userData.uvScale = 1;
+  m.ventGrille.userData.uvScale = 1;
   for (const [k, v] of Object.entries(m)) v.name = k;
   return m;
 }

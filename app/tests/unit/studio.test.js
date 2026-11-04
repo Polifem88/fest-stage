@@ -1,8 +1,13 @@
 // Студия мультимедиа: геометрия помещения, циклорамы, ферм, потолка и сборка.
 import { describe, it, expect } from 'vitest';
+import * as THREE from 'three';
+import { StaticBatch, rect } from '../../src/core/geom.js';
 import { STUDIO, ceilingItems, trussFootprints } from '../../src/venues/fest-studio/config/dimensions.js';
 import { FIXTURES, TYPES, SPECS, GROUPS, GROUP_SETS, LIGHT_PLANS } from '../../src/venues/fest-studio/config/fixtures.js';
+import { panelUV } from '../../src/venues/fest-studio/build/panels.js';
+import { buildArchitecture } from '../../src/venues/fest-studio/build/architecture.js';
 
+const fakeM = () => new Proxy({}, { get: (t, p) => (t[p] ||= new THREE.MeshBasicMaterial({ name: String(p) })) });
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
 const overlap = (a, b, eps = 1e-6) => a[0] < b[1] - eps && a[1] > b[0] + eps && a[2] < b[3] - eps && a[3] > b[2] + eps;
 
@@ -142,3 +147,70 @@ describe('Студия · геометрия', () => {
     expect(LIGHT_PLANS).toEqual({ full: [], lite: [] });
   });
 });
+
+function meshArea(mesh) {
+  const pos = mesh.geometry.attributes.position;
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const ab = new THREE.Vector3(), ac = new THREE.Vector3();
+  let sum = 0;
+  for (let i = 0; i < pos.count; i += 3) {
+    a.fromBufferAttribute(pos, i);
+    b.fromBufferAttribute(pos, i + 1);
+    c.fromBufferAttribute(pos, i + 2);
+    ab.subVectors(b, a);
+    ac.subVectors(c, a);
+    sum += ab.cross(ac).length() * 0.5;
+  }
+  return sum;
+}
+
+describe('Студия · архитектура и панели', () => {
+  it('buildArchitecture: слои walls и ceiling, без NaN, все вершины в пределах коробки с нишами', () => {
+    const batch = new StaticBatch();
+    buildArchitecture(batch, fakeM());
+    const L = batch.build();
+    expect(L.walls).toBeTruthy();
+    expect(L.ceiling).toBeTruthy();
+    for (const k of ['walls', 'ceiling']) {
+      L[k].traverse((o) => {
+        if (!o.isMesh) return;
+        const p = o.geometry.attributes.position;
+        expect(p.count).toBeGreaterThan(0);
+        for (let i = 0; i < p.count; i++) {
+          const x = p.getX(i), y = p.getY(i), d = -p.getZ(i);
+          expect(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(d)).toBe(true);
+          expect(x >= -3.05 - 1e-5 && x <= 3.50 + 1e-5, `${o.name} x=${x}`).toBe(true);
+          expect(d >= -8.95 - 1e-5 && d <= 4.00 + 1e-5, `${o.name} d=${d}`).toBe(true);
+          expect(y >= -1e-5 && y <= 5.65 + 1e-5, `${o.name} y=${y}`).toBe(true);
+        }
+      });
+    }
+  });
+
+  it('panelUV: на поперечной стене x = −0,61 даёт целый u, y = 2,42 даёт v = 1; на продольной d = 4,00 − 1,22 даёт u = 1', () => {
+    const g = panelUV(rect('d', 4.00, -0.61, 0.61, 0, 2.42, -1), { u0: -0.61, du: 1.22, v0: 0, dv: 2.42 });
+    const pos = g.attributes.position, uv = g.attributes.uv;
+    for (let i = 0; i < pos.count; i++) {
+      if (near(pos.getX(i), -0.61)) expect(near(uv.getX(i), Math.round(uv.getX(i)))).toBe(true);
+      if (near(pos.getY(i), 2.42)) expect(near(uv.getY(i), 1)).toBe(true);
+    }
+    const gx = panelUV(rect('x', -3.05, 4.00 - 1.22, 4.00, 0, 2.42, 1), { u0: -4.00, du: 1.22, v0: 0, dv: 2.42 });
+    const px = gx.attributes.position, uvx = gx.attributes.uv;
+    for (let i = 0; i < px.count; i++) {
+      if (near(-px.getZ(i), 4.00 - 1.22)) expect(near(uvx.getX(i), 1)).toBe(true);
+    }
+  });
+
+  it('в слое walls площадь полотен дверей (M.door) ≈ 1,80 × 2,15 + 1,05 × 2,15 (±2 %)', () => {
+    const batch = new StaticBatch();
+    buildArchitecture(batch, fakeM());
+    const L = batch.build();
+    let area = 0;
+    L.walls.traverse((o) => {
+      if (o.isMesh && o.material.name === 'door') area += meshArea(o);
+    });
+    const expected = 1.80 * 2.15 + 1.05 * 2.15;
+    expect(Math.abs(area - expected) / expected).toBeLessThan(0.02);
+  });
+});
+

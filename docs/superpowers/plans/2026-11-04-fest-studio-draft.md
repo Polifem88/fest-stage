@@ -174,14 +174,14 @@ it('Сцена под крышей: число треугольников фер
   - `buildArchitecture(batch, M, { mobile }) → void`: слой `walls` — пол `floorPoured` по контуру (вкл. ниши), стены/торцы/откосы/потолки ниш, низ и грань козырька `walnutWall`; полотна дверей `M.door` (двустворчатое — со швом, как в `fest-roof` `addDoor`); окно — рама `M.blackWall`/`M.steel` с 4 импостами, стекло `M.glass`, фон `M.booth` за стеклом. Слой `ceiling` — панели `walnutCeil` (низ на 5,65), кассеты (`plasticWhite` + `ventGrille`), диффузоры (`plasticWhite`), чуть ниже плоскости потолка.
   - Привязка UV: стены d = const — `u0 = −0.61`, `du = 1.22`; стены x = const — `u0` = координата стены за циклорамой в развёртке `z = −4.00`, `du = 1.22`; по высоте `v0 = 0`, `dv = 2.42`; потолок — `du = 1.22` с `u0 = −0.61`, `dv = 0.62` от `d = 4.00`.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - `buildArchitecture(new StaticBatch(), fakeM())` → `batch.build()` содержит слои `walls` и `ceiling`; ни одной вершины с `NaN`; все вершины в коробке `x ∈ [−3.05, 3.50]`, `d ∈ [−8.95, 4.00]`, `y ∈ [0, 5.65]`.
   - у геометрий `walnutWall` UV в швах: точка стены x = −0,61 (d = const) даёт `u` целое (±1e-6); точка y = 2,42 даёт `v = 1`.
   - в слое `walls` есть меш(и) материала `door` с площадью полотен ≈ 1,80 × 2,15 + 1,05 × 2,15 (±2 %).
-- [ ] **Step 2:** FAIL.
-- [ ] **Step 3:** дописать материалы в конец (после `molton`) и их `userData.uvScale` (для `walnut*` — 1: UV считает площадка); `panels.js`; `architecture.js`.
-- [ ] **Step 4:** PASS; `npx.cmd vitest run` целиком PASS.
-- [ ] **Step 5: Commit** «Студия: стены, козырёк, двери, окно операторской, потолок; материалы (в конец палитры)».
+- [x] **Step 2:** FAIL.
+- [x] **Step 3:** дописать материалы в конец (после `molton`) и их `userData.uvScale` (для `walnut*` — 1: UV считает площадка); `panels.js`; `architecture.js`.
+- [x] **Step 4:** PASS; `npx.cmd vitest run` целиком PASS.
+- [x] **Step 5: Commit** «Студия: стены, козырёк, двери, окно операторской, потолок; материалы (в конец палитры)».
 
 ---
 
