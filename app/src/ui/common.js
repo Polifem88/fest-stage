@@ -101,9 +101,25 @@ export function toggle(label, get, set, { icon = '', id } = {}) {
 /** Панель света. */
 export function lightPanel(stage, { compact = false } = {}) {
   const V = stage.venue;
+  const noFixtures = !stage.fixtures.list.length;
   const { groups: GROUPS, groupSets: GROUP_SETS, types: TYPES, portable: PORT } = V.fixtures;
   const toggles = [];
   const T = (...a) => { const t = toggle(...a); toggles.push(t); return t; };
+  if (noFixtures) {
+    const master = h('div', { class: 'grid-2 master' },
+      V.caps.duty ? T('Дежурный свет', () => stage.flags.duty, (v) => stage.setFlag('duty', v), { icon: '💡', id: 'duty' }) : null,
+      V.caps.houseLight ? T('Свет в зале', () => stage.flags.house, (v) => stage.setFlag('house', v), { icon: '🏛', id: 'house' }) : null,
+    );
+    const upd = () => toggles.forEach((t) => t._upd());
+    stage.on('flags', upd);
+    stage.on('state', upd);
+    return h('div', { class: 'panel-light' },
+      h('h4', {}, 'Свет'),
+      master,
+      h('div', { class: 'hint lights-note' }, 'Развес света — в следующей версии'),
+      V.texts?.extraEquipment ? h('details', { class: 'extra-eq' }, h('summary', {}, '📦 Доп. оборудование (под спектакль)'), h('p', {}, V.texts.extraEquipment)) : null,
+    );
+  }
   const master = h('div', { class: 'grid-2 master' },
     T('Сценический свет', () => { const s = stage.stageState(); return s === 'on' ? true : s === 'mixed' ? 'mixed' : false; }, (v) => stage.setAllStage(v), { icon: '🎭', id: 'stage' }),
     V.caps.duty ? T('Дежурный свет', () => stage.flags.duty, (v) => stage.setFlag('duty', v), { icon: '💡', id: 'duty' }) : null,
@@ -305,13 +321,14 @@ export function layoutPanel(stage, { compact = false } = {}) {
 
 /** Слои (по площадке) и инструменты. */
 export function layersPanel(stage) {
-  const L = stage.venue.layers;
+  const noFixtures = !stage.fixtures.list.length;
+  const L = stage.venue.layers.filter(([k]) => !noFixtures || k !== 'lights');
   const ts = [];
   const T = (...a) => { const t = toggle(...a); ts.push(t); return t; };
   const layers = h('div', { class: 'grid-1' }, L.map(([k, n]) => T(n, () => stage.layers[k], (v) => stage.setLayer(k, v), { id: `l-${k}` })));
   const tools = h('div', { class: 'grid-1' },
     stage.venue.caps.rigging ? T('Подписи механики', () => stage.flags.labels, (v) => stage.setFlag('labels', v), { icon: '🏷' }) : null,
-    T('Номера приборов', () => stage.flags.fixtureLabels, (v) => stage.setFlag('fixtureLabels', v), { icon: '#' }),
+    !noFixtures ? T('Номера приборов', () => stage.flags.fixtureLabels, (v) => stage.setFlag('fixtureLabels', v), { icon: '#' }) : null,
     T('Размеры', () => stage.flags.dims, (v) => stage.setFlag('dims', v), { icon: '📏' }),
     T('Сетка 1 м и ось сцены', () => stage.flags.grid, (v) => stage.setFlag('grid', v), { icon: '▦' }),
     T('Рулетка (2 щелчка)', () => stage.measure.active, (v) => { stage.setMeasure(v); if (v) toast('Рулетка: щёлкните две точки'); }, { icon: '📐', id: 'measure' }),
@@ -465,13 +482,14 @@ export function infoCard(stage, { onClose } = {}) {
 /** Быстрые кнопки (верхняя панель); дежурный и зальный свет — если они есть на площадке. */
 export function quickBar(stage, { withLabels = true } = {}) {
   const caps = stage.venue.caps;
+  const noFixtures = !stage.fixtures.list.length;
   const ts = [];
   const T = (label, icon, get, set, id) => { const t = toggle(withLabels ? label : '', get, set, { icon, id }); t.title = label; t.setAttribute('aria-label', label); ts.push(t); return t; };
   const bar = h('div', { class: 'quick' },
     caps.duty ? T('Дежурка', '💡', () => stage.flags.duty, (v) => stage.setFlag('duty', v), 'q-duty') : null,
-    T('Сцена', '🎭', () => { const s = stage.stageState(); return s === 'on' ? true : s === 'mixed' ? 'mixed' : false; }, (v) => stage.setAllStage(v), 'q-stage'),
+    !noFixtures ? T('Сцена', '🎭', () => { const s = stage.stageState(); return s === 'on' ? true : s === 'mixed' ? 'mixed' : false; }, (v) => stage.setAllStage(v), 'q-stage') : null,
     caps.houseLight ? T('Зал', '🏛', () => stage.flags.house, (v) => stage.setFlag('house', v), 'q-house') : null,
-    T('Дымка', '🌫', () => stage.flags.haze, (v) => stage.setFlag('haze', v), 'q-haze'),
+    !noFixtures ? T('Дымка', '🌫', () => stage.flags.haze, (v) => stage.setFlag('haze', v), 'q-haze') : null,
     T('Чертёж', '📄', () => stage.flags.blueprint, (v) => stage.setFlag('blueprint', v), 'q-bp'),
   );
   const upd = () => ts.forEach((t) => t._upd());

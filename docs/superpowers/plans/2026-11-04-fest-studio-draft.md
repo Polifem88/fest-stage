@@ -272,14 +272,14 @@ it('Сцена под крышей: число треугольников фер
   - `layersPanel`: при `noFixtures` не выводится переключатель слоя `lights` (слой в паспорте остаётся) и «Номера приборов».
   - `desktop.js`: контейнер `.top-search` получает `hidden = noFixtures` в `mountVenue`; пункт справки «Щелчок по прибору…» — только при наличии приборов.
 
-- [ ] **Step 1: Write the failing e2e** в `venues.spec.js`:
+- [x] **Step 1: Write the failing e2e** в `venues.spec.js`:
   - в существующем тесте: `for (const id of ['foyer'])` → `aria-disabled`; `studio` — **не** `aria-disabled`, в пункте списка есть «черновик».
   - новый тест «студия: черновик без приборов»: открыть `#v=studio` (desktop и mobile) → `__fest.venue() === 'studio'`; во вкладке «Свет» есть `[data-id="duty"]` и текст «Развес света — в следующей версии», нет `[data-id="stage"]`, `[data-id="haze"]`, `.haze-row`; в слоях есть `[data-id="l-cyc"]`, нет `[data-id="l-lights"]`; на desktop `.top-search` скрыт; `canvasStats().std > 4`; экспорт GLB (`__fest.exportGLB`) отдаёт непустой буфер; затем `loadVenue('roof')` → снова есть `[data-id="stage"]`, `[data-id="haze"]`, `[data-id="l-lights"]`, `.top-search` виден; `expectNoErrors(log)`.
-- [ ] **Step 2:** `npm.cmd run build; npx.cmd playwright test tests/e2e/venues.spec.js` → FAIL.
-- [ ] **Step 3:** реализовать правило.
-- [ ] **Step 4:** тот же прогон → PASS.
-- [ ] **Step 5:** `node scripts/parity.mjs compare` → код 0 (интерфейс готовых сцен не изменился).
-- [ ] **Step 6: Commit** «Интерфейс: площадка без приборов — только дежурный свет и пометка о развесе; e2e студии».
+- [x] **Step 2:** `npm.cmd run build; npx.cmd playwright test tests/e2e/venues.spec.js` → FAIL.
+- [x] **Step 3:** реализовать правило.
+- [x] **Step 4:** тот же прогон → PASS.
+- [x] **Step 5:** `node scripts/parity.mjs compare` → код 0 (интерфейс готовых сцен не изменился).
+- [x] **Step 6: Commit** «Интерфейс: площадка без приборов — только дежурный свет и пометка о развесе; e2e студии».
 
 ---
 
