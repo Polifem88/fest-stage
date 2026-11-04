@@ -222,14 +222,14 @@ it('Сцена под крышей: число треугольников фер
   - `buildEmitters(M) → { groups: { duty: THREE.Group, house: THREE.Group }, dutyPoints: THREE.Vector3[], dutyRows: THREE.Vector3[][] }` — ободки (`M.steelGray`, `userData.static = true`, `userData.layer = 'duty'`) и один меш светящихся дисков `M.dutyBulb` с `userData.emitter = 'duty'` — **прямые потомки** `groups.duty`; диски на `5.65 − ε` лицом вниз; `dutyRows` — точки, сгруппированные по d (7 рядов).
   - `ambientLights(plan, em) → { duty: THREE.PointLight[], blue: [], house: [] }` — `full`: по источнику на ряд, `lite`: 2; источник на `BELOW` (визуальная константа) ниже диска; над плоскостью низа ферм источник не ставить — ниже 5,20 он не затеняется фермами.
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
   - треугольники ферм: на телефоне меньше, чем на компьютере; bbox всех ферм в `x ∈ [−2.85, 2.85]`, `y ∈ [3.25, 5.50]`, `d ∈ [−7.85, 3.80]`.
   - `buildEmitters(fakeM())`: у `groups.duty` прямой потомок с `userData.emitter === 'duty'`; `dutyPoints.length === 12`; `groups.house.children.length === 0`.
   - `ambientLights('full', em).duty.length === 7`, `('lite')` — 2; все источники `y < 5.20`.
-- [ ] **Step 2:** FAIL.
-- [ ] **Step 3:** реализовать.
-- [ ] **Step 4:** PASS.
-- [ ] **Step 5: Commit** «Студия: алюминиевые фермы (верхняя решётка, нижние, 3 вставки), 12 светильников дежурного света».
+- [x] **Step 2:** FAIL.
+- [x] **Step 3:** реализовать.
+- [x] **Step 4:** PASS.
+- [x] **Step 5: Commit** «Студия: алюминиевые фермы (верхняя решётка, нижние, 3 вставки), 12 светильников дежурного света».
 
 ---
 

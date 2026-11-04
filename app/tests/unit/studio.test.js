@@ -7,8 +7,12 @@ import { FIXTURES, TYPES, SPECS, GROUPS, GROUP_SETS, LIGHT_PLANS } from '../../s
 import { panelUV } from '../../src/venues/fest-studio/build/panels.js';
 import { buildArchitecture } from '../../src/venues/fest-studio/build/architecture.js';
 import { cycPatches, buildCyclorama, FLOOR_LIFT } from '../../src/venues/fest-studio/build/cyclorama.js';
+import { buildTrusses } from '../../src/venues/fest-studio/build/trusses.js';
+import { buildEmitters } from '../../src/venues/fest-studio/build/emitters.js';
+import { ambientLights } from '../../src/venues/fest-studio/build/ambient.js';
 
 const fakeM = () => new Proxy({}, { get: (t, p) => (t[p] ||= new THREE.MeshBasicMaterial({ name: String(p) })) });
+const triCount = (group) => { let n = 0; group?.traverse((o) => { if (o.isMesh) n += o.geometry.attributes.position.count / 3; }); return n; };
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
 const overlap = (a, b, eps = 1e-6) => a[0] < b[1] - eps && a[1] > b[0] + eps && a[2] < b[3] - eps && a[3] > b[2] + eps;
 
@@ -299,5 +303,55 @@ describe('Студия · циклорама', () => {
     expect(withSeam[0]).toEqual(withSeam[1]);
   });
 });
+
+describe('Студия · фермы и дежурный свет', () => {
+  it('buildTrusses: материал trussAlu, на телефоне треугольников меньше, габарит в пределах [−2,85..2,85] × [3,25..5,50] × [−7,85..3,80]', () => {
+    const build = (mobile) => {
+      const b = new StaticBatch();
+      buildTrusses(b, fakeM(), { mobile });
+      return b.build().trusses;
+    };
+    const desk = build(false), mob = build(true);
+    expect(triCount(mob)).toBeLessThan(triCount(desk));
+    const mesh = desk.children[0];
+    expect(mesh.material.name).toBe('trussAlu');
+    const rb = STUDIO.trusses.brace / 2;
+    mesh.geometry.computeBoundingBox();
+    const box = mesh.geometry.boundingBox;
+    expect(box.min.x).toBeGreaterThanOrEqual(-2.85 - rb);
+    expect(box.max.x).toBeLessThanOrEqual(2.85 + rb);
+    expect(box.min.y).toBeGreaterThanOrEqual(3.25 - rb);
+    expect(box.max.y).toBeLessThanOrEqual(5.50 + rb);
+    const minD = -box.max.z, maxD = -box.min.z;
+    expect(minD).toBeGreaterThanOrEqual(-7.85 - rb);
+    expect(maxD).toBeLessThanOrEqual(3.80 + rb);
+  });
+
+  it('buildEmitters: 12 светильников, прямой потомок groups.duty с userData.emitter === "duty", house пустая, 7 рядов по d', () => {
+    const em = buildEmitters(fakeM());
+    expect(em.dutyPoints).toHaveLength(12);
+    expect(em.dutyRows).toHaveLength(7);
+    const glow = em.groups.duty.children.filter((m) => m.userData.emitter === 'duty');
+    expect(glow).toHaveLength(1);
+    const rim = em.groups.duty.children.find((m) => m.userData.static);
+    expect(rim).toBeTruthy();
+    expect(rim.userData.layer).toBe('duty');
+    expect(em.groups.house.children).toHaveLength(0);
+  });
+
+  it('ambientLights: full — 7 источников, lite — 2; все ниже низа верхних ферм (y < 5,20)', () => {
+    const em = buildEmitters(fakeM());
+    const full = ambientLights('full', em);
+    const lite = ambientLights('lite', em);
+    expect(full.duty).toHaveLength(7);
+    expect(lite.duty).toHaveLength(2);
+    expect(full.blue).toEqual([]);
+    expect(full.house).toEqual([]);
+    for (const L of [...full.duty, ...lite.duty]) {
+      expect(L.position.y).toBeLessThan(STUDIO.trusses.upper.y0);
+    }
+  });
+});
+
 
 
