@@ -64,11 +64,11 @@
 
 **Files:** нет изменений кода (результат — `review/modular/baseline/`, не в git).
 
-- [ ] **Step 1:** рабочее дерево чистое; `git switch master`; из `app`: `npm.cmd run build`.
-- [ ] **Step 2:** скопировать `app/dist` в `review/modular/baseline/dist-studio-base` (PowerShell `Copy-Item -Recurse`).
-- [ ] **Step 3:** `node scripts/parity.mjs capture review/modular/baseline/dist-studio-base` — без ошибок; в отчёте — площадки `big, chamber, roof`.
-- [ ] **Step 4:** самопроверка `node scripts/parity.mjs compare review/modular/baseline/dist-studio-base` → код 0, 100 %. Иначе эталон негоден — разобраться до правок.
-- [ ] **Step 5:** `git switch studio`.
+- [x] **Step 1:** рабочее дерево чистое; `git switch master`; из `app`: `npm.cmd run build`.
+- [x] **Step 2:** скопировать `app/dist` в `review/modular/baseline/dist-studio-base` (PowerShell `Copy-Item -Recurse`).
+- [x] **Step 3:** `node scripts/parity.mjs capture review/modular/baseline/dist-studio-base` — без ошибок; в отчёте — площадки `big, chamber, roof`.
+- [x] **Step 4:** самопроверка `node scripts/parity.mjs compare review/modular/baseline/dist-studio-base` → код 0, 100 %. Иначе эталон негоден — разобраться до правок.
+- [x] **Step 5:** `git switch studio`.
 
 ---
 
@@ -86,7 +86,7 @@
   - `trussPostTubes(post: {x:number, d:number, y0:number, y1:number}, T, opts?: {mobile?: boolean}) → THREE.BufferGeometry[]` — 4 вертикальных пояса от `y0` до `y1`; без `mobile` — зигзаг 4 граней, `n = max(1, round((y1 − y0) / LACE_PITCH))`, высоты узлов `y0 + ((y1 − y0) · i) / n`.
   - Материал не задаётся — его передаёт площадка в `batch.add`.
 
-- [ ] **Step 1: Write the failing test** `tests/unit/trusses.test.js`:
+- [x] **Step 1: Write the failing test** `tests/unit/trusses.test.js`:
 
 ```js
 import { trussLineTubes, trussPostTubes, LACE_PITCH } from '../../src/venues/_template/trusses.js';
@@ -110,11 +110,11 @@ it('Сцена под крышей: число треугольников фер
 
 Для третьего теста: до правки один раз посчитать сумму `position.count / 3` по геометриям, которые `fest-roof` `buildTrusses` кладёт в batch (desktop и mobile), и вписать оба числа константами.
 
-- [ ] **Step 2:** `npx.cmd vitest run tests/unit/trusses.test.js` → FAIL (модуля нет).
-- [ ] **Step 3:** перенести `chordOffsets`, `trussLine`, `trussLeg` из `fest-roof/build/trusses.js` в `_template/trusses.js` как `trussLineTubes`/`trussPostTubes` (ось и порядок труб — без изменений: пояса → 4 грани по очереди → торцевые рамки; у вставки — 4 пояса → грани k = 0…3). `fest-roof/build/trusses.js` оставляет `buildTrusses(batch, M, { mobile })`: линии → `trussLineTubes`, стойки → `trussPostTubes({ x, d, y0: 0, y1: T.y0 })`, тот же `batch.add('trusses', M.truss, tubes, { tag: 'trusses' })` и плиты `M.steel`.
-- [ ] **Step 4:** `npx.cmd vitest run` → всё PASS (в т.ч. `roof.test.js`, `boundaries.test.js`).
-- [ ] **Step 5:** `npm.cmd run build` → `node scripts/parity.mjs compare` → код 0 (Сцена под крышей побайтово, фермы чёрные).
-- [ ] **Step 6: Commit** `git add app/src/venues/_template/trusses.js app/src/venues/fest-roof/build/trusses.js app/tests/unit/trusses.test.js` → `git commit -m "Общий построитель ферм 30×30 в _template (Сцена под крышей — без изменений, паритет 100 %)"`.
+- [x] **Step 2:** `npx.cmd vitest run tests/unit/trusses.test.js` → FAIL (модуля нет).
+- [x] **Step 3:** перенести `chordOffsets`, `trussLine`, `trussLeg` из `fest-roof/build/trusses.js` в `_template/trusses.js` как `trussLineTubes`/`trussPostTubes` (ось и порядок труб — без изменений: пояса → 4 грани по очереди → торцевые рамки; у вставки — 4 пояса → грани k = 0…3). `fest-roof/build/trusses.js` оставляет `buildTrusses(batch, M, { mobile })`: линии → `trussLineTubes`, стойки → `trussPostTubes({ x, d, y0: 0, y1: T.y0 })`, тот же `batch.add('trusses', M.truss, tubes, { tag: 'trusses' })` и плиты `M.steel`.
+- [x] **Step 4:** `npx.cmd vitest run` → всё PASS (в т.ч. `roof.test.js`, `boundaries.test.js`).
+- [x] **Step 5:** `npm.cmd run build` → `node scripts/parity.mjs compare` → код 0 (Сцена под крышей побайтово, фермы чёрные).
+- [x] **Step 6: Commit** `git add app/src/venues/_template/trusses.js app/src/venues/fest-roof/build/trusses.js app/tests/unit/trusses.test.js` → `git commit -m "Общий построитель ферм 30×30 в _template (Сцена под крышей — без изменений, паритет 100 %)"`.
 
 ---
 
