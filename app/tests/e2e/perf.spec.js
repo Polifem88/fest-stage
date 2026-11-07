@@ -96,7 +96,7 @@ test.describe('сборка (dist)', () => {
     const mb = (p) => statSync(resolve(DIST, p)).size / 1024 / 1024;
     const sizes = { index: mb('index.html'), desktop: mb('desktop.html'), mobile: mb('mobile.html') };
     console.log('размеры, МБ:', Object.entries(sizes).map(([k, v]) => `${k} ${v.toFixed(2)}`).join(', '));
-    // каталог сцен (GEMINI.md §2): все площадки в одном файле — не больше 1,3 МБ на страницу;
+    // каталог сцен (AGENTS.md §2): все площадки в одном файле — не больше 1,3 МБ на страницу;
     // стартовая страница не тянет за собой 3D-движок
     for (const k of ['desktop', 'mobile']) expect(sizes[k], `${k}.html ${sizes[k].toFixed(2)} МБ (бюджет каталога 1,3)`).toBeLessThanOrEqual(CATALOG_MAX_MB);
     expect(sizes.index, `index.html ${sizes.index.toFixed(2)} МБ`).toBeLessThanOrEqual(0.1);

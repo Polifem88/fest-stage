@@ -1,5 +1,5 @@
 // Паритет и каталог: каждая готовая площадка (status 'ready') проверяется харнессом паритета
-// (app/scripts/parity.mjs, список VENUES), черновики и «скоро» — нет. См. GEMINI.md §4 п. 3.
+// (app/scripts/parity.mjs, список VENUES), черновики и «скоро» — нет. См. AGENTS.md §4 п. 3.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { CATALOG } from '../../src/venues/catalog.js';

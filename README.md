@@ -96,7 +96,7 @@ $env:VENUE='chamber'; npm run shots
 # Сборка автономных Single-File HTML в app/dist/
 npm run build        # index.html (≤0,1 МБ), desktop.html (≤1,3 МБ), mobile.html (≤1,3 МБ)
 
-# Паритет готовых сцен (Большая, Камерная, Сцена под крышей) при правках ядра и экспорта — GEMINI.md §4 п. 3
+# Паритет готовых сцен (Большая, Камерная, Сцена под крышей) при правках ядра и экспорта — AGENTS.md §4 п. 3
 # 1) эталон со свежей сборки master (до правок): npm run build, копия dist → review/modular/baseline/dist-<метка>
 node scripts/parity.mjs capture review/modular/baseline/dist-<метка>
 # 2) обязательная самопроверка эталона (должно быть 100 %)

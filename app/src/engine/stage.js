@@ -157,7 +157,7 @@ export class Stage {
       this._teardownVenue();
     }
     const mem = this._memory.get(venue.id);
-    // дежурный и зальный свет — свои у каждой площадки (GEMINI.md §2.2): из памяти или исходные
+    // дежурный и зальный свет — свои у каждой площадки (AGENTS.md §2.2): из памяти или исходные
     const own = mem?.flags || this._flagDefaults;
     this.flags.duty = own.duty;
     this.flags.house = own.house;
