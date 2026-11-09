@@ -63,18 +63,30 @@ describe('Сцена под крышей · геометрия', () => {
     expect(near(w9, 6.35) && near(len(wall('6')), 4.5)).toBe(true);
   });
 
-  it('колонны: левые x 5,70 (грань 2,25 от стены 2), правые x −6,45; d 3,85 и −2,65; шаг 6,5', () => {
+  it('колонны: 4 видимых и 6 виртуальных (К5–К10); левые x 5,70, правые x −6,45; d 4,05 и −2,45; шаг 6,5', () => {
     const vis = ROOF.columns.filter((c) => !c.embedded);
+    const emb = ROOF.columns.filter((c) => c.embedded);
     expect(vis).toHaveLength(4);
-    expect(new Set(vis.map((c) => c.x))).toEqual(new Set([5.7, -6.45]));
-    expect(new Set(vis.map((c) => c.d))).toEqual(new Set([3.85, -2.65]));
+    expect(emb).toHaveLength(6);
+    expect(new Set(ROOF.columns.map((c) => c.x))).toEqual(new Set([5.7, -6.45]));
+    expect(new Set(vis.map((c) => c.d))).toEqual(new Set([4.05, -2.45]));
     expect(near(wall('2').at - (5.7 + 0.2), 2.25)).toBe(true);
-    expect(near(wall('1').at - 3.85, 2.9)).toBe(true);
+    expect(near(wall('1').at - 4.05, 2.7)).toBe(true);
     const ds = [...new Set(ROOF.columns.map((c) => c.d))].sort((a, b) => a - b);
+    expect(ds).toEqual([-8.95, -2.45, 4.05, 10.55, 17.05]);
     for (let i = 1; i < ds.length; i++) expect(near(ds[i] - ds[i - 1], 6.5)).toBe(true);
+    // капитальные балки и V-косынки сдвинуты вместе с колоннами (+0,20 по d)
+    expect(ROOF.capital.lines.filter((l) => l.axis === 'd').map((l) => l.at)).toEqual([4.05, -2.45, -8.95]);
+    expect(ROOF.vFrames.map((v) => [v.faceA, v.faceB])).toEqual([[-2.65, -8.75], [-2.65, -8.75]]);
+    // диагонали: через одну колонну по d (Δd = 13,0: К5/К6↔К1/К3, К2/К4↔К7/К8, К1/К3↔К9/К10), от К2/К4 к стенам 8–9 ничего не идёт
+    expect(ROOF.diagonals.bays).toEqual([
+      [[5.70, -8.95], [-6.45, 4.05]], [[-6.45, -8.95], [5.70, 4.05]],
+      [[5.70, -2.45], [-6.45, 10.55]], [[-6.45, -2.45], [5.70, 10.55]],
+      [[5.70, 4.05], [-6.45, 17.05]], [[-6.45, 4.05], [5.70, 17.05]],
+    ]);
   });
 
-  it('фермы: зазор 0,10 до короба 11 (x −5,25) и до стены 13 (d 7,75); 7 поперечных и 5 продольных линий; добавка до x 7,35; обрубок d −2,5 до x 5,5; смещённая d −2,25', () => {
+  it('фермы: зазор 0,10 до короба 11 (x −5,25) и до стены 13 (d 7,75); 7 поперечных и 5 продольных линий; добавка до x 7,35; без обрубка d −2,5; смещённая d −2,05 образует прямой угол с Д7.35', () => {
     const T = ROOF.trusses, s = T.size / 2;
     expect([T.size, T.tube, T.brace]).toEqual([0.3, 0.05, 0.016]);
     const main = T.lines.filter((l) => !l.extra);
@@ -86,13 +98,17 @@ describe('Сцена под крышей · геометрия', () => {
     expect(near(ROOF.room.d1 - (maxD + s), 0.1)).toBe(true);
     const ex = T.lines.filter((l) => l.extra);
     for (const d of [5, 2.5, 0]) expect(ex.some((l) => l.axis === 'd' && l.at === d && l.a0 === 5 && l.a1 === 7.35), `добавка d ${d}`).toBe(true);
-    expect(ex.some((l) => l.axis === 'x' && l.at === 7.35)).toBe(true);
-    const stub = ex.find((l) => l.axis === 'd' && l.at === -2.5);
-    expect(stub.a1).toBe(5.5);
-    expect(near(stub.a1, 5.7 - 0.2), 'обрубок упирается в грань колонны').toBe(true);
-    const off = ex.find((l) => l.axis === 'd' && l.at === -2.25);
-    expect([off.a0, off.a1]).toEqual([5.15, 7.35]);
-    expect(off.at - s, 'смещённая проходит перед колонной').toBeGreaterThan(-2.65 + 0.2);
+    expect(ex.find((l) => l.axis === 'd' && near(l.at, -2.5)), 'обрубок к колонне К2 убран').toBeUndefined();
+    const d735 = ex.find((l) => l.axis === 'x' && l.at === 7.35);
+    const off = ex.find((l) => l.axis === 'd' && near(l.at, -2.05));
+    expect(d735).toBeTruthy();
+    expect(off).toBeTruthy();
+    // прямой угол без ступеньки и нахлёста: внешний угол (7,50; −2,20), внутренний (7,20; −1,90)
+    expect([d735.a0, d735.a1]).toEqual([-2.20, 5]);
+    expect([off.a0, off.a1]).toEqual([5.15, 7.20]);
+    expect(near(d735.a0, off.at - s)).toBe(true);
+    expect(near(off.a1, d735.at - s)).toBe(true);
+    expect(off.at - s, 'смещённая проходит перед колонной К2').toBeGreaterThan(-2.45 + 0.2);
     expect(near(wall('3').at - (7.35 + s), 0.1), 'зазор до стены 3').toBe(true);
     // короткие вставки до перенесённых вертикальных стоек
     expect(ex.some((l) => l.axis === 'd' && near(l.at, 1.1) && near(l.a0, 7.35) && near(l.a1, 8.1))).toBe(true);

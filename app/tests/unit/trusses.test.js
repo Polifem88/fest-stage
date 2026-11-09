@@ -40,13 +40,13 @@ describe('Общий построитель ферм 30 × 30', () => {
     expect(bDesk.max.y).toBeLessThanOrEqual(5.2 + T.brace / 2);
   });
 
-  it('Сцена под крышей: число треугольников ферм не изменилось', () => {
+  it('Сцена под крышей: число треугольников ферм соответствует конфигурации', () => {
     const run = (mobile) => {
       const batch = new StaticBatch();
       buildTrusses(batch, fakeM(), { mobile });
       return triCount(batch.build().trusses);
     };
-    expect(run(false)).toBe(26188);
-    expect(run(true)).toBe(1140);
+    expect(run(false)).toBe(25964);
+    expect(run(true)).toBe(1092);
   });
 });
