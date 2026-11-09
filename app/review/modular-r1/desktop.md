@@ -79,7 +79,7 @@
 ### Высокий приоритет (Блокирует выпуск / Искажает данные)
 
 1. **Критическое переполнение верхней панели на разрешениях 1366×768 и 1280×720 — обрезаются и исчезают ключевые кнопки («?», «🔗 Ссылка», «📷 PNG»).**
-   - **Где:** [`app/src/ui/style.css#L107-L113`](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/style.css#L107-L113), [`app/src/ui/style.css#L155`](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/style.css#L155).
+   - **Где:** [`app/src/ui/style.css#L107-L113`](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/style.css#L107-L113), [`app/src/ui/style.css#L155`](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/style.css#L155).
    - **Что происходит:** В верхней панели десктопа расположены: переключатель сцен, 5 кнопок быстрого света/режимов (`.quick`), поле поиска с кнопкой (`.top-search`), меню экспорта, кнопки «📷 PNG», «🔗 Ссылка» и «?». Суммарная ширина элементов панели составляет **1389 px**.
      - На типовом разрешении ноутбука **1366×768** ширина вьюпорта меньше требуемой (1366 < 1389): кнопка «?» выталкивается за правый край экрана (`right: 1389 px`) и полностью исчезает.
      - На разрешении **1280×720** (HD-мониторы, проекторы) за край экрана выталкиваются сразу 3 кнопки: «?», «🔗 Ссылка» и половина кнопки «📷 PNG» (см. скриншот `shots/res_720p_big_overview.jpg`).
@@ -90,7 +90,7 @@
      2. Дополнительно на ширинах $\le 1440$ px у быстрых кнопок `.quick .tgl` скрывать текстовые подписи (`.lbl { display: none; }`), оставляя только эмодзи-иконки 💡, 🎭, 🏛, 🌫, 📄 (как это уже сделано на мобильных), что сэкономит более 200 px ширины шапки.
 
 2. **Отображение текстового артефакта `"null"` в окне справки «Управление» («?») на Камерной сцене.**
-   - **Где:** [`app/src/ui/desktop.js#L120-L127`](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/desktop.js#L120-L127).
+   - **Где:** [`app/src/ui/desktop.js#L120-L127`](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/desktop.js#L120-L127).
    - **Что происходит:** При открытии окна «Управление» («?») на Камерной сцене вторым пунктом списка выводится текст `null` (см. скриншот `shots/chamber_help_modal_open.jpg`).
    - **Почему это критично:** Пользователь видит явный программный дефект интерфейса прямо в обучающем окне.
    - **Причина в коде:** Метод `helpList.replaceChildren(...)` получает аргумент `caps.rigging ? h('li', ...) : null`. По стандарту DOM метод `replaceChildren` не отбрасывает `null`, а преобразует не-Node аргументы в строку: `String(null)` $\rightarrow$ `"null"`.
@@ -113,7 +113,7 @@
 ### Средний приоритет (Удобство / Визуальный шум)
 
 3. **Поиск приборов не находит номера при английской раскладке клавиатуры (`K1`) и по чистому номеру (`1`).**
-   - **Где:** [`app/src/ui/common.js#L210-L219`](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/common.js#L210-L219), [`app/src/venues/fest-chamber/config/fixtures.js#L50`](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/venues/fest-chamber/config/fixtures.js#L50).
+   - **Где:** [`app/src/ui/common.js#L210-L219`](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/common.js#L210-L219), [`app/src/venues/fest-chamber/config/fixtures.js#L50`](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/venues/fest-chamber/config/fixtures.js#L50).
    - **Что происходит:** Номера приборов Камерной сцены имеют префикс русской буквы «К» (`К1`…`К18`).
      - Если оператор вводит `k1` или `K1` на английской раскладке, поиск выдаёт тост «Прибор № K1 не найден». Визуально символы «K» и «К» неразличимы, что вызывает полное недоумение оператора.
      - Если ввести просто номер `1` или `18`, прибор также не находится.
@@ -130,13 +130,13 @@
      ```
 
 4. **Прозрачная подложка `.export-backdrop` перекрывает кнопку «📐 Экспорт ▾» (конфликт z-index).**
-   - **Где:** [`app/src/ui/style.css#L107`](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/style.css#L107), [`app/src/ui/style.css#L116`](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/style.css#L116).
+   - **Где:** [`app/src/ui/style.css#L107`](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/style.css#L107), [`app/src/ui/style.css#L116`](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/style.css#L116).
    - **Что происходит:** Шапка `.desktop .topbar` имеет `z-index: 15`. Подложка закрытия меню экспорта `.export-backdrop` имеет `z-index: 24` и растянута на весь экран (`inset: 0`). При открытом меню экспорта клик по самой кнопке «📐 Экспорт ▾» перехватывается подложкой. Повторный клик закрывает меню не через кнопку-триггер, а через закрытие подложки, что ломает фокус и ARIA-состояние.
    - **Почему это важно:** Нарушает стандартное поведение дропдаунов и доступность (a11y).
    - **Предложение решения:** Ограничить подложку областью ниже шапки (`.desktop .export-backdrop { position: fixed; inset: 52px 0 0 0; z-index: 24; }`), либо поднять `.desktop .topbar` до `z-index: 25`, а меню экспорта `.desktop .export-menu` сделать `z-index: 26`.
 
 5. **Несоответствие подсказки (title) кнопки экспорта на Камерной сцене.**
-   - **Где:** [`app/src/ui/desktop.js#L57`](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/desktop.js#L57).
+   - **Где:** [`app/src/ui/desktop.js#L57`](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/desktop.js#L57).
    - **Что происходит:** На Камерной сцене чертежи DXF не предусмотрены (`exports: {}`), доступна только 3D-модель GLB. Однако кнопка в шапке статично подписана: `title="Экспорт чертежей (.dxf) и 3D-модели (.glb)"`.
    - **Почему это важно:** Вводит в заблуждение проектировщика, ожидающего выгрузку чертежей AutoCAD.
    - **Предложение решения:** В `mountVenue` динамически обновлять title кнопки:
@@ -152,12 +152,12 @@
 ### Низкий приоритет (Полировка / На будущее)
 
 6. **Клик по сцене «скоро» оставляет модальный диалог выбора площадок открытым.**
-   - **Где:** [`app/src/ui/venuePicker.js#L64`](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/venuePicker.js#L64).
+   - **Где:** [`app/src/ui/venuePicker.js#L64`](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/venuePicker.js#L64).
    - **Что происходит:** При клике на карточку с бейджем «скоро» («Сцена под крышей») поверх экрана показывается тост ««Сцена под крышей» — модель пока готовится», но модальное окно остаётся открытым и затеняет сцену.
    - **Предложение решения:** Закрывать диалог `dlg.close()` перед отображением тоста.
 
 7. **Низкий контраст служебных надписей оцифровки осей на плане Камерной сцены.**
-   - **Где:** [`app/src/venues/_template/overlays.js#L92, L95`](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/venues/_template/overlays.js#L92-L95).
+   - **Где:** [`app/src/venues/_template/overlays.js#L92, L95`](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/venues/_template/overlays.js#L92-L95).
    - **Что происходит:** Текстовые выноски «м от оси» и «м от нулевой линии» выполнены цветом `#555` размером 11 px. На белом фоне чертежа при отдалении они почти неразличимы.
    - **Предложение решения:** Сделать надписи `#222` размером 12 px с полужирным начертанием для профессиональной читаемости схем развеса.
 

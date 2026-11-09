@@ -118,7 +118,7 @@
   - На экранах **320 px** (iPhone SE 1-го поколения, компактные терминалы) правый край блока уходит в точку **372 px** (`left: 328px`). Кнопка «Поделиться» **на 100% оказывается за пределами экрана** и полностью отрезается свойством `overflow: hidden` страницы! Кнопка «Чертёж» обрезается на треть.
   - На экранах **360 px** (массовые Android-устройства, Galaxy A-серия) кнопка «Поделиться» обрезается на **12,4 px**.
   Только на экранах от 385 px (iPhone 13 390 px) все кнопки помещаются целиком.
-- **Где в коде:** [app/src/ui/style.css](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/style.css#L159-L168) (классы `.mobile .mtop`, `.mobile .quick`, `.mobile .mtop-right`), [app/src/ui/mobile.js](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/mobile.js#L51-L55).
+- **Где в коде:** [app/src/ui/style.css](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/style.css#L159-L168) (классы `.mobile .mtop`, `.mobile .quick`, `.mobile .mtop-right`), [app/src/ui/mobile.js](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/mobile.js#L51-L55).
 - **Почему критично:** Пользователи компактных смартфонов полностью лишены возможности открыть меню «Поделиться», скопировать ссылку на выставленный свет или сохранить скриншот, так как кнопка недосягаема.
 - **Предложение по исправлению:**
   В `.mobile .quick` для экранов с шириной менее 380 px:
@@ -148,10 +148,10 @@
   }
   ```
   Поскольку между тегом `<b>ФЭСТ</b>` и `<span>Камерная</span>` в DOM нет ни пробела, ни разделителя, на всех экранах от 560 px (включая iPhone 13 landscape 844 px, планшет iPad Mini 768 px и 1024 px) заголовок отображается как одно слитное слово: **«ФЭСТКамерная ▾»** и **«ФЭСТБольшая ▾»**.
-- **Где в коде:** [app/src/ui/style.css](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/style.css#L274-L277), [app/src/ui/venuePicker.js](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/venuePicker.js#L86).
+- **Где в коде:** [app/src/ui/style.css](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/style.css#L274-L277), [app/src/ui/venuePicker.js](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/venuePicker.js#L86).
 - **Почему критично:** Очевидный визуальный брак типографики на планшетах и во всех альбомных режимах мобильных устройств.
 - **Предложение по исправлению:**
-  В [app/src/ui/style.css](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/style.css#L274-L277) добавить разделитель или отступ при строчной компоновке:
+  В [app/src/ui/style.css](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/style.css#L274-L277) добавить разделитель или отступ при строчной компоновке:
   ```css
   @media (min-width: 560px) {
     .mobile .brand-btn { display: inline-flex; align-items: center; max-width: none; gap: 6px; }
@@ -169,7 +169,7 @@
   .mobile[data-sheet=open] .card { display: none; }
   ```
   В результате карточка с паспортом прибора и тумблером «Включён» рендерится в DOM, но имеет `display: none`! Пользователь видит тост, что прибор выбран, но самой карточки нет на экране. Чтобы её увидеть, пользователю нужно догадаться потянуть шторку вниз и свернуть её в `peek`.
-- **Где в коде:** [app/src/ui/style.css](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/style.css#L196-L197), [app/src/ui/mobile.js](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/mobile.js#L65-L69, #L164).
+- **Где в коде:** [app/src/ui/style.css](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/style.css#L196-L197), [app/src/ui/mobile.js](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/mobile.js#L65-L69, #L164).
 - **Почему критично:** Интерфейс не даёт ожидаемого отклика: пользователь нажал кнопку с целью посмотреть характеристики прибора, система сообщает об успехе, но карточка не отображается.
 - **Предложение по исправлению:**
   1. Ограничить скрытие карточки только альбомной ориентацией (как и предполагал комментарий разработчика):
@@ -187,7 +187,7 @@
 
 #### 4. Всплывающее уведомление (Toast) физически перекрывает кнопки меню «Поделиться»
 - **Что происходит:** В мобильной версии уведомления позиционируются вверху по центру: `.mobile .toasts { top: calc(env(safe-area-inset-top) + 58px); }`. В эту же координату по высоте выравнивается меню «Поделиться»: `.mobile .share-menu { top: calc(env(safe-area-inset-top) + 58px); }`. При появлении длинных тостов (например, предупреждения при переходе на Камерную сцену: «Камерная сцена: черновик — размеры условные», ширина тоста ~350 px) тост накрывает верхнюю кнопку меню «🔗 Ссылка на это состояние» (см. снимок `08-chamber-share-menu.jpg`). Из-за `z-index: 50` у тоста нажать на кнопку под ним невозможно, пока тост не погаснет.
-- **Где в коде:** [app/src/ui/style.css](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/style.css#L202-L204, #L210).
+- **Где в коде:** [app/src/ui/style.css](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/style.css#L202-L204, #L210).
 - **Почему важно:** Создаёт помехи при быстрой отправке ссылки или сохранении файла сразу после смены сцены.
 - **Предложение по исправлению:**
   При открытии меню «Поделиться» принудительно очищать активные тосты (`document.querySelectorAll('.toast').forEach(t => t.remove())`), либо опустить `top` у меню «Поделиться» на уровень `top: calc(env(safe-area-inset-top) + 54px)` и сдвинуть тосты в портрете чуть ниже или позиционировать их над нижней шторкой (`bottom: calc(80px + env(safe-area-inset-bottom))`), как на десктопе.
@@ -202,7 +202,7 @@
   h('h4', {}, 'Сохранить / поделиться'),
   ```
   На Камерной сцене чертежи DXF отсутствуют (`exports: {}`), и `exportButtons(stage)` возвращает пустой список. В результате во вкладке отображается заголовок `ЭКСПОРТ В CAD / 3D`, под которым нет ни одной кнопки, и сразу за ним следует заголовок `СОХРАНИТЬ / ПОДЕЛИТЬСЯ` (см. снимок `22-chamber-views-panel-mobile.jpg`).
-- **Где в коде:** [app/src/ui/common.js](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/common.js#L323-L324).
+- **Где в коде:** [app/src/ui/common.js](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/common.js#L323-L324).
 - **Почему важно:** Визуальный мусор и ощущение сломанного интерфейса на любых сценах каталога, где пока нет экспорта DXF.
 - **Предложение по исправлению:**
   Выводить заголовок и панель экспорта только в том случае, если список кнопок не пуст:
@@ -216,7 +216,7 @@
 
 #### 6. Длительность тактильного виброотклика (15 мс) ниже проектного стандарта (40 мс)
 - **Что происходит:** В обработчике долгого нажатия фишки прибора вызывается `navigator.vibrate?.(15)`. Согласно правилам проекта (`GEMINI.md`, раздел 3.2 и навык `.agents/skills/mobile-cad-touch-ux/SKILL.md`, раздел 3) длительность короткого тактильного импульса установлена в **40 мс** (`navigator.vibrate(40)`). Импульс в 15 мс на многих смартфонах Android (например, с вибромоторами ERM) полностью подавляется драйвером как микропаразитный шум и тактильно не ощущается пальцем.
-- **Где в коде:** [app/src/ui/common.js](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/common.js#L161).
+- **Где в коде:** [app/src/ui/common.js](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/common.js#L161).
 - **Почему важно:** Тактильная обратная связь критична для уверенного переключения приборов «вслепую» на ярком солнце или в тёмном зале.
 - **Предложение по исправлению:**
   Заменить длительность импульса на нормативные 40 мс: `navigator.vibrate?.(40)`.
@@ -227,12 +227,12 @@
 
 #### 7. Отсутствие индикатора свайпа (Drag Handle) на шторке выбора сцен
 - **Что происходит:** Модальный диалог переключения площадок `<dialog class="venue-picker sheet-picker">` выезжает снизу как классическая шторка (Bottom Sheet), но не имеет визуального «язычка» (серой горизонтальной полоски по центру), которая есть у основной панели вкладок.
-- **Где в коде:** [app/src/ui/venuePicker.js](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/venuePicker.js#L23-L25).
+- **Где в коде:** [app/src/ui/venuePicker.js](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/venuePicker.js#L23-L25).
 - **Предложение по исправлению:** Добавить в `.venue-head` центральный псевдоэлемент ручки свайпа или стилизовать верхнюю кромку по аналогии с `.mobile .handle::after`.
 
 #### 8. Перекрытие табов шторки уведомлением в ландшафтном режиме
 - **Что происходит:** В ландшафтном режиме тосты прижаты к правому верхнему углу (`right: 12px; top: 58px`). При открытой боковой колонке шторки (`right: 0; width: 420px;`) тост оказывается прямо над кнопками вкладок («Свет», «Виды», «Ещё»).
-- **Где в коде:** [app/src/ui/style.css](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/src/ui/style.css#L214-L215).
+- **Где в коде:** [app/src/ui/style.css](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/src/ui/style.css#L214-L215).
 - **Предложение по исправлению:** В ландшафте смещать тосты левее боковой панели: `right: calc(min(420px, 50vw) + 12px)`.
 
 ---

@@ -104,7 +104,7 @@
 
 ### Предложение 1.1. GEMINI.md (§4 «Definition of Done», пп. 3)
 
-- **Файл:** `c:\Users\Полифем\antigravity\fest-3dmodels-and-stages\GEMINI.md`
+- **Файл:** `D:\Antigravity Projects\fest-3dmodels-and-stages\GEMINI.md`
 - **Раздел:** `## 4. Контракт проверки («Definition of Done»)`, пункт 3
 - **Было:**
 ```markdown
@@ -220,7 +220,7 @@ node scripts/parity.mjs compare
 
 ### Предложение 1.4. README.md (Раздел «Для разработчика», «Основные команды»)
 
-- **Файл:** `c:\Users\Полифем\antigravity\fest-3dmodels-and-stages\README.md`
+- **Файл:** `D:\Antigravity Projects\fest-3dmodels-and-stages\README.md`
 - **Раздел:** `## Для разработчика` $\to$ `### Основные команды`
 - **Было:**
 ```powershell
@@ -455,7 +455,7 @@ describe('Конфигурация паритет-харнесса (scripts/pari
 
 ### Предложение 3.1. `caps.layouts` и слой `'hall'` в описании шаблона
 
-- **Файл:** `c:\Users\Полифем\antigravity\fest-3dmodels-and-stages\app\src\venues\_template\README.md`
+- **Файл:** `D:\Antigravity Projects\fest-3dmodels-and-stages\app\src\venues\_template\README.md`
 - **Раздел:** `## Как сделать новую площадку`, пункт 4
 - **Было:**
 ```markdown
@@ -624,7 +624,7 @@ window.__fest.layer('lights', false);   // включение/выключени
 
 ### Предложение 6.1. Устранение проблем: имена файлов и каталогов с пробелом на конце
 
-- **Файл:** `c:\Users\Полифем\antigravity\fest-3dmodels-and-stages\BACKUP.md`
+- **Файл:** `D:\Antigravity Projects\fest-3dmodels-and-stages\BACKUP.md`
 - **Раздел:** Новый раздел `## 6. Устранение неполадок: файлы и папки с пробелом на конце имени`
 - **Было:** нет
 - **Стало:**
@@ -651,14 +651,14 @@ Get-ChildItem -LiteralPath . -Recurse -Force | Where-Object { $_.Name -match '\s
 1. **Через командную строку (cmd):**
    ```cmd
    :: Удаление папки с пробелом на конце:
-   rd /s /q "\\?\c:\Users\Полифем\antigravity\fest-3dmodels-and-stages\data\roof\Венткороб "
+   rd /s /q "\\?\D:\Antigravity Projects\fest-3dmodels-and-stages\data\roof\Венткороб "
 
    :: Удаление файла с пробелом на конце:
-   del "\\?\c:\Users\Полифем\antigravity\fest-3dmodels-and-stages\data\roof\file.jpg "
+   del "\\?\D:\Antigravity Projects\fest-3dmodels-and-stages\data\roof\file.jpg "
    ```
 2. **Через PowerShell .NET API:**
    ```powershell
-   [System.IO.Directory]::Delete('\\?\c:\Users\Полифем\antigravity\fest-3dmodels-and-stages\data\roof\Венткороб ', $true)
+   [System.IO.Directory]::Delete('\\?\D:\Antigravity Projects\fest-3dmodels-and-stages\data\roof\Венткороб ', $true)
    ```
 После устранения некорректных имён `npm run backup` успешно проходит со 100% верификацией.
 ```
@@ -670,7 +670,7 @@ Get-ChildItem -LiteralPath . -Recurse -Force | Where-Object { $_.Name -match '\s
 
 ### Предложение 7.1. Изоляция рабочих выгрузок и снимков ревьюеров в `.gitignore`
 
-- **Файл:** `c:\Users\Полифем\antigravity\fest-3dmodels-and-stages\.gitignore`
+- **Файл:** `D:\Antigravity Projects\fest-3dmodels-and-stages\.gitignore`
 - **Раздел:** В конец файла
 - **Было:**
 ```gitignore
@@ -698,7 +698,7 @@ app/review/*-r*/*-shots/
 
 ### Предложение 7.2. Структура репозитория в `README.md`
 
-- **Файл:** `c:\Users\Полифем\antigravity\fest-3dmodels-and-stages\README.md`
+- **Файл:** `D:\Antigravity Projects\fest-3dmodels-and-stages\README.md`
 - **Раздел:** `## Архитектура проекта`
 - **Было:**
 ```
@@ -733,7 +733,7 @@ app/src/
 
 ### Предложение 8.1. Актуализация состава площадок театра в шапке
 
-- **Файл:** `c:\Users\Полифем\antigravity\fest-3dmodels-and-stages\GEMINI.md`
+- **Файл:** `D:\Antigravity Projects\fest-3dmodels-and-stages\GEMINI.md`
 - **Раздел:** Шапка (строка 3)
 - **Было:**
 ```markdown
@@ -749,7 +749,7 @@ app/src/
 
 ### Предложение 8.2. Флаг `caps.layouts` в §1.1 Архитектуры
 
-- **Файл:** `c:\Users\Полифем\antigravity\fest-3dmodels-and-stages\GEMINI.md`
+- **Файл:** `D:\Antigravity Projects\fest-3dmodels-and-stages\GEMINI.md`
 - **Раздел:** `## 1. Архитектура и Единый источник правды (SSOT)`, пункт 1, абзац 4
 - **Было:**
 ```markdown
@@ -765,7 +765,7 @@ app/src/
 
 ### Предложение 8.3. Формат ссылки с полем `lo` трансформируемого зала в §2.2
 
-- **Файл:** `c:\Users\Полифем\antigravity\fest-3dmodels-and-stages\GEMINI.md`
+- **Файл:** `D:\Antigravity Projects\fest-3dmodels-and-stages\GEMINI.md`
 - **Раздел:** `## 2. Офлайн-автономность и сборка Single-File`, пункт 2, абзац 1
 - **Было:**
 ```markdown

@@ -1,8 +1,8 @@
 # Разбор замечаний ревью и тестирования
 
 Источники:
-- [modular-code-review.md](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/review/modular-code-review.md) — независимый код-ревьюер, копия агента;
-- [desktop.md](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/review/modular-r1/desktop.md), [mobile.md](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/review/modular-r1/mobile.md), [data.md](file:///c:/Users/Полифем/antigravity/fest-3dmodels-and-stages/app/review/modular-r1/data.md) — тестировщики на модели `pro`.
+- [modular-code-review.md](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/review/modular-code-review.md) — независимый код-ревьюер, копия агента;
+- [desktop.md](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/review/modular-r1/desktop.md), [mobile.md](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/review/modular-r1/mobile.md), [data.md](file:///d:/Antigravity%20Projects/fest-3dmodels-and-stages/app/review/modular-r1/data.md) — тестировщики на модели `pro`.
 
 **Как решал.** Принимал всё, что:
 - исправляет реальную ошибку;
