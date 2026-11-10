@@ -87,24 +87,40 @@ export const DIM = {
   openings: {
     gate: { width: 3.0, height: 2.6, centerX: 4.6, assumption: true }, // сзади справа, 2 створки
     backDoor: { width: 0.9, height: 2.1, centerX: -4.4, assumption: true }, // сзади слева
-    // правая боковая дверь в приямке на 1 м ниже планшета, ~1 м за порталом
-    sideDoor: { width: 0.9, height: 2.1, fromD: 1.1, assumption: true },
+    // правая боковая дверь в стенке приямка на 0,85 м ниже планшета, сразу за выступом стены
+    sideDoor: { width: 0.9, height: 2.1, fromD: 1.4, assumption: true },
     // широкие двойные двери у портала в зрительном зале (слева и справа)
     portalDoors: { width: 2.2, height: 2.0, fromD: 0.0 },
   },
 
-  // приямок у правой стены (под решёткой) — 0.9 × 3 м, глубина 1 м
-  pit: { fromD: 1.0, toD: 4.0, width: 0.9, depth: 1.0, steps: 5 },
+  // приямок у правой стены — трапеция в плане: ширина 0,50 → 1,00 м на d = 1,35..4,75 м, глубина 0,85 м
+  pit: {
+    fromD: 1.35,
+    toD: 4.75,
+    fromW: 0.5,
+    toW: 1.0,
+    depth: 0.85,
+    steps: 5,
+    tread: 0.3,
+    stepsAssumption: true,
+  },
 
-  // самодельная решётка над приямком (правая стена)
+  // самодельная косая решётка над приямком по кромке pitEdgeX (topY заполняется ниже = wallPier.topY)
   rack: {
-    fromD: 1.0,
-    toD: 4.0,
-    depthX: 0.9,
-    height: 5.7,
     postStep: 1.0,
+    postStepAssumption: true,
+    ladderPost: 1, // вторая стойка от портала заменяется вертикальной лестницей в плоскости решётки
+    ladderWidth: 0.44,
     levels: [2.1, 4.5], // «этажи» без пола
-    ladderD: 2.0, // ~1 м от края, ближнего к порталу
+    topY: 0,
+  },
+
+  // узлы управления противовесами и канатами
+  controls: {
+    cwInset: 0.14,
+    ropeInset: 0.62,
+    // правый передний узел (Ш1, С0, З): сдвинут на 0,50 м к центру сцены, канаты вплотную к противовесам
+    rightFront: { shiftX: 0.5, ropeGap: 0.2, guideTopY: 5.95, assumption: true },
   },
 
   // --- Ригель ------------------------------------------------------------------
@@ -149,15 +165,38 @@ export const DIM = {
 
 // Удобные производные величины
 export const BOX_HALF = DIM.box.width / 2;
+const DECK_THICKNESS = 0.06; // толщина настила галерей (верх 5,70 → низ 5,64)
+// выступ правой стены за узлом управления Ш1/С0/З: от задней стенки портала до узкого торца приямка
+DIM.wallPier = {
+  x0: +(BOX_HALF - 0.5).toFixed(4),
+  fromD: DIM.portal.thickness,
+  toD: DIM.pit.fromD,
+  topY: +(DIM.galleries.upperY - DECK_THICKNESS).toFixed(4),
+};
+DIM.rack.topY = DIM.wallPier.topY;
+
 export const HALL_HALF = DIM.hall.width / 2;
 export const PORTAL_BACK_D = DIM.portal.thickness;
 export const GALLERY_INNER_X = BOX_HALF - DIM.galleries.width; // 7.60 — внутренняя кромка правой боковой галереи
 export const LEFT_GALLERY = {
-  x0: +( -BOX_HALF + DIM.galleries.leftGap ).toFixed(4), // -7.85
-  x1: +( -BOX_HALF + DIM.galleries.leftGap + DIM.galleries.width ).toFixed(4), // -6.95
+  x0: +(-BOX_HALF + DIM.galleries.leftGap).toFixed(4), // -7.85
+  x1: +(-BOX_HALF + DIM.galleries.leftGap + DIM.galleries.width).toFixed(4), // -6.95
 };
 export const BACK_GALLERY_FRONT_D = DIM.box.backWallD - DIM.galleries.width; // 8.30
 export const RAKE = Math.tan((DIM.hall.rakeDeg * Math.PI) / 180);
+
+/** Координата X косой сценической кромки приямка на глубине d (fromD ≤ d ≤ toD). */
+export function pitEdgeX(d) {
+  const p = DIM.pit;
+  const w = p.fromW + ((p.toW - p.fromW) * (d - p.fromD)) / (p.toD - p.fromD);
+  return BOX_HALF - w;
+}
+
+/** Строго внутри трапеции приямка (для обрезки лучей и пятен света). */
+export function inPit(x, d) {
+  const p = DIM.pit;
+  return d > p.fromD && d < p.toD && x > pitEdgeX(d);
+}
 
 /** Полуширина авансцены на глубине d (−depth ≤ d ≤ 0): прямой участок, затем скос к порталу. */
 export function forestageHalfWidth(d) {

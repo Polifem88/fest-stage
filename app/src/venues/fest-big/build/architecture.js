@@ -1,7 +1,7 @@
 // Архитектура: сценическая коробка, портал, авансцена, галереи, узел подъёма,
 // приямок с решёткой, ригель, зрительный зал, конструкции для света в зале.
 import * as THREE from 'three';
-import { DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, LEFT_GALLERY, BACK_GALLERY_FRONT_D, RAKE, rowFrontD } from '../config/dimensions.js';
+import { DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, LEFT_GALLERY, BACK_GALLERY_FRONT_D, RAKE, rowFrontD, pitEdgeX } from '../config/dimensions.js';
 import { box, rect, wallWithHoles, cylBetween, P, prism } from '../../../core/geom.js';
 
 const W = BOX_HALF; // 8.5
@@ -36,7 +36,12 @@ const VERT_LADDER_GAP_MARGIN = 0.1;
 const BACK_RAIL_LADDER_HALF = 0.35;
 const SIDE_LADDER_WALL_INSET = 0.12;
 const SIDE_LADDER_GAP_W = 0.56;
+const RACK_POST_HALF = 0.03;
+const RACK_BAR_HALF = 0.025;
+const RACK_RAIL_R = 0.028;
+const RACK_TIE_DROP = 0.06;
 const pit = DIM.pit;
+const pier = DIM.wallPier;
 const rack = DIM.rack;
 const gate = DIM.openings.gate;
 const GATE_X0 = gate.centerX - gate.width / 2;
@@ -92,6 +97,32 @@ function ladder(out, cx, cd, y0, y1, width, along = 'd', k = 1) {
   }
 }
 
+/** Вертикальная лестница в произвольной вертикальной плоскости вдоль единичного вектора [ux, ud]. */
+function ladderAlong(out, [cx, cd], [ux, ud], y0, y1, width, k = 1) {
+  const h = width / 2;
+  const ax = cx - ux * h, ad = cd - ud * h;
+  const bx = cx + ux * h, bd = cd + ud * h;
+  out.push(
+    cylBetween(P(ax, y0, ad), P(ax, y1, ad), 0.022 * k, 5),
+    cylBetween(P(bx, y0, bd), P(bx, y1, bd), 0.022 * k, 5),
+  );
+  for (let y = y0 + 0.3; y < y1 - 0.05; y += 0.3) {
+    out.push(cylBetween(P(ax, y, ad), P(bx, y, bd), 0.014 * k, 4));
+  }
+}
+
+/** Вертикальный четырёхугольник от (x0, d0) до (x1, d1), по высоте y0..y1 (facing > 0 — нормаль вправо по ходу 0→1). */
+function vQuad(x0, d0, x1, d1, y0, y1, facing = 1) {
+  const p0 = P(x0, y0, d0), p1 = P(x1, y0, d1), p2 = P(x1, y1, d1), p3 = P(x0, y1, d0);
+  const verts = facing > 0 ? [p0, p1, p2, p0, p2, p3] : [p0, p2, p1, p0, p3, p2];
+  const pos = new Float32Array(18);
+  verts.forEach((v, i) => { pos[i * 3] = v.x; pos[i * 3 + 1] = v.y; pos[i * 3 + 2] = v.z; });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
 /** Лестничный марш из ступеней-блоков вдоль оси. */
 function stairBlocks(out, { x0, x1, d0, d1, yFrom, yTo, steps, axis = 'x' }) {
   for (let i = 0; i < steps; i++) {
@@ -104,11 +135,13 @@ function stairBlocks(out, { x0, x1, d0, d1, yFrom, yTo, steps, axis = 'x' }) {
 
 export function buildArchitecture(batch, M) {
   // ===========================================================================
-  //  ПЛАНШЕТ (с вырезом под приямок)
+  //  ПЛАНШЕТ (с трапециевидным вырезом под приямок)
   // ===========================================================================
+  const pitX0 = pitEdgeX(pit.fromD); // 8.00
+  const pitX1 = pitEdgeX(pit.toD); // 7.50
   const floorPts = [
-    [-W, 0], [W, 0], [W, pit.fromD], [GX, pit.fromD],
-    [GX, pit.toD], [W, pit.toD], [W, BACK], [-W, BACK],
+    [-W, 0], [W, 0], [W, pit.fromD], [pitX0, pit.fromD],
+    [pitX1, pit.toD], [W, pit.toD], [W, BACK], [-W, BACK],
   ];
   const floorGeo = new THREE.ShapeGeometry(new THREE.Shape(floorPts.map(([x, d]) => new THREE.Vector2(x, d))));
   floorGeo.rotateX(-Math.PI / 2);
@@ -225,20 +258,32 @@ export function buildArchitecture(batch, M) {
   batch.add('walls', M.rigel, box(-W, W, DIM.rigel.bottomY, CEIL, DIM.rigel.d - DIM.rigel.width / 2, DIM.rigel.d + DIM.rigel.width / 2));
 
   // ===========================================================================
-  //  ПРИЯМОК У ПРАВОЙ ДВЕРИ (0.9 × 3 м, глубина 1 м) и лестница вниз
+  //  ПРИЯМОК У ПРАВОЙ СТЕНЫ (трапеция 0,5 → 1,0 м, глубина 0,85 м) И ВЫСТУП СТЕНЫ
   // ===========================================================================
   batch.add('walls', M.blackWall, [
-    rect('x', GX, pit.fromD, pit.toD, -pit.depth, 0, 1),
-    rect('d', pit.fromD, GX, W, -pit.depth, 0, 1),
-    rect('d', pit.toD, GX, W, -pit.depth, 0, -1),
+    // косая стенка приямка (лицом внутрь приямка) и задний подступенок у d = pit.toD
+    vQuad(pitX0, pit.fromD, pitX1, pit.toD, -pit.depth, 0, 1),
+    rect('d', pit.toD, pitX1, W, -pit.depth, 0, -1),
+    // выступ стены за узлом Ш1/С0/З: лицевая грань к сцене, общий торец с узким концом приямка (-0,85..5,64) и верх 5,64
+    rect('x', pier.x0, pier.fromD, pier.toD, 0, pier.topY, -1),
+    rect('d', pier.toD, pier.x0, W, -pit.depth, pier.topY, 1),
+    rect('y', pier.topY, pier.x0, W, pier.fromD, pier.toD, 1),
   ]);
-  const tread = 0.3;
-  const stepsStartD = pit.toD - (pit.steps - 1) * tread;
-  batch.add('walls', M.stageEdge, rect('y', -pit.depth, GX, W, pit.fromD, stepsStartD, 1));
+  const stepsStartD = pit.toD - (pit.steps - 1) * pit.tread;
+  const pitBotPts = [
+    [pitX0, pit.fromD], [W, pit.fromD],
+    [W, stepsStartD], [pitEdgeX(stepsStartD), stepsStartD],
+  ];
+  const pitBotGeo = new THREE.ShapeGeometry(new THREE.Shape(pitBotPts.map(([x, d]) => new THREE.Vector2(x, d))));
+  pitBotGeo.rotateX(-Math.PI / 2);
+  pitBotGeo.translate(0, -pit.depth, 0);
+  batch.add('walls', M.stageEdge, pitBotGeo);
   const steps = [];
   for (let i = 0; i < pit.steps - 1; i++) {
+    const dA = pit.toD - (i + 1) * pit.tread;
+    const dB = pit.toD - i * pit.tread;
     const yTop = -(i + 1) * (pit.depth / pit.steps);
-    steps.push(box(GX, W, -pit.depth, yTop, pit.toD - (i + 1) * tread, pit.toD - i * tread));
+    steps.push(prism([[pitEdgeX(dA), dA], [W, dA], [W, dB], [pitEdgeX(dB), dB]], -pit.depth, yTop));
   }
   batch.add('walls', M.stageEdge, steps);
 
@@ -281,9 +326,12 @@ export function buildArchitecture(batch, M) {
   railing(steel, LX1, FRONT_D1, LX1, FRONT_D1 + STAIR_LEN, UPY, { h: 1.2, postStep: 0.8 });
   railing(steel, LX0, FRONT_D1, LX0, FRONT_D1 + STAIR_LEN, UPY, { h: 1.2, postStep: 0.8 });
   railing(steel, GX, FRONT_D1, GX, FRONT_D1 + STAIR_LEN, UPY, { h: 1.2, postStep: 0.8 });
-  // опоры боковых галерей: справа — кронштейны к стене, слева — 4 станции вертикальных тяжей к потолку
+  // опоры боковых галерей: справа — кронштейны к стене (на d = 1,2 — от лицевой грани выступа), слева — 4 станции вертикальных тяжей к потолку
   for (let d = 1.2; d < BACK - 0.5; d += 2.0) {
-    steel.push(cylBetween(P(W, UPY - 1.0, d), P(GX, UPY - 0.15, d), 0.025, 4));
+    const onPier = d >= pier.fromD && d <= pier.toD;
+    const xWall = onPier ? pier.x0 : W;
+    const yWall = (UPY - 1.0) + ((W - xWall) / (W - GX)) * 0.85;
+    steel.push(cylBetween(P(xWall, yWall, d), P(GX, UPY - 0.15, d), 0.025, 4));
   }
   for (const d of DIM.galleries.leftHangersD) {
     steel.push(
@@ -335,16 +383,39 @@ export function buildArchitecture(batch, M) {
   ladder(steel, vlX, vlD, pad.padY, pad.vertLadder.topY + 1.0, pad.vertLadder.width, 'd', LIFT_K);
 
   // ===========================================================================
-  //  РЕШЁТКА НАД ПРИЯМКОМ (правая стена): 0.9 × 5.7 × 3 м, «этажи» 2.1 и 4.5
+  //  КОСАЯ РЕШЁТКА НАД ПРИЯМКОМ (по кромке pitEdgeX, этажи 2,10 и 4,50, верх 5,64)
   // ===========================================================================
-  for (let d = rack.fromD; d <= rack.toD + 1e-6; d += rack.postStep) {
-    if (Math.abs(d - rack.ladderD) < 0.1) continue; // здесь стойку заменяет лестница
-    steel.push(box(GX - 0.03, GX + 0.03, -pit.depth, rack.height, d - 0.03, d + 0.03));
-    for (const ly of rack.levels) steel.push(box(GX, W, ly - 0.03, ly + 0.03, d - 0.025, d + 0.025));
+  const rackLen = Math.hypot(pitX1 - pitX0, pit.toD - pit.fromD);
+  const rackUx = (pitX1 - pitX0) / rackLen;
+  const rackUd = (pit.toD - pit.fromD) / rackLen;
+  const rackSpans = Math.max(1, Math.round(rackLen / rack.postStep));
+  for (let k = 0; k <= rackSpans; k++) {
+    const t = k / rackSpans;
+    const px = pitX0 + (pitX1 - pitX0) * t;
+    const pd = pit.fromD + (pit.toD - pit.fromD) * t;
+    if (k === rack.ladderPost) {
+      ladderAlong(steel, [px, pd], [rackUx, rackUd], -pit.depth, rack.topY, rack.ladderWidth);
+      const hw = rack.ladderWidth / 2;
+      for (const ly of rack.levels) {
+        for (const s of [-1, 1]) {
+          const sx = px + rackUx * hw * s, sd = pd + rackUd * hw * s;
+          steel.push(box(sx, W, ly - RACK_BAR_HALF, ly + RACK_BAR_HALF, sd - RACK_BAR_HALF, sd + RACK_BAR_HALF));
+        }
+      }
+      continue;
+    }
+    steel.push(box(px - RACK_POST_HALF, px + RACK_POST_HALF, -pit.depth, rack.topY, pd - RACK_POST_HALF, pd + RACK_POST_HALF));
+    for (const ly of rack.levels) {
+      steel.push(box(px, W, ly - RACK_BAR_HALF, ly + RACK_BAR_HALF, pd - RACK_BAR_HALF, pd + RACK_BAR_HALF));
+    }
   }
-  for (const ly of rack.levels) steel.push(box(GX - 0.03, GX + 0.03, ly - 0.03, ly + 0.03, rack.fromD, rack.toD));
-  ladder(steel, GX + 0.02, rack.ladderD, 0, rack.height, 0.44, 'd');
-  for (const ly of rack.levels) for (const dd of [rack.ladderD - 0.22, rack.ladderD + 0.22]) steel.push(box(GX, W, ly - 0.025, ly + 0.025, dd - 0.02, dd + 0.02));
+  for (const ly of rack.levels) {
+    steel.push(cylBetween(P(pitX0, ly, pit.fromD), P(pitX1, ly, pit.toD), RACK_RAIL_R, 4));
+  }
+  // крайняя стойка у d = 4,75 (x = 7,50, вне настила) привязана короткой связью к кромочной балке галереи (x = 7,60)
+  if (pitX1 < GX) {
+    steel.push(box(pitX1 - RACK_POST_HALF, GX, rack.topY - RACK_TIE_DROP, rack.topY, pit.toD - RACK_BAR_HALF, pit.toD + RACK_BAR_HALF));
+  }
 
   batch.add('galleries', M.steel, deck);
   batch.add('galleries', M.steel, steel);

@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { DIM, BOX_HALF, GALLERY_INNER_X, BACK_GALLERY_FRONT_D, LEFT_GALLERY } from '../../src/venues/fest-big/config/dimensions.js';
-import { RIGGING, SPACING, DEPTHS, LEFT_RAIL_ORDER, RIG_BY_ID, ropeDepth, DUTY_ROWS } from '../../src/venues/fest-big/config/rigging.js';
+import { DIM, BOX_HALF, GALLERY_INNER_X, BACK_GALLERY_FRONT_D, LEFT_GALLERY, pitEdgeX, inPit } from '../../src/venues/fest-big/config/dimensions.js';
+import { RIGGING, SPACING, DEPTHS, LEFT_RAIL_ORDER, RIG_BY_ID, ropeDepth, DUTY_ROWS, counterweightX, ropeX } from '../../src/venues/fest-big/config/rigging.js';
 import { FIXTURES, TYPES, GROUPS, INVENTORY, countByType, PORTABLE, portablePlacement, SPECS } from '../../src/venues/fest-big/config/fixtures.js';
 import { RiggingSystem } from '../../src/venues/fest-big/build/rigging.js';
+import { traceToFloor } from '../../src/venues/fest-big/build/floor.js';
 
 describe('Паспорта приборов', () => {
   it('у каждого типа прибора есть паспортные данные с источником', () => {
@@ -250,5 +251,57 @@ describe('Патч 1 · раздел 1', () => {
     rs.setHeight('B2', 6.5);
     expect(rs.height('B1')).toBe(6.3);
     expect(rs.height('B2')).toBe(6.5); // 6,5 ≤ 6,6 — без изменений
+  });
+});
+
+describe('Патч 1 · раздел 2', () => {
+  it('приямок — трапеция 0,5 → 1,0 на d 1,35…4,75, глубина 0,85', () => {
+    expect(pitEdgeX(1.35)).toBeCloseTo(8.0, 6);
+    expect(pitEdgeX(4.75)).toBeCloseTo(7.5, 6);
+    expect(DIM.pit.depth).toBe(0.85);
+    expect(DIM.pit.stepsAssumption).toBe(true);
+    expect(inPit(8.2, 3.0)).toBe(true);
+    expect(inPit(7.7, 2.0)).toBe(false); // был в старом прямоугольнике, вне трапеции
+    expect(inPit(8.2, 1.2)).toBe(false); // под выступом стены
+  });
+
+  it('выступ стены 0,5 × 1,1 от портала до приямка, верх под галереей', () => {
+    const p = DIM.wallPier;
+    expect(BOX_HALF - p.x0).toBeCloseTo(0.5, 6);
+    expect(p.toD - p.fromD).toBeCloseTo(1.1, 6);
+    expect(p.toD).toBe(DIM.pit.fromD);
+    expect(p.topY).toBeLessThan(DIM.galleries.upperY);
+  });
+
+  it('решётка не содержит устаревших ключей прямоугольника', () => {
+    expect(DIM.rack.fromD).toBeUndefined();
+    expect(DIM.rack.toD).toBeUndefined();
+    expect(DIM.rack.depthX).toBeUndefined();
+    expect(DIM.rack.height).toBeUndefined();
+    expect(DIM.rack.ladderD).toBeUndefined();
+    expect(DIM.rack.topY).toBe(DIM.wallPier.topY);
+  });
+
+  it('узел Ш1/С0/З сдвинут на 0,5; канат — в 0,2 от противовеса; конец дороги не задевает канат', () => {
+    for (const id of ['Z', 'C0', 'Sh1']) {
+      expect(counterweightX(RIG_BY_ID[id])).toBeCloseTo(7.86, 6);
+      expect(ropeX(RIG_BY_ID[id])).toBeCloseTo(7.66, 6);
+    }
+    expect(ropeX(RIG_BY_ID.Z) - DIM.pipe.trackLength / 2).toBeGreaterThan(0.1);
+    expect(counterweightX(RIG_BY_ID.Sh2)).toBeCloseTo(-8.36, 6); // левая стена — как было
+    expect(counterweightX(RIG_BY_ID.B2)).toBeCloseTo(8.36, 6);  // узел Б2 — как было
+    expect(DIM.wallPier.x0 - (counterweightX(RIG_BY_ID.Z) + 0.05)).toBeGreaterThan(0); // каретка не в выступе
+  });
+
+  it('боковая дверь — за выступом, в стенке приямка', () => {
+    const sd = DIM.openings.sideDoor;
+    expect(sd.fromD).toBeGreaterThanOrEqual(DIM.wallPier.toD);
+    expect(sd.fromD + sd.width).toBeLessThan(DIM.pit.toD - (DIM.pit.steps - 1) * DIM.pit.tread);
+  });
+
+  it('луч вниз: в трапеции — на дно, рядом снаружи — на планшет', () => {
+    const down = new THREE.Vector3(0, -1, 0);
+    expect(traceToFloor(new THREE.Vector3(8.2, 5, -3.0), down).point.y).toBeCloseTo(-0.85, 6);
+    expect(traceToFloor(new THREE.Vector3(7.7, 5, -2.0), down).point.y).toBeCloseTo(0, 6);
   });
 });

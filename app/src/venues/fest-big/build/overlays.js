@@ -1,6 +1,6 @@
 // Размерные линии с подписями и сетка на планшете.
 import * as THREE from 'three';
-import { DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, LEFT_GALLERY, rowFrontD } from '../config/dimensions.js';
+import { DIM, BOX_HALF, HALL_HALF, LEFT_GALLERY, rowFrontD, pitEdgeX } from '../config/dimensions.js';
 import { HALL_BACK_FLOOR_Y } from './architecture.js';
 import { buildDimsFromList } from '../../../core/overlays.js';
 
@@ -43,19 +43,31 @@ export function buildGrid(labels) {
   g.name = 'grid';
   const v = [];
   const W = BOX_HALF;
-  const GX = GALLERY_INNER_X;
   const pit = DIM.pit;
+  const pier = DIM.wallPier;
+  const pitX0 = pitEdgeX(pit.fromD), pitX1 = pitEdgeX(pit.toD);
+  const pitXMin = Math.min(pitX0, pitX1), pitXMax = Math.max(pitX0, pitX1);
   const d0 = -DIM.forestage.depth, d1 = DIM.box.backWallD;
   for (let x = -8; x <= 8; x++) {
-    if (x > GX) {
-      v.push(x, 0.006, -d0, x, 0.006, -pit.fromD);
+    if (x > pier.x0) {
+      v.push(x, 0.006, -d0, x, 0.006, -pier.fromD);
+      v.push(x, 0.006, -pit.toD, x, 0.006, -d1);
+    } else if (x > pitXMin) {
+      const dEnter = x >= pitXMax
+        ? pit.fromD
+        : pit.fromD + ((W - pit.fromW - x) / (pit.toW - pit.fromW)) * (pit.toD - pit.fromD);
+      v.push(x, 0.006, -d0, x, 0.006, -dEnter);
       v.push(x, 0.006, -pit.toD, x, 0.006, -d1);
     } else {
       v.push(x, 0.006, -d0, x, 0.006, -d1);
     }
   }
   for (let d = Math.ceil(d0); d <= d1; d++) {
-    const xMax = d > pit.fromD && d < pit.toD ? GX : W;
+    const xMax = d > pit.fromD && d < pit.toD
+      ? pitEdgeX(d)
+      : d > pier.fromD && d < pier.toD
+        ? pier.x0
+        : W;
     v.push(-W, 0.006, -d, xMax, 0.006, -d);
   }
   const geo = new THREE.BufferGeometry();

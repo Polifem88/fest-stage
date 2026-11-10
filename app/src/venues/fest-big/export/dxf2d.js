@@ -8,9 +8,9 @@
 // =============================================================================
 import {
   DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, LEFT_GALLERY, BACK_GALLERY_FRONT_D,
-  RAKE, rowFrontD, hallFloorY,
+  RAKE, rowFrontD, hallFloorY, pitEdgeX,
 } from '../config/dimensions.js';
-import { RIGGING, RIG_BY_ID, SPACING, LEFT_RAIL_ORDER, RIGHT_FRONT_ORDER, ropeDepth, DUTY_ROWS } from '../config/rigging.js';
+import { RIGGING, RIG_BY_ID, SPACING, LEFT_RAIL_ORDER, RIGHT_FRONT_ORDER, ropeDepth, counterweightX, DUTY_ROWS } from '../config/rigging.js';
 import { FIXTURES, TYPES, GROUPS, PORTABLE, portablePlacement, BAR_DEPTH } from '../config/fixtures.js';
 import { SPECS } from '../config/fixtures.js';
 import { HALL_CEIL_PROFILE, HALL_BACK_FLOOR_Y } from '../build/architecture.js';
@@ -166,10 +166,19 @@ export function buildPlanDXF(stage) {
   dxf.addText(-HW - 1.1, 0.12, 'КРАСНАЯ ЛИНИЯ ПОРТАЛА (d = 0)', { layer: '0_AXES', height: 0.18 });
 
   const pit = DIM.pit;
+  const pier = DIM.wallPier;
+  const pitX0 = pitEdgeX(pit.fromD), pitX1 = pitEdgeX(pit.toD);
+  const pitXMin = Math.min(pitX0, pitX1), pitXMax = Math.max(pitX0, pitX1);
   for (let x = -8; x <= 8; x++) {
     if (x !== 0) {
-      if (x > GX) {
-        dxf.addLine(x, -FS.depth, x, pit.fromD, { layer: '0_GRID' });
+      if (x > pier.x0) {
+        dxf.addLine(x, -FS.depth, x, pier.fromD, { layer: '0_GRID' });
+        dxf.addLine(x, pit.toD, x, BACK, { layer: '0_GRID' });
+      } else if (x > pitXMin) {
+        const dEnter = x >= pitXMax
+          ? pit.fromD
+          : pit.fromD + ((W - pit.fromW - x) / (pit.toW - pit.fromW)) * (pit.toD - pit.fromD);
+        dxf.addLine(x, -FS.depth, x, dEnter, { layer: '0_GRID' });
         dxf.addLine(x, pit.toD, x, BACK, { layer: '0_GRID' });
       } else {
         dxf.addLine(x, -FS.depth, x, BACK, { layer: '0_GRID' });
@@ -181,7 +190,11 @@ export function buildPlanDXF(stage) {
   }
   for (let d = Math.ceil(-FS.depth); d <= Math.floor(BACK); d++) {
     if (d !== 0) {
-      const xMax = d > pit.fromD && d < pit.toD ? GX : W;
+      const xMax = d > pit.fromD && d < pit.toD
+        ? pitEdgeX(d)
+        : d > pier.fromD && d < pier.toD
+          ? pier.x0
+          : W;
       dxf.addLine(-W, d, xMax, d, { layer: '0_GRID' });
     }
     dxf.addText(-W - 0.35, d, `${d > 0 ? '+' : ''}${d} м`, { layer: '0_GRID', height: 0.16, align: 'right', valign: 'middle' });
@@ -194,9 +207,11 @@ export function buildPlanDXF(stage) {
   const sd = DIM.openings.sideDoor;
   dxf.addRect(W, PT, W + wallT, sd.fromD, { layer: 'AR_WALLS' });
   dxf.addRect(W, sd.fromD + sd.width, W + wallT, BACK + wallT, { layer: 'AR_WALLS' });
+  // Выступ правой стены за узлом управления (0,5 × 1,1 м)
+  dxf.addRect(pier.x0, pier.fromD, W, pier.toD, { layer: 'AR_WALLS' });
   // Дверь в приямке справа
   dxf.addLine(W, sd.fromD, W + 0.75, sd.fromD + sd.width * 0.6, { layer: 'AR_WALLS' });
-  dxf.addText(W + 0.45, sd.fromD + sd.width / 2, 'Дверь (-1,00)', { layer: 'AR_WALLS', height: 0.15 });
+  dxf.addText(W + 0.45, sd.fromD + sd.width / 2, `Дверь (-${fmtM(pit.depth)})`, { layer: 'AR_WALLS', height: 0.15 });
 
   // Задняя стена с грузовыми воротами и дверью
   const gate = DIM.openings.gate;
@@ -241,13 +256,17 @@ export function buildPlanDXF(stage) {
     }
   }
 
-  // Приямок у правой стены (0.9 × 3.0 м, глубина -1.0 м)
-  dxf.addRect(GX, pit.fromD, W, pit.toD, { layer: 'AR_WALLS' });
+  // Приямок у правой стены — трапеция 0,5 → 1,0 м на d = 1,35..4,75 м, глубина -0,85 м
+  dxf.addPolyline([
+    [pitX0, pit.fromD], [W, pit.fromD],
+    [W, pit.toD], [pitX1, pit.toD], [pitX0, pit.fromD],
+  ], { layer: 'AR_WALLS' });
   for (let i = 1; i < pit.steps; i++) {
-    const stepD = pit.toD - i * 0.3;
-    dxf.addLine(GX, stepD, W, stepD, { layer: 'AR_WALLS' });
+    const stepD = pit.toD - i * pit.tread;
+    dxf.addLine(pitEdgeX(stepD), stepD, W, stepD, { layer: 'AR_WALLS' });
   }
-  dxf.addText((GX + W) / 2, (pit.fromD + pit.toD) / 2, 'Приямок -1,00', {
+  const pitMidD = (pit.fromD + pit.toD) / 2;
+  dxf.addText((pitEdgeX(pitMidD) + W) / 2, pitMidD, `Приямок -${fmtM(pit.depth)}`, {
     layer: 'AR_WALLS', height: 0.14, rotation: 90, align: 'center', valign: 'middle',
   });
 
@@ -272,6 +291,15 @@ export function buildPlanDXF(stage) {
   dxf.addText((padX0 + W) / 2, (padD0 + BACK) / 2, `Узел подъёма ${fmtM(DIM.liftNode.padSize)}×${fmtM(DIM.liftNode.padSize)} (+${fmtM(DIM.liftNode.padY)})`, {
     layer: 'AR_GALLERIES', height: 0.13, align: 'center', valign: 'middle',
   });
+  // Косая решётка над приямком (пунктир по кромке и поперечины к стене)
+  dxf.addLine(pitX0, pit.fromD, pitX1, pit.toD, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  const rackSpans = Math.max(1, Math.round(Math.hypot(pitX1 - pitX0, pit.toD - pit.fromD) / DIM.rack.postStep));
+  for (let k = 0; k <= rackSpans; k++) {
+    const t = k / rackSpans;
+    const rx = pitX0 + (pitX1 - pitX0) * t;
+    const rd = pit.fromD + (pit.toD - pit.fromD) * t;
+    dxf.addLine(rx, rd, W, rd, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  }
 
   // --- 5. Зрительный зал, ряды кресел, мосты, ложи, операторская (AR_HALL) ---
   dxf.addLine(-HW, 0, -HW, HALL_BACK_D, { layer: 'AR_HALL' });
@@ -392,10 +420,10 @@ export function buildPlanDXF(stage) {
     );
   }
 
-  // Каретки противовесов у левой и правой стен
+  // Каретки противовесов у левой и правой стен (включая сдвинутый правый передний узел)
   for (const r of RIGGING) {
     const rd = ropeDepth(r.id);
-    const cwX = r.control === 'left' ? -W + 0.14 : W - 0.14;
+    const cwX = counterweightX(r);
     dxf.addRect(cwX - 0.06, rd - 0.07, cwX + 0.06, rd + 0.07, { layer: 'RIG_SIDE' });
   }
 
@@ -598,24 +626,24 @@ export function buildSectionDXF(stage) {
   }
 
   // --- 2. Архитектурный контур разреза (AR_SECTION) --------------------------
-  // Планшет сцены (Y = 0 от задней стены d=9.2 до переднего края авансцены d=-2.75, без пола над приямком d=1.0..4.0)
+  // Планшет сцены (Y = 0 от задней стены d=9.2 до переднего края авансцены d=-2.75, с проекцией приямка d=1.35..4.75)
   const pit = DIM.pit;
   dxf.addLine(X(BACK), 0, X(pit.toD), 0, { layer: 'AR_SECTION' });
   dxf.addLine(X(BACK), -0.08, X(pit.toD), -0.08, { layer: 'AR_SECTION' });
   dxf.addLine(X(pit.fromD), 0, X(-FS.depth), 0, { layer: 'AR_SECTION' });
   dxf.addLine(X(pit.fromD), -0.08, X(-FS.depth), -0.08, { layer: 'AR_SECTION' });
 
-  // Приямок у правой стены в разрезе (d = 1.0..4.0, глубина -1.0 м)
+  // Приямок у правой стены в разрезе (d = 1.35..4.75, глубина -0.85 м)
   dxf.addPolyline([
     [X(pit.toD), 0], [X(pit.toD), -pit.depth],
     [X(pit.fromD), -pit.depth], [X(pit.fromD), 0],
   ], { layer: 'AR_SECTION' });
   for (let i = 1; i < pit.steps; i++) {
-    const stepD = pit.toD - i * 0.3;
+    const stepD = pit.toD - i * pit.tread;
     const stepY = -(i * pit.depth) / pit.steps;
     dxf.addLine(X(stepD), -pit.depth, X(stepD), stepY, { layer: 'AR_SECTION' });
   }
-  dxf.addText(X((pit.fromD + pit.toD) / 2), -pit.depth + 0.15, 'Приямок -1,00 м', {
+  dxf.addText(X((pit.fromD + pit.toD) / 2), -pit.depth + 0.15, `Приямок -${fmtM(pit.depth)} м`, {
     layer: 'AR_SECTION', height: 0.15, align: 'center',
   });
 
@@ -713,11 +741,11 @@ export function buildSectionDXF(stage) {
   dxf.addLine(X(GB), LOWY, X(GB), LOWY + RAIL_H, { layer: 'AR_GALLERIES' });
   dxf.addRect(X(BACK), GATEY - 0.1, X(GB), GATEY, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
 
-  // Площадка узла подъёма (+2.20, d=7.35..9.2) и решётка над приямком (d=1.0..4.0, этажи 2.1 и 4.5)
+  // Площадка узла подъёма (+2.20, d=7.35..9.2) и косая решётка над приямком (d=1.35..4.75, этажи 2.1 и 4.5)
   const padD0 = BACK - DIM.liftNode.padSize;
   dxf.addRect(X(BACK), DIM.liftNode.padY - 0.08, X(padD0), DIM.liftNode.padY, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
   for (const ly of DIM.rack.levels) {
-    dxf.addLine(X(DIM.rack.toD), ly, X(DIM.rack.fromD), ly, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+    dxf.addLine(X(pit.toD), ly, X(pit.fromD), ly, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
   }
 
   // Выносные мосты в зале М1 (d=-7.0, Y=6.4) и М2 (d=-12.0, Y=6.8)
@@ -812,7 +840,7 @@ export function buildSectionDXF(stage) {
   const elevXRight = X(HALL_BACK_D - 2.4) + 1.0;
 
   // Отметки по сценической коробке (слева) — близкие уровни разнесены по высоте полки
-  dxf.addElevationMark(elevXLeft, -pit.depth, '-1,000 (Приямок)', { side: 'left' });
+  dxf.addElevationMark(elevXLeft, -pit.depth, `-${fmtM(pit.depth, 3)} (Приямок)`, { side: 'left' });
   dxf.addElevationMark(elevXLeft, 0, '±0,000 (Планшет)', { side: 'left' });
   dxf.addElevationMark(elevXLeft, LOWY, '+2,200 (Ниж. галерея)', { side: 'left', stemH: 0.22 });
   dxf.addElevationMark(elevXLeft, GATEY, '+2,900 (Над воротами)', { side: 'left', stemH: 0.32 });

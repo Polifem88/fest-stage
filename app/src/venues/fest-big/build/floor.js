@@ -1,7 +1,7 @@
 // Пол Большой сцены для световых пятен и лучей: планшет с вырезом приямка,
 // трапеция авансцены, ступенчатый пол зала, стены зала и задняя стена сцены.
 // Подключается к общей системе приборов (systems/fixtures.js) через venue.fixtures.floor.
-import { DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, hallFloorY, forestageHalfWidth } from '../config/dimensions.js';
+import { DIM, BOX_HALF, HALL_HALF, hallFloorY, forestageHalfWidth, inPit } from '../config/dimensions.js';
 
 /** Зона пятна для обрезки в шейдере: 0 — планшет и авансцена, 1 — зал. */
 export function poolZone(point) {
@@ -28,6 +28,8 @@ export function poolK(f) {
 export function clipPoolsToFloor(mat) {
   const fs = DIM.forestage;
   const pit = DIM.pit;
+  const pier = DIM.wallPier;
+  const pitSlope = (pit.toW - pit.fromW) / (pit.toD - pit.fromD);
   const c = (v) => v.toFixed(4);
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
@@ -40,7 +42,9 @@ export function clipPoolsToFloor(mat) {
   float ax = abs(vPoolW.x);
   if (vZone < 0.5) {
     if (pd > ${c(DIM.box.backWallD)} || ax > ${c(BOX_HALF)} || pd < ${c(-fs.depth)}) discard;
-    if (vPoolW.x > ${c(GALLERY_INNER_X)} && pd > ${c(pit.fromD)} && pd < ${c(pit.toD)}) discard;
+    if (pd > ${c(pier.fromD)} && pd <= ${c(pier.toD)} && vPoolW.x > ${c(pier.x0)}) discard;
+    float pitEdge = ${c(BOX_HALF - pit.fromW)} - (pd - ${c(pit.fromD)}) * ${c(pitSlope)};
+    if (pd > ${c(pit.fromD)} && pd < ${c(pit.toD)} && vPoolW.x > pitEdge) discard;
     if (pd < 0.0 && ax > max(${c(fs.frontWidth / 2)}, ${c(fs.frontWidth / 2)} + (pd - ${c(fs.sideStraight - fs.depth)}) / ${c(fs.depth - fs.sideStraight)} * ${c((fs.backWidth - fs.frontWidth) / 2)})) discard;
   } else if (ax > ${c(HALL_HALF)}) discard;`);
   };
@@ -56,11 +60,11 @@ export function traceToFloor(p, dir) {
     const t = -p.y / dir.y;
     const q = p.clone().addScaledVector(dir, t);
     const d = -q.z;
-    const inPit = q.x > GALLERY_INNER_X && d > DIM.pit.fromD && d < DIM.pit.toD;
-    const onStage = d >= 0 && d <= DIM.box.backWallD && Math.abs(q.x) <= BOX_HALF && !inPit;
+    const pitHit = Math.abs(q.x) <= BOX_HALF && inPit(q.x, d);
+    const onStage = d >= 0 && d <= DIM.box.backWallD && Math.abs(q.x) <= BOX_HALF && !pitHit;
     const onFs = d < 0 && d >= -DIM.forestage.depth && Math.abs(q.x) <= forestageHalfWidth(d);
     if ((onStage || onFs) && t < best.dist) best = { dist: t, floor: true, point: q };
-    else if (inPit) {
+    else if (pitHit) {
       const tPit = (-DIM.pit.depth - p.y) / dir.y;
       if (tPit > 0 && tPit < best.dist) best = { dist: tPit, floor: false, point: p.clone().addScaledVector(dir, tPit) };
     } else if (d < 0 && !onFs) {

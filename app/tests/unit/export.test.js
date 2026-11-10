@@ -135,6 +135,14 @@ describe('Экспорт 2D продольного разреза (buildSectionD
     expect(dxf).toContain('\n2\nFIXTURES_SECTION\n');
     expect(dxf).not.toContain('LIGHT_BEAMS');
   });
+
+  it('план и разрез: отметки приямка из конфига, без устаревших −1,00', () => {
+    const plan = buildPlanDXF(null), sec = buildSectionDXF(null);
+    for (const s of [plan, sec]) {
+      expect(s).not.toContain('-1,00');
+      expect(s).toContain('0,85');
+    }
+  });
 });
 
 describe('Экспорт 3D DXF (build3DDXF)', () => {

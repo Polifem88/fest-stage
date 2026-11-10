@@ -5,7 +5,7 @@
 //  min/max — ход по высоте (высота трубы над планшетом), rest — исходное положение.
 // =============================================================================
 
-import { LEFT_GALLERY } from './dimensions.js';
+import { DIM, BOX_HALF, LEFT_GALLERY } from './dimensions.js';
 
 // Расстояния из тех. файла (от портала вглубь), м
 export const SPACING = [
@@ -108,6 +108,22 @@ export function ropeDepth(id) {
   for (let k = i + 1; k < order.length && next == null; k++) next = own(order[k]);
   if (prev != null && next != null) return (prev + next) / 2;
   return (prev ?? next) + (prev != null ? 0.15 : -0.15);
+}
+
+/** Координата X каретки противовеса и направляющих для подъёма r. */
+export function counterweightX(r) {
+  const c = DIM.controls;
+  if (r.control === 'left') return +(-BOX_HALF + c.cwInset).toFixed(4);
+  if (r.control === 'right-front') return +(BOX_HALF - c.cwInset - c.rightFront.shiftX).toFixed(4);
+  return +(BOX_HALF - c.cwInset).toFixed(4);
+}
+
+/** Координата X ручного каната управления и фиксатора для подъёма r. */
+export function ropeX(r) {
+  const c = DIM.controls;
+  if (r.control === 'left') return +(-BOX_HALF + c.ropeInset).toFixed(4);
+  if (r.control === 'right-front') return +(counterweightX(r) - c.rightFront.ropeGap).toFixed(4);
+  return +(BOX_HALF - c.ropeInset).toFixed(4);
 }
 
 // Линии дежурного освещения (ДО) — между соседними объектами
