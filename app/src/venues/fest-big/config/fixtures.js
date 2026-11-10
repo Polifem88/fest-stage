@@ -4,7 +4,7 @@
 //  (см. INVENTORY ниже и fixtures_inventory_check.md).
 //  Порядок в списках — слева направо (как смотреть из зала) / спереди назад.
 // =============================================================================
-import { DIM } from './dimensions.js';
+import { DIM, LEFT_GALLERY } from './dimensions.js';
 import { DEPTHS as D } from './rigging.js';
 import { venueTypes } from '../../../library/fixtureTypes.js';
 import { SPECS as LIB_SPECS } from '../../../library/specs.js';
@@ -139,7 +139,8 @@ const BARS = {
 const BAR_AIM_ALT = { C0: [-1.2, 0.8], C1: [2.2, 3.4], C2: [4.4, 5.6], C3: [6.4, 7.6] };
 export const AIM_NOTE = 'условное (допущение модели) — реальное наведение уточняйте у светового цеха';
 
-const GX = DIM.box.width / 2 - DIM.galleries.width / 2; // середина боковой галереи
+const GX_R = DIM.box.width / 2 - DIM.galleries.width / 2; // середина правой боковой галереи
+const GAL_RAIL_OUT = 0.1; // вынос кронштейна прибора наружу от перил галереи, м
 const RAIL_Y = DIM.galleries.upperY + 0.75;
 
 // Боковые галереи: [номер, глубина d] (оценено по схеме), задняя: [номер, x]
@@ -184,7 +185,7 @@ function build() {
   // --- софиты
   for (const [bar, items] of Object.entries(BARS)) {
     const n = items.length;
-    const span = 13.0; // приборы распределены по 13 м из 14
+    const span = 13.0; // приборы распределены по 13 м из 13,5
     items.forEach(([no, type], i) => {
       const x = -span / 2 + (span * i) / (n - 1);
       list.push({
@@ -194,12 +195,13 @@ function build() {
       });
     });
   }
-  // --- галереи (приборы на перилах, смотрят на сцену)
+  // --- галереи (приборы снаружи перил, смотрят на сцену)
   // ламповые (номера = диммерные линии). По завцеху: ETC 26° — 2 на левой, 2 на правой, 2 на задней (в середине),
   // остальные 8 — PAR-64. На задней галерее на схеме как раз 2 места → ETC; на боковых — какие 2 из 6, пока не известно.
   const galType = (g) => (g === 'GAL_B' ? 'ETC26' : 'GAL_LAMP');
-  GAL_L.forEach(([no, d], i) => list.push({ no, type: galType('GAL_L', i), group: 'GAL_L', mount: { on: null, x: -GX + 0.55, y: RAIL_Y, d }, aim: { x: -1.5, y: 0, d: d - 0.5 } }));
-  GAL_R.forEach(([no, d], i) => list.push({ no, type: galType('GAL_R', i), group: 'GAL_R', mount: { on: null, x: GX - 0.55, y: RAIL_Y, d }, aim: { x: 1.5, y: 0, d: d - 0.5 } }));
+  const galLX = +(LEFT_GALLERY.x1 + GAL_RAIL_OUT).toFixed(4);
+  GAL_L.forEach(([no, d], i) => list.push({ no, type: galType('GAL_L', i), group: 'GAL_L', mount: { on: null, x: galLX, y: RAIL_Y, d }, aim: { x: -1.5, y: 0, d: d - 0.5 } }));
+  GAL_R.forEach(([no, d], i) => list.push({ no, type: galType('GAL_R', i), group: 'GAL_R', mount: { on: null, x: GX_R - 0.55, y: RAIL_Y, d }, aim: { x: 1.5, y: 0, d: d - 0.5 } }));
   GAL_B.forEach(([no, x]) => list.push({ no, type: galType('GAL_B'), group: 'GAL_B', mount: { on: null, x, y: RAIL_Y, d: DIM.box.backWallD - DIM.galleries.width - 0.1 }, aim: { x: x * 0.6, y: 0, d: 4.5 } }));
   // --- мосты
   const b1 = DIM.hallRig.bridge1, b2 = DIM.hallRig.bridge2;

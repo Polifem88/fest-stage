@@ -1,6 +1,6 @@
 // Размерные линии с подписями и сетка на планшете.
 import * as THREE from 'three';
-import { DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, rowFrontD } from '../config/dimensions.js';
+import { DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, LEFT_GALLERY, rowFrontD } from '../config/dimensions.js';
 import { HALL_BACK_FLOOR_Y } from './architecture.js';
 import { buildDimsFromList } from '../../../core/overlays.js';
 
@@ -9,6 +9,7 @@ const fmt = (m) => `${m.toFixed(2).replace(/\.?0+$/, '').replace('.', ',')} м`;
 /** Список размеров: [p1(x,y,d), p2(x,y,d), подпись, положение подписи 0…1 (по умолчанию середина)] */
 function dimList() {
   const W = BOX_HALF, PW2 = DIM.portal.width / 2, FS = DIM.forestage;
+  const galLX = (LEFT_GALLERY.x0 + LEFT_GALLERY.x1) / 2;
   return [
     [[-PW2, DIM.portal.height + 0.25, -0.05], [PW2, DIM.portal.height + 0.25, -0.05], `Портал ${fmt(DIM.portal.width)}`],
     [[-PW2 - 0.35, 0, -0.05], [-PW2 - 0.35, DIM.portal.height, -0.05], `${fmt(DIM.portal.height)}`, 0.35], // подпись ниже «Деко-потолка»
@@ -19,7 +20,7 @@ function dimList() {
     [[-FS.frontWidth / 2, -FS.height + 0.02, -FS.depth - 0.25], [FS.frontWidth / 2, -FS.height + 0.02, -FS.depth - 0.25], `Перед авансцены ${fmt(FS.frontWidth)}`],
     [[W - 1.2, 0, 5.0], [W - 1.2, DIM.box.ceiling, 5.0], `Потолок ${fmt(DIM.box.ceiling)}`],
     [[-W + 1.2, 0, DIM.rigel.d], [-W + 1.2, DIM.rigel.bottomY, DIM.rigel.d], `Ригель ${fmt(DIM.rigel.bottomY)}`, 0.7],
-    [[-W + 0.45, 0, 6.2], [-W + 0.45, DIM.galleries.upperY, 6.2], `Галерея ${fmt(DIM.galleries.upperY)}`],
+    [[galLX, 0, 6.2], [galLX, DIM.galleries.upperY, 6.2], `Галерея ${fmt(DIM.galleries.upperY)}`],
     [[-1.5, 0, DIM.box.backWallD - 0.45], [-1.5, DIM.galleries.lowerY, DIM.box.backWallD - 0.45], `Нижняя галерея ${fmt(DIM.galleries.lowerY)}`],
     // высота сцены: у переднего края авансцены по оси (не на боковых ступенях)
     [[-3.5, -FS.height, -FS.depth - 0.1], [-3.5, 0, -FS.depth - 0.1], `Сцена ${fmt(FS.height)}`],

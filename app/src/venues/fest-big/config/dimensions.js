@@ -60,6 +60,10 @@ export const DIM = {
   // --- Галереи ---------------------------------------------------------------
   galleries: {
     width: 0.9,
+    leftGap: 0.65, // зазор левой боковой галереи от левой стены (d = frontToD..backGalleryFrontD)
+    // 4 станции вертикальных тяжей левой галереи к потолку (выбраны между осями канатов и вне ригеля)
+    leftHangersD: [2.35, 4.40, 6.10, 8.10], // assumption: true
+    leftHangersAssumption: true,
     upperY: 5.7, // верхняя галерея: бока и зад
     frontY: 6.2, // передняя (над порталом)
     frontFromD: 0.0, // assumption (A3)
@@ -71,12 +75,12 @@ export const DIM = {
 
   // --- Узел подъёма на галерею (задний правый угол) -------------------------
   liftNode: {
-    padSize: 2.0,
+    padSize: 1.85,
     padY: 2.2,
     // техническая лестница к правой стене, перед площадкой; лезут лицом к стене
     sideLadder: { width: 0.5, gapToPad: 0.05 },
-    // вертикальная лестница без ограждения: середина края площадки со стороны ворот
-    vertLadder: { width: 0.45, topY: 5.7 },
+    // вертикальная лестница без ограждения: у края площадки со стороны ворот
+    vertLadder: { width: 0.45, topY: 5.7, d: 8.0 },
   },
 
   // --- Проёмы ------------------------------------------------------------------
@@ -104,17 +108,17 @@ export const DIM = {
   },
 
   // --- Ригель ------------------------------------------------------------------
-  rigel: { d: 3.55, width: 0.3, bottomY: 6.4 },
+  rigel: { d: 3.55, width: 0.3, bottomY: 6.65 },
 
   // --- Трубы -------------------------------------------------------------------
   pipe: {
     diameter: 0.05, // 50 мм (в исходном файле опечатка «50 см»)
-    length: 14.0,
+    length: 13.5,
     sideLength: null, // у боковых — по факту от Ш2 до Ш11 / Ш9 (см. rigging.js)
     lightBarDepth: 0.5, // фактическая ширина софита по приборам
     trackWidth: 0.2, // дорога занавеса
     trackLength: 15.0,
-    pickupX: [-6.5, -2.2, 2.2, 6.5], // assumption (A12) — 4 подвеса
+    pickupX: [-6.5, -2.2, 2.2, 6.5], // assumption (A12) — 4 подвеса по 13,5-метровой трубе
   },
 
   // --- Дежурное освещение -----------------------------------------------------
@@ -147,7 +151,11 @@ export const DIM = {
 export const BOX_HALF = DIM.box.width / 2;
 export const HALL_HALF = DIM.hall.width / 2;
 export const PORTAL_BACK_D = DIM.portal.thickness;
-export const GALLERY_INNER_X = BOX_HALF - DIM.galleries.width; // перила боковых галерей
+export const GALLERY_INNER_X = BOX_HALF - DIM.galleries.width; // 7.60 — внутренняя кромка правой боковой галереи
+export const LEFT_GALLERY = {
+  x0: +( -BOX_HALF + DIM.galleries.leftGap ).toFixed(4), // -7.85
+  x1: +( -BOX_HALF + DIM.galleries.leftGap + DIM.galleries.width ).toFixed(4), // -6.95
+};
 export const BACK_GALLERY_FRONT_D = DIM.box.backWallD - DIM.galleries.width; // 8.30
 export const RAKE = Math.tan((DIM.hall.rakeDeg * Math.PI) / 180);
 

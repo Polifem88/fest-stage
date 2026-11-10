@@ -128,7 +128,7 @@ describe('Экспорт 2D продольного разреза (buildSectionD
     };
     const dxf = buildSectionDXF(mockStage);
     expect(dxf).toContain('±0,000 (Планшет)');
-    expect(dxf).toContain('+6,400 (Низ ригеля)');
+    expect(dxf).toContain('+6,650 (Низ ригеля)');
     expect(dxf).toContain('+8,500 (Потолок сцены)');
     expect(dxf).toContain('С2 (+3,15)');
     expect(dxf).toContain('Переносные ETC 50° (6 шт., на полу +0,24 м)');

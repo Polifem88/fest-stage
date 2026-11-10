@@ -7,7 +7,7 @@
 //  а высоты подъёмов, вкл/выкл приборов и режим переносных — из состояния stage.
 // =============================================================================
 import {
-  DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, BACK_GALLERY_FRONT_D,
+  DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, LEFT_GALLERY, BACK_GALLERY_FRONT_D,
   RAKE, rowFrontD, hallFloorY,
 } from '../config/dimensions.js';
 import { RIGGING, RIG_BY_ID, SPACING, LEFT_RAIL_ORDER, RIGHT_FRONT_ORDER, ropeDepth, DUTY_ROWS } from '../config/rigging.js';
@@ -260,16 +260,17 @@ export function buildPlanDXF(stage) {
 
   // --- 4. Галереи, узел подъёма и решётка (AR_GALLERIES) ---------------------
   const fToD = DIM.galleries.frontToD;
-  // Левая, правая, задняя и передняя галереи
-  dxf.addRect(-W, fToD, -GX, BACK, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  // Левая (с зазором от стены и задним углом), правая, задняя и передняя галереи
+  dxf.addRect(LEFT_GALLERY.x0, fToD, LEFT_GALLERY.x1, GB, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  dxf.addRect(-W, GB, -GX, BACK, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
   dxf.addRect(GX, fToD, W, BACK, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
   dxf.addRect(-GX, GB, GX, BACK, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
   dxf.addRect(-W, DIM.galleries.frontFromD, W, fToD, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
-  // Площадка узла подъёма (2.0 × 2.0 м в правом заднем углу)
+  // Площадка узла подъёма (1,85 × 1,85 м в правом заднем углу)
   const padX0 = W - DIM.liftNode.padSize, padD0 = BACK - DIM.liftNode.padSize;
   dxf.addRect(padX0, padD0, W, BACK, { layer: 'AR_GALLERIES' });
-  dxf.addText((padX0 + W) / 2, (padD0 + BACK) / 2, 'Узел подъёма (+2,20)', {
-    layer: 'AR_GALLERIES', height: 0.14, align: 'center', valign: 'middle',
+  dxf.addText((padX0 + W) / 2, (padD0 + BACK) / 2, `Узел подъёма ${fmtM(DIM.liftNode.padSize)}×${fmtM(DIM.liftNode.padSize)} (+${fmtM(DIM.liftNode.padY)})`, {
+    layer: 'AR_GALLERIES', height: 0.13, align: 'center', valign: 'middle',
   });
 
   // --- 5. Зрительный зал, ряды кресел, мосты, ложи, операторская (AR_HALL) ---
@@ -341,7 +342,7 @@ export function buildPlanDXF(stage) {
   }
 
   // --- 6. Верхняя механика: штанкеты, софиты, дорога занавеса, боковые -------
-  const pipeHalf = DIM.pipe.length / 2; // 7.0
+  const pipeHalf = DIM.pipe.length / 2; // 6.75
   const trackHalf = DIM.pipe.trackLength / 2; // 7.5
   const barDepthHalf = DIM.pipe.lightBarDepth / 2; // 0.25
 
@@ -665,7 +666,7 @@ export function buildSectionDXF(stage) {
     layer: 'AR_SECTION', height: 0.17, align: 'center',
   });
 
-  // Строительный ригель (d = 3.55, ширина 0.30, низ +6.40 до потолка +8.50)
+  // Строительный ригель (d = 3.55, ширина 0.30, низ +6.65 до потолка +8.50)
   const rg0 = DIM.rigel.d - DIM.rigel.width / 2, rg1 = DIM.rigel.d + DIM.rigel.width / 2;
   dxf.addRect(X(rg1), DIM.rigel.bottomY, X(rg0), CEIL, { layer: 'AR_SECTION' });
   // Диагональная штриховка сечения ригеля
@@ -712,7 +713,7 @@ export function buildSectionDXF(stage) {
   dxf.addLine(X(GB), LOWY, X(GB), LOWY + RAIL_H, { layer: 'AR_GALLERIES' });
   dxf.addRect(X(BACK), GATEY - 0.1, X(GB), GATEY, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
 
-  // Площадка узла подъёма (+2.20, d=7.2..9.2) и решётка над приямком (d=1.0..4.0, этажи 2.1 и 4.5)
+  // Площадка узла подъёма (+2.20, d=7.35..9.2) и решётка над приямком (d=1.0..4.0, этажи 2.1 и 4.5)
   const padD0 = BACK - DIM.liftNode.padSize;
   dxf.addRect(X(BACK), DIM.liftNode.padY - 0.08, X(padD0), DIM.liftNode.padY, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
   for (const ly of DIM.rack.levels) {
@@ -817,7 +818,7 @@ export function buildSectionDXF(stage) {
   dxf.addElevationMark(elevXLeft, GATEY, '+2,900 (Над воротами)', { side: 'left', stemH: 0.32 });
   dxf.addElevationMark(elevXLeft, DIM.portal.height, '+5,150 (Портал)', { side: 'left', stemH: 0.2 });
   dxf.addElevationMark(elevXLeft, UPY, '+5,700 (Верх. галерея)', { side: 'left', stemH: 0.25 });
-  dxf.addElevationMark(elevXLeft, DIM.rigel.bottomY, '+6,400 (Низ ригеля)', { side: 'left', stemH: 0.35 });
+  dxf.addElevationMark(elevXLeft, DIM.rigel.bottomY, `+${fmtM(DIM.rigel.bottomY, 3)} (Низ ригеля)`, { side: 'left', stemH: 0.35 });
   dxf.addElevationMark(elevXLeft, CEIL, '+8,500 (Потолок сцены)', { side: 'left' });
 
   // Отметки по зрительному залу (справа)
