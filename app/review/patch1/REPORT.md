@@ -100,3 +100,48 @@
 - **Камерная сцена (`chamber`):** **100 % совпадение** (экспорт, состояние, снимки — 0 расхождений ✅).
 - **Сцена под крышей (`roof`):** **100 % совпадение** (экспорт, состояние, снимки — 0 расхождений ✅).
 - **Большая сцена (`big`):** ожидаемые расхождения только по `big` (8/8 экспортов `default`/`low`, 20/20 сценариев/ссылок состояния, 28/108 снимков `desktop` и `iphone`).
+
+---
+
+## 4. Сводная проверка и трассировка ТЗ (Task 4)
+
+### 4.1. Трассировка «ТЗ / Спецификация → Код → Снимок»
+
+| Раздел | Требование ТЗ / спецификации | Реализация в `app/src/venues/fest-big/` | Ключевой снимок «до → после» |
+| :---: | :--- | :--- | :--- |
+| **1** | Штанкеты `Ш` и софиты `С` длиной `13,5` м (`±6,75`), дорога `З` `15,0` м | `config/dimensions.js` (`DIM.pipe.length = 13.5`, `trackLength = 15.0`) | `before/battenEnds.png` → `s3/battenEnds.png` |
+| **1** | Левая верхняя галерея в `0,65` м от стены (`x = −7,85…−6,95`), задний левый угол закрыт, лесенка `6,20 → 5,70` и ограждения над зазором | `config/dimensions.js` (`leftGap`, `LEFT_GALLERY`), `build/architecture.js`, `export/dxf2d.js` | `before/leftGallery.png` → `s3/leftGallery.png` |
+| **1** | 4 станции вертикальных тяжей левой галереи к потолку (без левых кронштейнов к стене) | `config/dimensions.js` (`leftHangersD`), `build/architecture.js` | `before/leftGalleryLow.png` → `s3/leftGalleryLow.png` |
+| **1** | Приборы `187–192` (`GAL_L`) снаружи перил на `x = −6,85`, LED-линейка на `x = −6,95` | `config/fixtures.js`, `build/architecture.js` | `before/leftGallery.png` → `s3/leftGallery.png` |
+| **1** | Боковые штанкеты `Б1` (`x = −6,80`, `max = 6,3`) и `Б2` (`x = +7,10`, `max = 6,6`); пределы `Ш2–Ш6` `6,7`, `З.min = 2` | `config/rigging.js` | `before/battenEnds.png` → `s3/battenEnds.png` |
+| **1** | Строительный ригель: низ `6,65` м (сечение `1,85` м до `8,50` м) | `config/dimensions.js` (`DIM.rigel.bottomY`), `export/dxf2d.js` | `before/leftGalleryLow.png` → `s3/leftGalleryLow.png`, `13-section_bp_dims_grid.jpg` |
+| **1** | Площадка узла подъёма `1,85 × 1,85` м, ось вертикальной лестницы `d = 8,00`, проём перил от оси лестницы | `config/dimensions.js` (`DIM.liftNode`), `build/architecture.js`, `export/dxf2d.js` | `before/liftPad.png` → `s3/liftPad.png` |
+| **2** | Приямок — трапеция `0,50 → 1,00` м на `d = 1,35…4,75` м, глубина `0,85` м, 5 подъёмов × проступь `0,30` м; обрезка пятен света и сетки | `config/dimensions.js` (`DIM.pit`, `pitEdgeX`, `inPit`), `build/architecture.js`, `build/floor.js`, `build/overlays.js`, `export/dxf2d.js` | `before/pit.png` → `s3/pit.png`, `before/pitTop.png` → `s3/pitTop.png` |
+| **2** | Боковая дверь приямка `0,90 × 2,10` м на отметке `−0,85` м за выступом (`fromD = 1,40` м) | `config/dimensions.js` (`sideDoor`), `build/architecture.js`, `export/dxf2d.js` | `before/pit.png` → `s3/pit.png` |
+| **2** | Выступ правой стены `0,50 × 1,10` м (`x = 8,00…8,50`, `d = 0,25…1,35`, верх `5,64` м); кронштейн `d = 1,20` от `x = 8,00` | `config/dimensions.js` (`DIM.wallPier`), `build/architecture.js`, `export/dxf2d.js` | `before/rightFront.png` → `s3/rightFront.png` |
+| **2** | Правый передний узел `Ш1/С0/З`: противовесы `x = 7,86` (сдвиг `0,50` м), канаты `x = 7,66` (зазор `0,20` м), направляющие до `5,95` м, стойки фиксаторов до пола | `config/dimensions.js` (`DIM.controls`), `config/rigging.js` (`counterweightX`, `ropeX`), `build/rigging.js`, `export/export3d.js`, `export/dxf2d.js` | `before/rightFront.png` → `s3/rightFront.png` |
+| **2** | Косая решётка над приямком по `pitEdgeX`, лестница вместо 2-й стойки, этажи `2,10` и `4,50` м с поперечинами до стены и связью у `d = 4,75` | `config/dimensions.js` (`DIM.rack`), `build/architecture.js`, `export/dxf2d.js` | `before/pit.png` → `s3/pit.png`, `before/pitTop.png` → `s3/pitTop.png` |
+| **3** | Ниша задних ворот: `2,95 × 1,10` м (`x = 3,15…6,10`, `d = 9,20…10,30`), проём `2,40` м, пандус `−0,35` м, 2 створки `2,60` м + швеллер `0,15` м | `config/dimensions.js` (`DIM.openings.gate`, `gateNiche`), `build/architecture.js`, `export/dxf2d.js` | `before/gateNiche.png` → `s3/gateNiche.png`, `before/backOutside.png` → `s3/backOutside.png` |
+| **3** | Ниша задней двери: `0,95 × 1,10` м (`x = −4,90…−3,95`, `d = 9,20…10,30`), проём `1,90` м, пандус `−0,35` м, полотно `2,00` м + полоска стены `0,25` м | `config/dimensions.js` (`DIM.openings.backDoor`, `doorNiche`), `build/architecture.js`, `export/dxf2d.js` | `before/doorNiche.png` → `s3/doorNiche.png` |
+| **3** | Нижняя галерея над воротами: подъём `2,90` м ровно над `x = 3,15…6,10`, марши `2,55…3,15` и `6,10…6,65`, низ обшивки `2,55 > 2,40` | `config/dimensions.js` (`fasciaDrop`), `build/architecture.js` | `before/gateNiche.png` → `s3/gateNiche.png`, `before/liftPad.png` → `s3/liftPad.png` |
+
+### 4.2. Автономная сборка, производительность и чистота кода
+- **Однофайловая сборка (`perf.spec.js`):**
+  - `dist/index.html`: **0,02 МБ** (`23 КБ`, бюджет `≤ 0,10 МБ` ✅)
+  - `dist/desktop.html`: **0,90 МБ** (`919 КБ`, бюджет `≤ 1,30 МБ` ✅)
+  - `dist/mobile.html`: **0,90 МБ** (`917 КБ`, бюджет `≤ 1,30 МБ` ✅)
+- **Автотесты (`npm.cmd run check`):** Vitest `11/11` файлов (`172/172` тестов PASS); Playwright E2E `61 passed` (`0 failed`, утечек памяти за 10 циклов переключения площадок — `0`, офлайн `file://` — PASS, кнопки `≥ 44 px` — PASS).
+- **Границы модулей и устаревшие числа:** общий код (`engine/`, `systems/`, `core/`, `ui/`, `library/`, `export/`) не изменялся; ревизия `Select-String` по `app/src/venues/fest-big` подтвердила полное отсутствие устаревших размеров и ключей (`14 м`, `−1,00`, `0,9 × 3`, `centerX`, `rack.height`).
+
+### 4.3. Итоговый паритет готовых площадок (`node scripts/parity.mjs compare`)
+
+| Площадка | Экспорт (DXF / GLB) | Состояние и ссылки | Снимки (Desktop + Mobile) | Итог |
+| :--- | :---: | :---: | :---: | :---: |
+| **Камерная сцена (`chamber`)** | 8 / 8 (100 %) | 16 / 16 (100 %) | 36 / 36 (100 %) | **100 % ПАРИТЕТ ✅** |
+| **Сцена под крышей (`roof`)** | 12 / 12 (100 %) | 20 / 20 (100 %) | 36 / 36 (100 %) | **100 % ПАРИТЕТ ✅** |
+| **Большая сцена (`big`)** | 8 изменённых (Патч 1) | 20 изменённых (`Sh2–Sh6`, `B1`) | 28 изменённых видов | Ожидаемые изменения Патча 1 |
+
+### 4.4. Актуализация реестра допущений (`ASSUMPTIONS.md`)
+- **Сняты из допущений (закрыты обмерами Патча 1):** задние грузовые ворота (`DIM.openings.gate`) и задняя левая дверь (`DIM.openings.backDoor`).
+- **Обновлены:** `DIM.pipe.pickupX` («по 13,5-метровой трубе»); `DIM.openings.sideDoor` (`fromD = 1,40` м на отметке `−0,85` м за выступом стены).
+- **Добавлены:** `DIM.galleries.leftHangersD` (`[2,35; 4,40; 6,10; 8,10]` м), `DIM.pit.steps` / `tread` (`5 × 0,17` м, проступь `0,30` м), `DIM.rack.postStep` (`1,0` м, 3 пролёта с лестницей во 2-м узле), `DIM.controls.rightFront` (`ropeGap = 0,20` м, `guideTopY = 5,95` м).
