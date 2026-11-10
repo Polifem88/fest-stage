@@ -11,11 +11,18 @@ const GUIDE_BOTTOM_Y = 0.15;
 const GUIDE_HALF_X = 0.03;
 const GUIDE_HALF_D = 0.01;
 const GUIDE_D_OFFSET = 0.085;
+const GUIDE_HEADER_H = 0.04;
+const GUIDE_TIE_H = 0.06;
+const FRONT_DECK_T = 0.06;
 const LOCK_HEIGHTS = [0.45, 1.0];
 const LOCK_PIPE_R = 0.03;
 const LOCK_POST_HALF = 0.02;
 const LOCK_POST_TOP_Y = 1.02;
 const LOCK_TIE_Y0 = 0.98;
+const LOCK_LEFT_PAD = 0.3;
+const LOCK_LEFT_STEP = 1.2;
+const LOCK_RF_PAD = 0.2;
+const LOCK_B2_HALF = 0.25;
 
 export class RiggingSystem {
   /**
@@ -162,11 +169,22 @@ export class RiggingSystem {
         }
       }
     }
+    // верхняя обвязка и кронштейны направляющих правого переднего узла к передней галерее и выступу стены
+    const cwRF = counterweightX(RIG_BY_ID[RIGHT_FRONT_ORDER[0]]);
+    const guideTopRF = DIM.controls.rightFront.guideTopY;
+    const rfD0 = ropeDepth(RIGHT_FRONT_ORDER[0]) - GUIDE_D_OFFSET - GUIDE_HALF_D;
+    const rfD1 = ropeDepth(RIGHT_FRONT_ORDER.at(-1)) + GUIDE_D_OFFSET + GUIDE_HALF_D;
+    steel.push(
+      box(cwRF - GUIDE_HALF_X, cwRF + GUIDE_HALF_X, guideTopRF - GUIDE_HEADER_H, guideTopRF, rfD0, rfD1),
+      box(cwRF - GUIDE_HALF_X, cwRF + GUIDE_HALF_X, guideTopRF, DIM.galleries.frontY - FRONT_DECK_T, rfD0, rfD0 + GUIDE_HEADER_H),
+      box(cwRF - GUIDE_HALF_X, DIM.wallPier.x0, DIM.wallPier.topY - GUIDE_TIE_H, DIM.wallPier.topY, rfD0, rfD0 + GUIDE_HEADER_H),
+      box(cwRF - GUIDE_HALF_X, DIM.wallPier.x0, DIM.wallPier.topY - GUIDE_TIE_H, DIM.wallPier.topY, rfD1 - GUIDE_HEADER_H, rfD1),
+    );
     // фиксаторы канатов (две трубы) и их стойки до пола — левая стена, правый передний угол и узел Б2
     const rxL = ropeX(RIG_BY_ID[LEFT_RAIL_ORDER[0]]);
-    const lockL = [ropeDepth(LEFT_RAIL_ORDER[0]) - 0.3, ropeDepth(LEFT_RAIL_ORDER.at(-1)) + 0.3];
+    const lockL = [ropeDepth(LEFT_RAIL_ORDER[0]) - LOCK_LEFT_PAD, ropeDepth(LEFT_RAIL_ORDER.at(-1)) + LOCK_LEFT_PAD];
     for (const y of LOCK_HEIGHTS) steel.push(cylBetween(P(rxL, y, lockL[0]), P(rxL, y, lockL[1]), LOCK_PIPE_R, 8));
-    for (let d = lockL[0]; d <= lockL[1] + 1e-6; d += 1.2) {
+    for (let d = lockL[0]; d <= lockL[1] + 1e-6; d += LOCK_LEFT_STEP) {
       steel.push(
         box(-W, rxL + LOCK_PIPE_R, LOCK_TIE_Y0, LOCK_POST_TOP_Y, d - LOCK_POST_HALF, d + LOCK_POST_HALF),
         box(rxL - LOCK_POST_HALF, rxL + LOCK_POST_HALF, 0, LOCK_POST_TOP_Y, d - LOCK_POST_HALF, d + LOCK_POST_HALF),
@@ -178,7 +196,7 @@ export class RiggingSystem {
     );
 
     const rxRF = ropeX(RIG_BY_ID[RIGHT_FRONT_ORDER[0]]);
-    const lockR = [ropeDepth(RIGHT_FRONT_ORDER[0]) - 0.2, ropeDepth(RIGHT_FRONT_ORDER.at(-1)) + 0.2];
+    const lockR = [ropeDepth(RIGHT_FRONT_ORDER[0]) - LOCK_RF_PAD, ropeDepth(RIGHT_FRONT_ORDER.at(-1)) + LOCK_RF_PAD];
     for (const y of LOCK_HEIGHTS) steel.push(cylBetween(P(rxRF, y, lockR[0]), P(rxRF, y, lockR[1]), LOCK_PIPE_R, 8));
     for (const d of lockR) {
       steel.push(
@@ -189,7 +207,7 @@ export class RiggingSystem {
 
     const rxB2 = ropeX(RIG_BY_ID.B2);
     const b2 = ropeDepth('B2');
-    const lockB2 = [b2 - 0.25, b2 + 0.25];
+    const lockB2 = [b2 - LOCK_B2_HALF, b2 + LOCK_B2_HALF];
     for (const y of LOCK_HEIGHTS) steel.push(cylBetween(P(rxB2, y, lockB2[0]), P(rxB2, y, lockB2[1]), LOCK_PIPE_R, 8));
     for (const d of lockB2) {
       steel.push(

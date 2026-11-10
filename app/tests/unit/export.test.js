@@ -148,7 +148,9 @@ describe('Экспорт 2D продольного разреза (buildSectionD
     const plan = buildPlanDXF(null), sec = buildSectionDXF(null);
     expect(plan).toContain('Ворота 2,95x2,60');
     expect(plan).toContain('Дверь 0,95x2,00');
+    expect(plan).toContain('Галерея +2,90');
     expect(plan).not.toContain('3,0x2,6');
+    expect(plan).not.toContain('\n10\n-7.6\n20\n8.3\n');
     expect(sec).toContain('Ворота В=2,60 м');
     expect(sec).toContain('+2,40');
     expect(sec).toContain('-0,35');

@@ -228,13 +228,17 @@ describe('Патч 1 · раздел 1', () => {
     expect(DIM.liftNode.vertLadder.d).toBe(8.0);
   });
 
-  it('тяжи левой галереи — не ближе 0,15 к осям канатов и вне ригеля', () => {
+  it('тяжи левой галереи — не ближе 0,15 к осям канатов, не ближе 0,20 к приборам GAL_L и вне ригеля', () => {
     expect(DIM.galleries.leftHangersAssumption).toBe(true);
+    expect(DIM.galleries.upperStairLen).toBe(0.8);
+    expect(DIM.galleries.leftHangersD).toEqual([2.35, 4.40, 6.10, 7.00]);
     const ropes = RIGGING.filter((r) => r.control === 'left').map((r) => ropeDepth(r.id));
+    const galL = FIXTURES.filter((f) => f.group === 'GAL_L');
     for (const d of DIM.galleries.leftHangersD) {
       for (const rd of ropes) expect(Math.abs(d - rd), `тяж ${d} у каната ${rd}`).toBeGreaterThanOrEqual(0.15);
+      for (const f of galL) expect(+Math.abs(d - f.mount.d).toFixed(6), `тяж ${d} у прибора № ${f.no}`).toBeGreaterThanOrEqual(0.2);
       expect(Math.abs(d - DIM.rigel.d)).toBeGreaterThan(DIM.rigel.width / 2 + 0.1);
-      expect(d).toBeGreaterThan(DIM.galleries.frontToD + 0.8); // за лесенкой 6,2→5,7
+      expect(d).toBeGreaterThan(DIM.galleries.frontToD + DIM.galleries.upperStairLen); // за лесенкой 6,2→5,7
       expect(d).toBeLessThan(BACK_GALLERY_FRONT_D);
     }
   });
@@ -335,6 +339,7 @@ describe('Патч 1 · раздел 3', () => {
   it('галерея над воротами: подъём ровно над нишей, обшивка выше проёма', () => {
     const g = gateNiche();
     expect(DIM.galleries.fasciaDrop).toBe(0.35);
+    expect(DIM.galleries.gateStairW).toBe(0.6);
     expect(DIM.galleries.overGateY - DIM.galleries.fasciaDrop).toBeGreaterThan(g.ceilY);
     expect(g.x1).toBeLessThan(BOX_HALF - DIM.liftNode.padSize);
   });

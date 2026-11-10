@@ -7,9 +7,9 @@ import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { DIM, HALL_HALF, RAKE, rowFrontD } from '../config/dimensions.js';
-import { RIGGING, ropeDepth, counterweightX, DUTY_ROWS } from '../config/rigging.js';
+import { RIGGING, RIG_BY_ID, RIGHT_FRONT_ORDER, ropeDepth, counterweightX, DUTY_ROWS } from '../config/rigging.js';
 import { FIXTURES, TYPES, PORTABLE, portablePlacement, BAR_DEPTH } from '../config/fixtures.js';
-import { StaticBatch } from '../../../core/geom.js';
+import { StaticBatch, box } from '../../../core/geom.js';
 import { buildArchitecture, buildSeats, buildEmitters } from '../build/architecture.js';
 import { DxfWriter } from '../../../export/dxfWriter.js';
 
@@ -457,6 +457,16 @@ export function buildExportSceneForGLTF(stage) {
     blk.translate(x, CEIL - 0.2, -d);
     staticRigGeoms.push(blk);
   }
+  const cwRF = counterweightX(RIG_BY_ID[RIGHT_FRONT_ORDER[0]]);
+  const guideTopRF = DIM.controls.rightFront.guideTopY;
+  const rfD0 = ropeDepth(RIGHT_FRONT_ORDER[0]) - 0.095;
+  const rfD1 = ropeDepth(RIGHT_FRONT_ORDER.at(-1)) + 0.095;
+  staticRigGeoms.push(
+    box(cwRF - 0.03, cwRF + 0.03, guideTopRF - 0.04, guideTopRF, rfD0, rfD1),
+    box(cwRF - 0.03, cwRF + 0.03, guideTopRF, DIM.galleries.frontY - 0.06, rfD0, rfD0 + 0.04),
+    box(cwRF - 0.03, DIM.wallPier.x0, DIM.wallPier.topY - 0.06, DIM.wallPier.topY, rfD0, rfD0 + 0.04),
+    box(cwRF - 0.03, DIM.wallPier.x0, DIM.wallPier.topY - 0.06, DIM.wallPier.topY, rfD1 - 0.04, rfD1),
+  );
   batch.add('rigging', M.steel, staticRigGeoms);
 
   const builtLayers = batch.build();

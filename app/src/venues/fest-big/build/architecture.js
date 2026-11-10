@@ -30,6 +30,9 @@ const PAD_D0 = BACK - pad.padSize; // 7.35
 const DECK_T = 0.06;
 const EDGE_BEAM_DROP = 0.22;
 const EDGE_BEAM_W = 0.04;
+const STAIR_TREAD_T = 0.05;
+const STAIR_STRINGER_R = 0.026;
+const STAIR_STRINGER_INSET = 0.025;
 const HANGER_INSET = 0.03;
 const HANGER_R = 0.02;
 const HANGER_BEAM_DROP = 0.16;
@@ -39,6 +42,7 @@ const VERT_LADDER_GAP_MARGIN = 0.1;
 const BACK_RAIL_LADDER_HALF = 0.35;
 const SIDE_LADDER_WALL_INSET = 0.12;
 const SIDE_LADDER_GAP_W = 0.56;
+const SIDE_DOOR_RECESS = 0.08;
 const RACK_POST_HALF = 0.03;
 const RACK_BAR_HALF = 0.025;
 const RACK_RAIL_R = 0.028;
@@ -46,7 +50,7 @@ const RACK_TIE_DROP = 0.06;
 const FASCIA_DROP = DIM.galleries.fasciaDrop;
 const FASCIA_RISE = 0.12;
 const FASCIA_THICK = 0.03;
-const GATE_STAIR_W = 0.6;
+const GATE_STAIR_W = DIM.galleries.gateStairW;
 const GATE_SEAM_HALF = 0.01;
 const GATE_LEAF_OFFSET = 0.015;
 const GATE_CHANNEL_DEPTH = 0.06;
@@ -79,20 +83,21 @@ export function hallCeilingY(d) {
 const lastRowBackD = rowFrontD(DIM.hall.rows - 1) - DIM.hall.rowPitch;
 export const HALL_BACK_FLOOR_Y = -FSH + (DIM.hall.rows - 1) * DIM.hall.rowPitch * RAKE;
 
-/** Перила вдоль отрезка (x,d)→(x,d) на высоте пола y. gaps: [[t0,t1]] в долях длины. k — множитель сечения труб. */
+/** Перила вдоль отрезка (x,d)→(x,d) на высоте пола y (число или [y0, y1] для маршей). gaps: [[t0,t1]] в долях длины. */
 function railing(out, x0, d0, x1, d1, y, { h = DIM.galleries.railH, postStep = 1.5, gaps = [], toe = true, k = 1 } = {}) {
+  const [y0, y1] = Array.isArray(y) ? y : [y, y];
   const len = Math.hypot(x1 - x0, d1 - d0);
   const segs = [];
   let t = 0;
   for (const [g0, g1] of gaps.sort((a, b) => a[0] - b[0])) { if (g0 > t) segs.push([t, g0]); t = g1; }
   if (t < 1) segs.push([t, 1]);
-  const at = (s, yy) => P(x0 + (x1 - x0) * s, yy, d0 + (d1 - d0) * s);
+  const at = (s, dy) => P(x0 + (x1 - x0) * s, y0 + (y1 - y0) * s + dy, d0 + (d1 - d0) * s);
   for (const [s0, s1] of segs) {
-    out.push(cylBetween(at(s0, y + h), at(s1, y + h), 0.021 * k));
-    out.push(cylBetween(at(s0, y + h * 0.5), at(s1, y + h * 0.5), 0.016 * k));
-    if (toe) out.push(cylBetween(at(s0, y + 0.05), at(s1, y + 0.05), 0.012 * k, 4));
+    out.push(cylBetween(at(s0, h), at(s1, h), 0.021 * k));
+    out.push(cylBetween(at(s0, h * 0.5), at(s1, h * 0.5), 0.016 * k));
+    if (toe) out.push(cylBetween(at(s0, 0.05), at(s1, 0.05), 0.012 * k, 4));
     const n = Math.max(1, Math.round(((s1 - s0) * len) / postStep));
-    for (let i = 0; i <= n; i++) out.push(cylBetween(at(s0 + ((s1 - s0) * i) / n, y), at(s0 + ((s1 - s0) * i) / n, y + h), 0.02 * k, 5));
+    for (let i = 0; i <= n; i++) out.push(cylBetween(at(s0 + ((s1 - s0) * i) / n, 0), at(s0 + ((s1 - s0) * i) / n, h), 0.02 * k, 5));
   }
 }
 
@@ -145,13 +150,23 @@ function rampQuad(x0, x1, d0, y0, d1, y1) {
   return g;
 }
 
-/** Лестничный марш из ступеней-блоков вдоль оси. */
-function stairBlocks(out, { x0, x1, d0, d1, yFrom, yTo, steps, axis = 'x' }) {
+/** Лестничный марш между двумя площадками (yFrom → yTo): парные наклонные косоуры и симметричные промежуточные ступени. */
+function stairFlight(out, { x0, x1, d0, d1, yFrom, yTo, steps, axis = 'x' }) {
+  const yStr0 = yFrom - DECK_T, yStr1 = yTo - DECK_T;
+  if (axis === 'x') {
+    for (const dd of [d0 + STAIR_STRINGER_INSET, d1 - STAIR_STRINGER_INSET]) {
+      out.push(cylBetween(P(x0, yStr0, dd), P(x1, yStr1, dd), STAIR_STRINGER_R, 5));
+    }
+  } else {
+    for (const xx of [x0 + STAIR_STRINGER_INSET, x1 - STAIR_STRINGER_INSET]) {
+      out.push(cylBetween(P(xx, yStr0, d0), P(xx, yStr1, d1), STAIR_STRINGER_R, 5));
+    }
+  }
   for (let i = 0; i < steps; i++) {
     const t0 = i / steps, t1 = (i + 1) / steps;
-    const top = yFrom + (yTo - yFrom) * t1;
-    if (axis === 'x') out.push(box(x0 + (x1 - x0) * t0, x0 + (x1 - x0) * t1, top - 0.05, top, d0, d1));
-    else out.push(box(x0, x1, top - 0.05, top, d0 + (d1 - d0) * t0, d0 + (d1 - d0) * t1));
+    const top = yFrom + (yTo - yFrom) * ((i + 1) / (steps + 1));
+    if (axis === 'x') out.push(box(x0 + (x1 - x0) * t0, x0 + (x1 - x0) * t1, top - STAIR_TREAD_T, top, d0, d1));
+    else out.push(box(x0, x1, top - STAIR_TREAD_T, top, d0 + (d1 - d0) * t0, d0 + (d1 - d0) * t1));
   }
 }
 
@@ -234,12 +249,13 @@ export function buildArchitecture(batch, M) {
   const sideDoorHole = [{ a0: sdoor.fromD, a1: sdoor.fromD + sdoor.width, b0: -pit.depth - 0.01, b1: -pit.depth + sdoor.height }];
   batch.add('walls', M.brickSide, wallWithHoles('x', W, PT, BACK, 0, CEIL, -1, sideDoorHole), { tag: 'wallR' });
   batch.add('walls', M.brickSide, wallWithHoles('x', W, pit.fromD, pit.toD, -pit.depth, 0, -1, sideDoorHole), { tag: 'wallR' });
-  batch.add('walls', M.door, rect('x', W + 0.08, sdoor.fromD, sdoor.fromD + sdoor.width, -pit.depth, -pit.depth + sdoor.height, -1));
+  batch.add('walls', M.door, rect('x', W + SIDE_DOOR_RECESS, sdoor.fromD, sdoor.fromD + sdoor.width, -pit.depth, -pit.depth + sdoor.height, -1));
   batch.add('walls', M.blackWall, [
-    rect('d', sdoor.fromD, W, W + 0.08, -pit.depth, -pit.depth + sdoor.height, 1),
-    rect('d', sdoor.fromD + sdoor.width, W, W + 0.08, -pit.depth, -pit.depth + sdoor.height, -1),
-    rect('y', -pit.depth + sdoor.height, W, W + 0.08, sdoor.fromD, sdoor.fromD + sdoor.width, -1),
+    rect('d', sdoor.fromD, W, W + SIDE_DOOR_RECESS, -pit.depth, -pit.depth + sdoor.height, 1),
+    rect('d', sdoor.fromD + sdoor.width, W, W + SIDE_DOOR_RECESS, -pit.depth, -pit.depth + sdoor.height, -1),
+    rect('y', -pit.depth + sdoor.height, W, W + SIDE_DOOR_RECESS, sdoor.fromD, sdoor.fromD + sdoor.width, -1),
   ]);
+  batch.add('walls', M.stageEdge, rect('y', -pit.depth, W, W + SIDE_DOOR_RECESS, sdoor.fromD, sdoor.fromD + sdoor.width, 1));
   // задняя стена: проёмы в ниши ворот (2,40) и двери (1,90). Под нижней галереей (2,20; над нишей ворот — 2,90)
   // кирпич закрашен матовым чёрным, выше — обычная кладка.
   const backHoles = [
@@ -334,28 +350,28 @@ export function buildArchitecture(batch, M) {
   const deck = [];
   const steel = [];
   const FRONT_D1 = DIM.galleries.frontToD; // 0.8
-  const STAIR_LEN = 0.8;
-  // боковые (левая — с зазором 0,65 от стены на d = FRONT_D1..GB), задний левый угол и задняя
-  deck.push(box(LX0, LX1, UPY - DECK_T, UPY, FRONT_D1, GB));
-  deck.push(box(-W, -GX, UPY - DECK_T, UPY, GB, BACK));
-  deck.push(box(GX, W, UPY - DECK_T, UPY, FRONT_D1, BACK));
-  deck.push(box(-GX, GX, UPY - DECK_T, UPY, GB, BACK));
+  const STAIR_LEN = DIM.galleries.upperStairLen; // 0.8
+  const STAIR_D1 = FRONT_D1 + STAIR_LEN; // 1.6
+  // боковые (горизонтальный настил начинается за переходной лесенкой 6,20 → 5,70) и единая задняя галерея (-W..GX)
+  deck.push(box(LX0, LX1, UPY - DECK_T, UPY, STAIR_D1, GB));
+  deck.push(box(GX, W, UPY - DECK_T, UPY, STAIR_D1, BACK));
+  deck.push(box(-W, GX, UPY - DECK_T, UPY, GB, BACK));
   // передняя над порталом
   deck.push(box(-W, W, FRY - DECK_T, FRY, DIM.galleries.frontFromD, FRONT_D1));
   // кромочные балки
-  steel.push(box(LX0, LX0 + EDGE_BEAM_W, UPY - EDGE_BEAM_DROP, UPY - DECK_T, FRONT_D1, GB));
-  steel.push(box(LX1 - EDGE_BEAM_W, LX1, UPY - EDGE_BEAM_DROP, UPY - DECK_T, FRONT_D1, GB));
-  steel.push(box(GX - EDGE_BEAM_W / 2, GX + EDGE_BEAM_W / 2, UPY - EDGE_BEAM_DROP, UPY - DECK_T, FRONT_D1, GB));
+  steel.push(box(LX0, LX0 + EDGE_BEAM_W, UPY - EDGE_BEAM_DROP, UPY - DECK_T, STAIR_D1, GB));
+  steel.push(box(LX1 - EDGE_BEAM_W, LX1, UPY - EDGE_BEAM_DROP, UPY - DECK_T, STAIR_D1, GB));
+  steel.push(box(GX - EDGE_BEAM_W / 2, GX + EDGE_BEAM_W / 2, UPY - EDGE_BEAM_DROP, UPY - DECK_T, STAIR_D1, GB));
   steel.push(box(-W, LX0, UPY - EDGE_BEAM_DROP, UPY - DECK_T, GB - EDGE_BEAM_W / 2, GB + EDGE_BEAM_W / 2));
   steel.push(box(LX1, GX, UPY - EDGE_BEAM_DROP, UPY - DECK_T, GB - EDGE_BEAM_W / 2, GB + EDGE_BEAM_W / 2));
   steel.push(box(-W, W, FRY - EDGE_BEAM_DROP, FRY - DECK_T, FRONT_D1 - EDGE_BEAM_W / 2, FRONT_D1 + EDGE_BEAM_W / 2));
-  // лесенки 6.2 → 5.7 в передних углах (по боковым галереям)
-  stairBlocks(steel, { x0: LX0, x1: LX1, d0: FRONT_D1, d1: FRONT_D1 + STAIR_LEN, yFrom: FRY, yTo: UPY, steps: 3, axis: 'd' });
-  stairBlocks(steel, { x0: GX, x1: W, d0: FRONT_D1, d1: FRONT_D1 + STAIR_LEN, yFrom: FRY, yTo: UPY, steps: 3, axis: 'd' });
+  // лесенки 6.2 → 5.7 в передних углах (по боковым галереям, на наклонных косоурах)
+  stairFlight(steel, { x0: LX0, x1: LX1, d0: FRONT_D1, d1: STAIR_D1, yFrom: FRY, yTo: UPY, steps: 3, axis: 'd' });
+  stairFlight(steel, { x0: GX, x1: W, d0: FRONT_D1, d1: STAIR_D1, yFrom: FRY, yTo: UPY, steps: 3, axis: 'd' });
   // перила: левая галерея (внутренняя и внешняя кромки) и правая галерея
-  railing(steel, LX1, FRONT_D1 + STAIR_LEN, LX1, GB, UPY);
-  railing(steel, LX0, FRONT_D1 + STAIR_LEN, LX0, GB, UPY);
-  railing(steel, GX, FRONT_D1 + STAIR_LEN, GX, GB, UPY);
+  railing(steel, LX1, STAIR_D1, LX1, GB, UPY);
+  railing(steel, LX0, STAIR_D1, LX0, GB, UPY);
+  railing(steel, GX, STAIR_D1, GX, GB, UPY);
   const vlD = pad.vertLadder.d;
   const vlX = PAD_X0 - VERT_LADDER_OFFSET_X;
   const backSpan = GX - LX1;
@@ -364,15 +380,18 @@ export function buildArchitecture(batch, M) {
   railing(steel, -W, FRONT_D1, LX0, FRONT_D1, FRY); // передняя галерея над зазором
   railing(steel, LX1, FRONT_D1, GX, FRONT_D1, FRY); // передняя галерея со стороны сцены
   railing(steel, -W, DIM.galleries.frontFromD, W, DIM.galleries.frontFromD, FRY); // со стороны зала
-  railing(steel, LX1, FRONT_D1, LX1, FRONT_D1 + STAIR_LEN, UPY, { h: 1.2, postStep: 0.8 });
-  railing(steel, LX0, FRONT_D1, LX0, FRONT_D1 + STAIR_LEN, UPY, { h: 1.2, postStep: 0.8 });
-  railing(steel, GX, FRONT_D1, GX, FRONT_D1 + STAIR_LEN, UPY, { h: 1.2, postStep: 0.8 });
-  // опоры боковых галерей: справа — кронштейны к стене (на d = 1,2 — от лицевой грани выступа), слева — 4 станции вертикальных тяжей к потолку
+  railing(steel, LX1, FRONT_D1, LX1, STAIR_D1, [FRY, UPY], { postStep: 0.8 });
+  railing(steel, LX0, FRONT_D1, LX0, STAIR_D1, [FRY, UPY], { postStep: 0.8 });
+  railing(steel, GX, FRONT_D1, GX, STAIR_D1, [FRY, UPY], { postStep: 0.8 });
+  // опоры боковых галерей: справа — кронштейны к стене (на d = 1,2 — от лицевой грани выступа к косоуру), слева — 4 станции вертикальных тяжей к потолку
   for (let d = 1.2; d < BACK - 0.5; d += 2.0) {
     const onPier = d >= pier.fromD && d <= pier.toD;
     const xWall = onPier ? pier.x0 : W;
-    const yWall = (UPY - 1.0) + ((W - xWall) / (W - GX)) * 0.85;
-    steel.push(cylBetween(P(xWall, yWall, d), P(GX, UPY - 0.15, d), 0.025, 4));
+    const yEdge = d < STAIR_D1
+      ? FRY + (UPY - FRY) * ((d - FRONT_D1) / STAIR_LEN) - DECK_T
+      : UPY - 0.15;
+    const yWall = (yEdge - 0.85) + ((W - xWall) / (W - GX)) * 0.85;
+    steel.push(cylBetween(P(xWall, yWall, d), P(GX + (d < STAIR_D1 ? STAIR_STRINGER_INSET : 0), yEdge, d), 0.025, 4));
   }
   for (const d of DIM.galleries.leftHangersD) {
     steel.push(
@@ -388,8 +407,8 @@ export function buildArchitecture(batch, M) {
   const UP_X0 = gn.x0 - GATE_STAIR_W, UP_X1 = gn.x1; // участок 2,90 ровно над нишей ворот (x = 3,15..6,10)
   deck.push(box(-W, UP_X0, LOWY - DECK_T, LOWY, GB, BACK));
   deck.push(box(gn.x0, UP_X1, GATEY - DECK_T, GATEY, GB, BACK));
-  stairBlocks(steel, { x0: UP_X0, x1: gn.x0, d0: GB, d1: BACK, yFrom: LOWY, yTo: GATEY, steps: 3, axis: 'x' });
-  stairBlocks(steel, { x0: UP_X1, x1: PAD_X0, d0: GB, d1: BACK, yFrom: GATEY, yTo: LOWY, steps: 3, axis: 'x' });
+  stairFlight(steel, { x0: UP_X0, x1: gn.x0, d0: GB, d1: BACK, yFrom: LOWY, yTo: GATEY, steps: 3, axis: 'x' });
+  stairFlight(steel, { x0: UP_X1, x1: PAD_X0, d0: GB, d1: BACK, yFrom: GATEY, yTo: LOWY, steps: 3, axis: 'x' });
   // серая обшивка-кромка (как на фото)
   const fascia = [
     box(-W, UP_X0, LOWY - FASCIA_DROP, LOWY + FASCIA_RISE, GB - FASCIA_THICK, GB),
@@ -397,7 +416,9 @@ export function buildArchitecture(batch, M) {
   ];
   batch.add('galleries', M.fascia, fascia);
   railing(steel, -W, GB, UP_X0, GB, LOWY);
+  railing(steel, UP_X0, GB, gn.x0, GB, [LOWY, GATEY], { postStep: 0.6 });
   railing(steel, gn.x0, GB, UP_X1, GB, GATEY);
+  railing(steel, UP_X1, GB, PAD_X0, GB, [GATEY, LOWY], { postStep: 0.6 });
   // подвесы нижней галереи к верхней
   for (let x = -7.5; x < PAD_X0; x += 2.5) steel.push(cylBetween(P(x, x >= gn.x0 && x <= UP_X1 ? GATEY : LOWY, GB + 0.03), P(x, UPY - DECK_T, GB + 0.03), 0.022, 5));
   // труба под нижней галереей с синими приборами дежурки

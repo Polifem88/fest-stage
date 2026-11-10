@@ -290,17 +290,34 @@ export function buildPlanDXF(stage) {
 
   // --- 4. Галереи, узел подъёма и решётка (AR_GALLERIES) ---------------------
   const fToD = DIM.galleries.frontToD;
-  // Левая (с зазором от стены и задним углом), правая, задняя и передняя галереи
-  dxf.addRect(LEFT_GALLERY.x0, fToD, LEFT_GALLERY.x1, GB, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
-  dxf.addRect(-W, GB, -GX, BACK, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
-  dxf.addRect(GX, fToD, W, BACK, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
-  dxf.addRect(-GX, GB, GX, BACK, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
-  dxf.addRect(-W, DIM.galleries.frontFromD, W, fToD, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
-  // Площадка узла подъёма (1,85 × 1,85 м в правом заднем углу)
+  const upX0 = gn.x0 - DIM.galleries.gateStairW;
   const padX0 = W - DIM.liftNode.padSize, padD0 = BACK - DIM.liftNode.padSize;
-  dxf.addRect(padX0, padD0, W, BACK, { layer: 'AR_GALLERIES' });
-  dxf.addText((padX0 + W) / 2, (padD0 + BACK) / 2, `Узел подъёма ${fmtM(DIM.liftNode.padSize)}×${fmtM(DIM.liftNode.padSize)} (+${fmtM(DIM.liftNode.padY)})`, {
+  // Верхние галереи: левая (с зазором от стены), правая, единая задняя (-W..GX) и передняя
+  dxf.addRect(LEFT_GALLERY.x0, fToD, LEFT_GALLERY.x1, GB, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  dxf.addRect(GX, fToD, W, BACK, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  dxf.addRect(-W, GB, GX, BACK, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  dxf.addRect(-W, DIM.galleries.frontFromD, W, fToD, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  // Поднятый участок нижней галереи над воротами (+2,90) и боковые марши ступеней
+  dxf.addLine(upX0, GB, upX0, BACK, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  dxf.addLine(gn.x0, GB, gn.x0, BACK, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  dxf.addLine(gn.x1, GB, gn.x1, BACK, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  for (let i = 1; i <= 3; i++) {
+    const lx = upX0 + ((gn.x0 - upX0) * i) / 4;
+    const rx = gn.x1 + ((padX0 - gn.x1) * i) / 4;
+    dxf.addLine(lx, GB, lx, BACK, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+    dxf.addLine(rx, GB, rx, BACK, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  }
+  dxf.addText(gMid, (GB + BACK) / 2, `Галерея +${fmtM(DIM.galleries.overGateY)}`, {
     layer: 'AR_GALLERIES', height: 0.13, align: 'center', valign: 'middle',
+  });
+  // Площадка узла подъёма (1,85 × 1,85 м в правом заднем углу)
+  dxf.addRect(padX0, padD0, W, BACK, { layer: 'AR_GALLERIES' });
+  const padCx = (padX0 + W) / 2, padCy = (padD0 + BACK) / 2;
+  dxf.addText(padCx, padCy + 0.14, 'Узел подъёма', {
+    layer: 'AR_GALLERIES', height: 0.12, align: 'center', valign: 'middle',
+  });
+  dxf.addText(padCx, padCy - 0.14, `${fmtM(DIM.liftNode.padSize)}×${fmtM(DIM.liftNode.padSize)} (+${fmtM(DIM.liftNode.padY)})`, {
+    layer: 'AR_GALLERIES', height: 0.12, align: 'center', valign: 'middle',
   });
   // Косая решётка над приямком (пунктир по кромке и поперечины к стене)
   dxf.addLine(pitX0, pit.fromD, pitX1, pit.toD, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
@@ -619,9 +636,9 @@ export function buildSectionDXF(stage) {
   // --- 1. Оси и координатная сетка разреза (0_AXES, 0_GRID) ------------------
   // Красная линия портала (d = 0 -> X_cad = 0) и уровень чистого пола планшета (Y = 0)
   dxf.addLine(0, -2.5, 0, CEIL + 3.2, { layer: '0_AXES' });
-  dxf.addLine(X(gn.d1) - 1.8, 0, X(HALL_BACK_D - 2.6) + 1.2, 0, { layer: '0_AXES' });
+  dxf.addLine(X(gn.d1) - 3.8, 0, X(HALL_BACK_D - 2.6) + 1.2, 0, { layer: '0_AXES' });
   dxf.addText(0.12, CEIL + 2.8, 'КРАСНАЯ ЛИНИЯ ПОРТАЛА (d = 0)', { layer: '0_AXES', height: 0.18 });
-  dxf.addText(X(gn.d1) - 1.7, 0.12, 'УРОВЕНЬ ПЛАНШЕТА СЦЕНЫ (±0,000)', { layer: '0_AXES', height: 0.17 });
+  dxf.addText(X(gn.d1) - 0.35, 0.14, 'УРОВЕНЬ ПЛАНШЕТА СЦЕНЫ (±0,000)', { layer: '0_AXES', height: 0.16, align: 'right' });
 
   // Вертикальные линии сетки по глубине сцены (каждый 1 м)
   for (let d = -18; d <= 9; d++) {
@@ -750,9 +767,10 @@ export function buildSectionDXF(stage) {
   // Задняя верхняя галерея (+5.70) и её ограждение (+6.70)
   dxf.addRect(X(BACK), UPY - 0.12, X(GB), UPY, { layer: 'AR_GALLERIES' });
   dxf.addLine(X(GB), UPY, X(GB), UPY + RAIL_H, { layer: 'AR_GALLERIES' });
-  // Боковые верхние галереи в проекции (+5.70 от d=0.8 до d=8.3)
-  dxf.addLine(X(GB), UPY, X(fToD), UPY, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
-  dxf.addLine(X(GB), UPY + RAIL_H, X(fToD), UPY + RAIL_H, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  // Боковые верхние галереи в проекции (+5.70 от d=1.6 до d=8.3 и переходный марш к +6.20)
+  const stD1 = fToD + DIM.galleries.upperStairLen;
+  dxf.addPolyline([[X(GB), UPY], [X(stD1), UPY], [X(fToD), FRY]], { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  dxf.addPolyline([[X(GB), UPY + RAIL_H], [X(stD1), UPY + RAIL_H], [X(fToD), FRY + RAIL_H]], { layer: 'AR_GALLERIES', ltype: 'DASHED' });
 
   // Передний мостик над порталом (+6.20, d=0..0.8)
   dxf.addRect(X(fToD), FRY - 0.12, X(0), FRY, { layer: 'AR_GALLERIES' });
