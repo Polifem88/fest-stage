@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { DIM, BOX_HALF, GALLERY_INNER_X, BACK_GALLERY_FRONT_D } from '../../src/venues/fest-big/config/dimensions.js';
-import { RIGGING, SPACING, DEPTHS, LEFT_RAIL_ORDER, RIG_BY_ID, ropeDepth, DUTY_ROWS } from '../../src/venues/fest-big/config/rigging.js';
+import * as THREE from 'three';
+import { DIM, BOX_HALF, GALLERY_INNER_X, BACK_GALLERY_FRONT_D, LEFT_GALLERY, pitEdgeX, inPit, gateNiche, doorNiche } from '../../src/venues/fest-big/config/dimensions.js';
+import { RIGGING, SPACING, DEPTHS, LEFT_RAIL_ORDER, RIG_BY_ID, ropeDepth, DUTY_ROWS, counterweightX, ropeX } from '../../src/venues/fest-big/config/rigging.js';
 import { FIXTURES, TYPES, GROUPS, INVENTORY, countByType, PORTABLE, portablePlacement, SPECS } from '../../src/venues/fest-big/config/fixtures.js';
+import { RiggingSystem } from '../../src/venues/fest-big/build/rigging.js';
+import { traceToFloor } from '../../src/venues/fest-big/build/floor.js';
 
 describe('Паспорта приборов', () => {
   it('у каждого типа прибора есть паспортные данные с источником', () => {
@@ -25,8 +28,8 @@ describe('Размеры и глубины', () => {
     expect(DEPTHS.Rail).toBeCloseTo(BACK_GALLERY_FRONT_D, 2);
   });
 
-  it('ригель на 6.4 и выступает от потолка на 2.1 м', () => {
-    expect(DIM.box.ceiling - DIM.rigel.bottomY).toBeCloseTo(2.1, 5);
+  it('ригель на 6.65 и выступает от потолка на 1.85 м', () => {
+    expect(DIM.box.ceiling - DIM.rigel.bottomY).toBeCloseTo(1.85, 5);
     expect(DEPTHS.Rigel).toBeCloseTo(DIM.rigel.d, 3);
   });
 
@@ -58,12 +61,12 @@ describe('Механика', () => {
   });
 
   it('концы обычных штанкет не заходят на галереи; боковые — между концами и перилами', () => {
+    expect(DIM.pipe.length / 2).toBeLessThan(Math.abs(LEFT_GALLERY.x1));
     expect(DIM.pipe.length / 2).toBeLessThan(GALLERY_INNER_X);
-    for (const id of ['B1', 'B2']) {
-      const x = Math.abs(RIG_BY_ID[id].x);
-      expect(x).toBeGreaterThan(DIM.pipe.length / 2);
-      expect(x).toBeLessThan(GALLERY_INNER_X);
-    }
+    expect(Math.abs(RIG_BY_ID.B1.x)).toBeGreaterThan(DIM.pipe.length / 2);
+    expect(Math.abs(RIG_BY_ID.B1.x)).toBeLessThan(Math.abs(LEFT_GALLERY.x1));
+    expect(RIG_BY_ID.B2.x).toBeGreaterThan(DIM.pipe.length / 2);
+    expect(RIG_BY_ID.B2.x).toBeLessThan(GALLERY_INNER_X);
   });
 
   it('Б2 короче Б1 и не заходит на площадку узла подъёма', () => {
@@ -178,7 +181,7 @@ describe('Приборы', () => {
         const pl = port.map((f) => portablePlacement(f.portable.side, f.portable.k, mode, count));
         expect(pl.filter((p) => p.visible).length, `${mode} ${count}`).toBe(count);
         for (const p of pl.filter((q) => q.visible)) {
-          expect(Math.abs(p.mount.x)).toBeLessThan(DIM.box.width / 2 - DIM.galleries.width);
+          expect(Math.abs(p.mount.x)).toBeLessThan(Math.abs(LEFT_GALLERY.x1));
           expect(p.mount.d).toBeGreaterThan(DIM.portal.thickness);
           expect(p.mount.d).toBeLessThan(DIM.box.backWallD - 1);
           expect(Math.sign(p.aim.x)).toBe(-Math.sign(p.mount.x)); // светят поперёк сцены
@@ -186,5 +189,158 @@ describe('Приборы', () => {
       }
     }
     expect(port.map((f) => portablePlacement(f.portable.side, f.portable.k, 'off', 8)).some((p) => p.visible)).toBe(false);
+  });
+});
+
+const fakeM = () => new Proxy({}, { get: (t, p) => (t[p] ||= new THREE.MeshStandardMaterial({ name: String(p) })) });
+
+describe('Патч 1 · раздел 1', () => {
+  it('трубы Ш и С — 13,5 м, дорога — 15 м', () => {
+    expect(DIM.pipe.length).toBe(13.5);
+    expect(DIM.pipe.trackLength).toBe(15.0);
+  });
+
+  it('левая галерея в 0,65 от стены, ширина 0,9', () => {
+    expect(LEFT_GALLERY.x0).toBeCloseTo(-7.85, 6);
+    expect(LEFT_GALLERY.x1).toBeCloseTo(-6.95, 6);
+    expect(GALLERY_INNER_X).toBeCloseTo(7.6, 6);
+  });
+
+  it('Б1 = −6,80 (0,15 от левой галереи), Б2 = +7,10', () => {
+    expect(RIG_BY_ID.B1.x).toBeCloseTo(-6.80, 6);
+    expect(RIG_BY_ID.B2.x).toBeCloseTo(7.10, 6);
+  });
+
+  it('пределы хода по ТЗ', () => {
+    const want = { B1: [6.3, 6.3], B2: [6.6, 6.6], Sh2: [6.7, 6.7], Sh3: [6.7, 6.7], Sh4: [6.7, 6.7], Sh5: [6.7, 6.7], Sh6: [6.7, 6.7] };
+    for (const [id, [max, rest]] of Object.entries(want)) {
+      expect(RIG_BY_ID[id].max, id).toBe(max);
+      expect(RIG_BY_ID[id].rest, id).toBe(rest);
+    }
+    expect(RIG_BY_ID.Z.min).toBe(2);
+    expect(RIG_BY_ID.Z.rest).toBe(6);
+  });
+
+  it('ригель: низ 6,65', () => expect(DIM.rigel.bottomY).toBe(6.65));
+
+  it('площадка узла подъёма 1,85 и ось вертикальной лестницы 8,0', () => {
+    expect(DIM.liftNode.padSize).toBe(1.85);
+    expect(DIM.liftNode.vertLadder.d).toBe(8.0);
+  });
+
+  it('тяжи левой галереи — не ближе 0,15 к осям канатов, не ближе 0,20 к приборам GAL_L и вне ригеля', () => {
+    expect(DIM.galleries.leftHangersAssumption).toBe(true);
+    expect(DIM.galleries.upperStairLen).toBe(0.8);
+    expect(DIM.galleries.leftHangersD).toEqual([2.35, 4.40, 6.10, 7.00]);
+    const ropes = RIGGING.filter((r) => r.control === 'left').map((r) => ropeDepth(r.id));
+    const galL = FIXTURES.filter((f) => f.group === 'GAL_L');
+    for (const d of DIM.galleries.leftHangersD) {
+      for (const rd of ropes) expect(Math.abs(d - rd), `тяж ${d} у каната ${rd}`).toBeGreaterThanOrEqual(0.15);
+      for (const f of galL) expect(+Math.abs(d - f.mount.d).toFixed(6), `тяж ${d} у прибора № ${f.no}`).toBeGreaterThanOrEqual(0.2);
+      expect(Math.abs(d - DIM.rigel.d)).toBeGreaterThan(DIM.rigel.width / 2 + 0.1);
+      expect(d).toBeGreaterThan(DIM.galleries.frontToD + DIM.galleries.upperStairLen); // за лесенкой 6,2→5,7
+      expect(d).toBeLessThan(BACK_GALLERY_FRONT_D);
+    }
+  });
+
+  it('приборы левой галереи 187–192 снаружи перил на x = −6,85', () => {
+    const galL = FIXTURES.filter((f) => f.group === 'GAL_L');
+    expect(galL.length).toBe(6);
+    for (const f of galL) expect(f.mount.x, String(f.no)).toBeCloseTo(-6.85, 6);
+  });
+
+  it('старая высота Б1/Б2 = 6,5 обрезается до нового максимума', () => {
+    const rs = new RiggingSystem(fakeM(), {});
+    rs.setHeight('B1', 6.5);
+    rs.setHeight('B2', 6.5);
+    expect(rs.height('B1')).toBe(6.3);
+    expect(rs.height('B2')).toBe(6.5); // 6,5 ≤ 6,6 — без изменений
+  });
+});
+
+describe('Патч 1 · раздел 2', () => {
+  it('приямок — трапеция 0,5 → 1,0 на d 1,35…4,75, глубина 0,85', () => {
+    expect(pitEdgeX(1.35)).toBeCloseTo(8.0, 6);
+    expect(pitEdgeX(4.75)).toBeCloseTo(7.5, 6);
+    expect(DIM.pit.depth).toBe(0.85);
+    expect(DIM.pit.stepsAssumption).toBe(true);
+    expect(inPit(8.2, 3.0)).toBe(true);
+    expect(inPit(7.7, 2.0)).toBe(false); // был в старом прямоугольнике, вне трапеции
+    expect(inPit(8.2, 1.2)).toBe(false); // под выступом стены
+  });
+
+  it('выступ стены 0,5 × 1,1 от портала до приямка, верх под галереей', () => {
+    const p = DIM.wallPier;
+    expect(BOX_HALF - p.x0).toBeCloseTo(0.5, 6);
+    expect(p.toD - p.fromD).toBeCloseTo(1.1, 6);
+    expect(p.toD).toBe(DIM.pit.fromD);
+    expect(p.topY).toBeLessThan(DIM.galleries.upperY);
+  });
+
+  it('решётка не содержит устаревших ключей прямоугольника', () => {
+    expect(DIM.rack.fromD).toBeUndefined();
+    expect(DIM.rack.toD).toBeUndefined();
+    expect(DIM.rack.depthX).toBeUndefined();
+    expect(DIM.rack.height).toBeUndefined();
+    expect(DIM.rack.ladderD).toBeUndefined();
+    expect(DIM.rack.topY).toBe(DIM.wallPier.topY);
+  });
+
+  it('узел Ш1/С0/З сдвинут на 0,5; канат — в 0,2 от противовеса; конец дороги не задевает канат', () => {
+    for (const id of ['Z', 'C0', 'Sh1']) {
+      expect(counterweightX(RIG_BY_ID[id])).toBeCloseTo(7.86, 6);
+      expect(ropeX(RIG_BY_ID[id])).toBeCloseTo(7.66, 6);
+    }
+    expect(ropeX(RIG_BY_ID.Z) - DIM.pipe.trackLength / 2).toBeGreaterThan(0.1);
+    expect(counterweightX(RIG_BY_ID.Sh2)).toBeCloseTo(-8.36, 6); // левая стена — как было
+    expect(counterweightX(RIG_BY_ID.B2)).toBeCloseTo(8.36, 6);  // узел Б2 — как было
+    expect(DIM.wallPier.x0 - (counterweightX(RIG_BY_ID.Z) + 0.05)).toBeGreaterThan(0); // каретка не в выступе
+  });
+
+  it('боковая дверь — за выступом, в стенке приямка', () => {
+    const sd = DIM.openings.sideDoor;
+    expect(sd.fromD).toBeGreaterThanOrEqual(DIM.wallPier.toD);
+    expect(sd.fromD + sd.width).toBeLessThan(DIM.pit.toD - (DIM.pit.steps - 1) * DIM.pit.tread);
+  });
+
+  it('луч вниз: в трапеции — на дно, рядом снаружи — на планшет', () => {
+    const down = new THREE.Vector3(0, -1, 0);
+    expect(traceToFloor(new THREE.Vector3(8.2, 5, -3.0), down).point.y).toBeCloseTo(-0.85, 6);
+    expect(traceToFloor(new THREE.Vector3(7.7, 5, -2.0), down).point.y).toBeCloseTo(0, 6);
+  });
+});
+
+describe('Патч 1 · раздел 3', () => {
+  it('ниша ворот 2,95 × 1,1 в 2,4 от правой стены; высоты сходятся; без assumption', () => {
+    const g = gateNiche(), o = DIM.openings.gate;
+    expect(o.assumption).toBeUndefined();
+    expect(o.centerX).toBeUndefined();
+    expect(g.x1).toBeCloseTo(BOX_HALF - 2.4, 6);
+    expect(g.x0).toBeCloseTo(3.15, 6);
+    expect(g.d1 - g.d0).toBeCloseTo(1.1, 6);
+    expect(g.d0).toBe(DIM.box.backWallD);
+    expect(g.ceilY).toBe(2.4);
+    expect(g.floorDrop).toBeCloseTo(0.35, 6);
+    expect(o.height + o.guideH).toBeCloseTo(o.heightAtGate, 6);
+  });
+
+  it('ниша двери 0,95 × 1,1 в 3,6 от левой стены; над дверью 0,25; без assumption', () => {
+    const n = doorNiche(), o = DIM.openings.backDoor;
+    expect(o.assumption).toBeUndefined();
+    expect(o.centerX).toBeUndefined();
+    expect(n.x0).toBeCloseTo(-4.9, 6);
+    expect(n.x1).toBeCloseTo(-3.95, 6);
+    expect(n.d1 - n.d0).toBeCloseTo(1.1, 6);
+    expect(n.ceilY).toBe(1.9);
+    expect(n.floorDrop).toBeCloseTo(0.35, 6);
+    expect(o.heightAtDoor - o.height).toBeCloseTo(0.25, 6);
+  });
+
+  it('галерея над воротами: подъём ровно над нишей, обшивка выше проёма', () => {
+    const g = gateNiche();
+    expect(DIM.galleries.fasciaDrop).toBe(0.35);
+    expect(DIM.galleries.gateStairW).toBe(0.6);
+    expect(DIM.galleries.overGateY - DIM.galleries.fasciaDrop).toBeGreaterThan(g.ceilY);
+    expect(g.x1).toBeLessThan(BOX_HALF - DIM.liftNode.padSize);
   });
 });

@@ -6,10 +6,10 @@
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { DIM, BOX_HALF, HALL_HALF, RAKE, rowFrontD } from '../config/dimensions.js';
-import { RIGGING, ropeDepth, DUTY_ROWS } from '../config/rigging.js';
+import { DIM, HALL_HALF, RAKE, rowFrontD } from '../config/dimensions.js';
+import { RIGGING, RIG_BY_ID, RIGHT_FRONT_ORDER, ropeDepth, counterweightX, DUTY_ROWS } from '../config/rigging.js';
 import { FIXTURES, TYPES, PORTABLE, portablePlacement, BAR_DEPTH } from '../config/fixtures.js';
-import { StaticBatch } from '../../../core/geom.js';
+import { StaticBatch, box } from '../../../core/geom.js';
 import { buildArchitecture, buildSeats, buildEmitters } from '../build/architecture.js';
 import { DxfWriter } from '../../../export/dxfWriter.js';
 
@@ -239,7 +239,6 @@ export function build3DDXF(stage) {
   }
 
   // 4. Верхняя механика в 3D: трубы, ферма занавеса, тросы, каретки противовесов
-  const W = BOX_HALF;
   const CEIL = DIM.box.ceiling;
   const pipeR = DIM.pipe.diameter / 2;
 
@@ -285,7 +284,7 @@ export function build3DDXF(stage) {
     }
 
     // Каретка противовеса на реальной противофазной высоте
-    const cwX = r.control === 'left' ? -W + 0.14 : W - 0.14;
+    const cwX = counterweightX(r);
     const cwY = 0.6 + (r.max - hVal);
     const rd = ropeDepth(r.id);
     const cwBox = new THREE.BoxGeometry(0.1, 0.9, 0.13);
@@ -443,21 +442,31 @@ export function buildExportSceneForGLTF(stage) {
   buildArchitecture(batch, M);
 
   // Добавляем статическую механику (направляющие, блоки, ограждение противовесов)
-  const W = BOX_HALF, CEIL = DIM.box.ceiling;
+  const CEIL = DIM.box.ceiling;
   const staticRigGeoms = [];
   for (const r of RIGGING) {
-    const left = r.control === 'left';
-    const x = left ? -W + 0.14 : W - 0.14;
+    const x = counterweightX(r);
     const d = ropeDepth(r.id);
+    const guideTop = r.control === 'right-front' ? DIM.controls.rightFront.guideTopY : CEIL - 0.3;
     for (const dd of [d - 0.085, d + 0.085]) {
-      const guide = new THREE.BoxGeometry(0.06, CEIL - 0.45, 0.02);
-      guide.translate(x, (0.15 + CEIL - 0.3) / 2, -dd);
+      const guide = new THREE.BoxGeometry(0.06, guideTop - 0.15, 0.02);
+      guide.translate(x, (0.15 + guideTop) / 2, -dd);
       staticRigGeoms.push(guide);
     }
     const blk = new THREE.CylinderGeometry(0.11, 0.11, 0.06, 10).rotateZ(Math.PI / 2);
     blk.translate(x, CEIL - 0.2, -d);
     staticRigGeoms.push(blk);
   }
+  const cwRF = counterweightX(RIG_BY_ID[RIGHT_FRONT_ORDER[0]]);
+  const guideTopRF = DIM.controls.rightFront.guideTopY;
+  const rfD0 = ropeDepth(RIGHT_FRONT_ORDER[0]) - 0.095;
+  const rfD1 = ropeDepth(RIGHT_FRONT_ORDER.at(-1)) + 0.095;
+  staticRigGeoms.push(
+    box(cwRF - 0.03, cwRF + 0.03, guideTopRF - 0.04, guideTopRF, rfD0, rfD1),
+    box(cwRF - 0.03, cwRF + 0.03, guideTopRF, DIM.galleries.frontY - 0.06, rfD0, rfD0 + 0.04),
+    box(cwRF - 0.03, DIM.wallPier.x0, DIM.wallPier.topY - 0.06, DIM.wallPier.topY, rfD0, rfD0 + 0.04),
+    box(cwRF - 0.03, DIM.wallPier.x0, DIM.wallPier.topY - 0.06, DIM.wallPier.topY, rfD1 - 0.04, rfD1),
+  );
   batch.add('rigging', M.steel, staticRigGeoms);
 
   const builtLayers = batch.build();
@@ -561,7 +570,7 @@ export function buildExportSceneForGLTF(stage) {
     }
 
     // Каретка противовеса на реальной высоте
-    const cwX = r.control === 'left' ? -W + 0.14 : W - 0.14;
+    const cwX = counterweightX(r);
     const cwY = 0.6 + (r.max - hVal);
     const rd = ropeDepth(r.id);
     const cwRaw = new THREE.BoxGeometry(0.1, 0.9, 0.13);

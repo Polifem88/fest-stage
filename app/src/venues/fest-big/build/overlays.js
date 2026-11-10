@@ -1,6 +1,6 @@
 // Размерные линии с подписями и сетка на планшете.
 import * as THREE from 'three';
-import { DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, rowFrontD } from '../config/dimensions.js';
+import { DIM, BOX_HALF, HALL_HALF, LEFT_GALLERY, rowFrontD, pitEdgeX } from '../config/dimensions.js';
 import { HALL_BACK_FLOOR_Y } from './architecture.js';
 import { buildDimsFromList } from '../../../core/overlays.js';
 
@@ -9,6 +9,7 @@ const fmt = (m) => `${m.toFixed(2).replace(/\.?0+$/, '').replace('.', ',')} м`;
 /** Список размеров: [p1(x,y,d), p2(x,y,d), подпись, положение подписи 0…1 (по умолчанию середина)] */
 function dimList() {
   const W = BOX_HALF, PW2 = DIM.portal.width / 2, FS = DIM.forestage;
+  const galLX = (LEFT_GALLERY.x0 + LEFT_GALLERY.x1) / 2;
   return [
     [[-PW2, DIM.portal.height + 0.25, -0.05], [PW2, DIM.portal.height + 0.25, -0.05], `Портал ${fmt(DIM.portal.width)}`],
     [[-PW2 - 0.35, 0, -0.05], [-PW2 - 0.35, DIM.portal.height, -0.05], `${fmt(DIM.portal.height)}`, 0.35], // подпись ниже «Деко-потолка»
@@ -19,7 +20,7 @@ function dimList() {
     [[-FS.frontWidth / 2, -FS.height + 0.02, -FS.depth - 0.25], [FS.frontWidth / 2, -FS.height + 0.02, -FS.depth - 0.25], `Перед авансцены ${fmt(FS.frontWidth)}`],
     [[W - 1.2, 0, 5.0], [W - 1.2, DIM.box.ceiling, 5.0], `Потолок ${fmt(DIM.box.ceiling)}`],
     [[-W + 1.2, 0, DIM.rigel.d], [-W + 1.2, DIM.rigel.bottomY, DIM.rigel.d], `Ригель ${fmt(DIM.rigel.bottomY)}`, 0.7],
-    [[-W + 0.45, 0, 6.2], [-W + 0.45, DIM.galleries.upperY, 6.2], `Галерея ${fmt(DIM.galleries.upperY)}`],
+    [[galLX, 0, 6.2], [galLX, DIM.galleries.upperY, 6.2], `Галерея ${fmt(DIM.galleries.upperY)}`],
     [[-1.5, 0, DIM.box.backWallD - 0.45], [-1.5, DIM.galleries.lowerY, DIM.box.backWallD - 0.45], `Нижняя галерея ${fmt(DIM.galleries.lowerY)}`],
     // высота сцены: у переднего края авансцены по оси (не на боковых ступенях)
     [[-3.5, -FS.height, -FS.depth - 0.1], [-3.5, 0, -FS.depth - 0.1], `Сцена ${fmt(FS.height)}`],
@@ -42,19 +43,31 @@ export function buildGrid(labels) {
   g.name = 'grid';
   const v = [];
   const W = BOX_HALF;
-  const GX = GALLERY_INNER_X;
   const pit = DIM.pit;
+  const pier = DIM.wallPier;
+  const pitX0 = pitEdgeX(pit.fromD), pitX1 = pitEdgeX(pit.toD);
+  const pitXMin = Math.min(pitX0, pitX1), pitXMax = Math.max(pitX0, pitX1);
   const d0 = -DIM.forestage.depth, d1 = DIM.box.backWallD;
   for (let x = -8; x <= 8; x++) {
-    if (x > GX) {
-      v.push(x, 0.006, -d0, x, 0.006, -pit.fromD);
+    if (x > pier.x0) {
+      v.push(x, 0.006, -d0, x, 0.006, -pier.fromD);
+      v.push(x, 0.006, -pit.toD, x, 0.006, -d1);
+    } else if (x > pitXMin) {
+      const dEnter = x >= pitXMax
+        ? pit.fromD
+        : pit.fromD + ((W - pit.fromW - x) / (pit.toW - pit.fromW)) * (pit.toD - pit.fromD);
+      v.push(x, 0.006, -d0, x, 0.006, -dEnter);
       v.push(x, 0.006, -pit.toD, x, 0.006, -d1);
     } else {
       v.push(x, 0.006, -d0, x, 0.006, -d1);
     }
   }
   for (let d = Math.ceil(d0); d <= d1; d++) {
-    const xMax = d > pit.fromD && d < pit.toD ? GX : W;
+    const xMax = d > pit.fromD && d < pit.toD
+      ? pitEdgeX(d)
+      : d > pier.fromD && d < pier.toD
+        ? pier.x0
+        : W;
     v.push(-W, 0.006, -d, xMax, 0.006, -d);
   }
   const geo = new THREE.BufferGeometry();

@@ -2,13 +2,27 @@
 // тросы подвеса, канаты управления, противовесы (каретки) на рабочей галерее.
 import * as THREE from 'three';
 import { DIM, BOX_HALF } from '../config/dimensions.js';
-import { RIGGING, RIG_BY_ID, ropeDepth, LEFT_RAIL_ORDER, RIGHT_FRONT_ORDER } from '../config/rigging.js';
+import { RIGGING, RIG_BY_ID, ropeDepth, counterweightX, ropeX, LEFT_RAIL_ORDER, RIGHT_FRONT_ORDER } from '../config/rigging.js';
 import { box, cylBetween, P } from '../../../core/geom.js';
 
 const W = BOX_HALF;
 const CEIL = DIM.box.ceiling;
-const CW_X_LEFT = -W + 0.14;
-const CW_X_RIGHT = W - 0.14;
+const GUIDE_BOTTOM_Y = 0.15;
+const GUIDE_HALF_X = 0.03;
+const GUIDE_HALF_D = 0.01;
+const GUIDE_D_OFFSET = 0.085;
+const GUIDE_HEADER_H = 0.04;
+const GUIDE_TIE_H = 0.06;
+const FRONT_DECK_T = 0.06;
+const LOCK_HEIGHTS = [0.45, 1.0];
+const LOCK_PIPE_R = 0.03;
+const LOCK_POST_HALF = 0.02;
+const LOCK_POST_TOP_Y = 1.02;
+const LOCK_TIE_Y0 = 0.98;
+const LOCK_LEFT_PAD = 0.3;
+const LOCK_LEFT_STEP = 1.2;
+const LOCK_RF_PAD = 0.2;
+const LOCK_B2_HALF = 0.25;
 
 export class RiggingSystem {
   /**
@@ -118,15 +132,17 @@ export class RiggingSystem {
     const ropeLines = [];
     const blocks = [];
     for (const r of RIGGING) {
-      const left = r.control === 'left';
-      const x = left ? CW_X_LEFT : CW_X_RIGHT;
+      const x = counterweightX(r);
+      const rx = ropeX(r);
       const d = ropeDepth(r.id);
+      const guideTop = r.control === 'right-front' ? DIM.controls.rightFront.guideTopY : CEIL - 0.3;
       // направляющие (пара Т-профилей)
-      for (const dd of [d - 0.085, d + 0.085]) steel.push(box(x - 0.03, x + 0.03, 0.15, CEIL - 0.3, dd - 0.01, dd + 0.01));
+      for (const dd of [d - GUIDE_D_OFFSET, d + GUIDE_D_OFFSET]) {
+        steel.push(box(x - GUIDE_HALF_X, x + GUIDE_HALF_X, GUIDE_BOTTOM_Y, guideTop, dd - GUIDE_HALF_D, dd + GUIDE_HALF_D));
+      }
       // головной блок над направляющей
       blocks.push(new THREE.CylinderGeometry(0.11, 0.11, 0.06, 12).rotateZ(Math.PI / 2).translate(x, CEIL - 0.2, -d));
       // канат управления (ручной): вертикаль у фиксатора
-      const rx = left ? -W + 0.62 : W - 0.62;
       ropeLines.push(rx, 0.3, -d, rx, CEIL - 0.2, -d);
       ropeLines.push(rx, CEIL - 0.2, -d, x, CEIL - 0.2, -d);
       // трос от головного блока к подвесам по потолку
@@ -153,15 +169,52 @@ export class RiggingSystem {
         }
       }
     }
-    // фиксаторы канатов (две трубы) — левая стена и правый передний угол
-    const lockL = [ropeDepth(LEFT_RAIL_ORDER[0]) - 0.3, ropeDepth(LEFT_RAIL_ORDER.at(-1)) + 0.3];
-    for (const y of [0.45, 1.0]) steel.push(cylBetween(P(-W + 0.62, y, lockL[0]), P(-W + 0.62, y, lockL[1]), 0.03, 8));
-    const lockR = [ropeDepth(RIGHT_FRONT_ORDER[0]) - 0.2, ropeDepth(RIGHT_FRONT_ORDER.at(-1)) + 0.2];
-    for (const y of [0.45, 1.0]) steel.push(cylBetween(P(W - 0.62, y, lockR[0]), P(W - 0.62, y, lockR[1]), 0.03, 8));
+    // верхняя обвязка и кронштейны направляющих правого переднего узла к передней галерее и выступу стены
+    const cwRF = counterweightX(RIG_BY_ID[RIGHT_FRONT_ORDER[0]]);
+    const guideTopRF = DIM.controls.rightFront.guideTopY;
+    const rfD0 = ropeDepth(RIGHT_FRONT_ORDER[0]) - GUIDE_D_OFFSET - GUIDE_HALF_D;
+    const rfD1 = ropeDepth(RIGHT_FRONT_ORDER.at(-1)) + GUIDE_D_OFFSET + GUIDE_HALF_D;
+    steel.push(
+      box(cwRF - GUIDE_HALF_X, cwRF + GUIDE_HALF_X, guideTopRF - GUIDE_HEADER_H, guideTopRF, rfD0, rfD1),
+      box(cwRF - GUIDE_HALF_X, cwRF + GUIDE_HALF_X, guideTopRF, DIM.galleries.frontY - FRONT_DECK_T, rfD0, rfD0 + GUIDE_HEADER_H),
+      box(cwRF - GUIDE_HALF_X, DIM.wallPier.x0, DIM.wallPier.topY - GUIDE_TIE_H, DIM.wallPier.topY, rfD0, rfD0 + GUIDE_HEADER_H),
+      box(cwRF - GUIDE_HALF_X, DIM.wallPier.x0, DIM.wallPier.topY - GUIDE_TIE_H, DIM.wallPier.topY, rfD1 - GUIDE_HEADER_H, rfD1),
+    );
+    // фиксаторы канатов (две трубы) и их стойки до пола — левая стена, правый передний угол и узел Б2
+    const rxL = ropeX(RIG_BY_ID[LEFT_RAIL_ORDER[0]]);
+    const lockL = [ropeDepth(LEFT_RAIL_ORDER[0]) - LOCK_LEFT_PAD, ropeDepth(LEFT_RAIL_ORDER.at(-1)) + LOCK_LEFT_PAD];
+    for (const y of LOCK_HEIGHTS) steel.push(cylBetween(P(rxL, y, lockL[0]), P(rxL, y, lockL[1]), LOCK_PIPE_R, 8));
+    for (let d = lockL[0]; d <= lockL[1] + 1e-6; d += LOCK_LEFT_STEP) {
+      steel.push(
+        box(-W, rxL + LOCK_PIPE_R, LOCK_TIE_Y0, LOCK_POST_TOP_Y, d - LOCK_POST_HALF, d + LOCK_POST_HALF),
+        box(rxL - LOCK_POST_HALF, rxL + LOCK_POST_HALF, 0, LOCK_POST_TOP_Y, d - LOCK_POST_HALF, d + LOCK_POST_HALF),
+      );
+    }
+    steel.push(
+      box(-W, rxL + LOCK_PIPE_R, LOCK_TIE_Y0, LOCK_POST_TOP_Y, lockL[1] - LOCK_POST_HALF, lockL[1] + LOCK_POST_HALF),
+      box(rxL - LOCK_POST_HALF, rxL + LOCK_POST_HALF, 0, LOCK_POST_TOP_Y, lockL[1] - LOCK_POST_HALF, lockL[1] + LOCK_POST_HALF),
+    );
+
+    const rxRF = ropeX(RIG_BY_ID[RIGHT_FRONT_ORDER[0]]);
+    const lockR = [ropeDepth(RIGHT_FRONT_ORDER[0]) - LOCK_RF_PAD, ropeDepth(RIGHT_FRONT_ORDER.at(-1)) + LOCK_RF_PAD];
+    for (const y of LOCK_HEIGHTS) steel.push(cylBetween(P(rxRF, y, lockR[0]), P(rxRF, y, lockR[1]), LOCK_PIPE_R, 8));
+    for (const d of lockR) {
+      steel.push(
+        box(rxRF - LOCK_PIPE_R, DIM.wallPier.x0, LOCK_TIE_Y0, LOCK_POST_TOP_Y, d - LOCK_POST_HALF, d + LOCK_POST_HALF),
+        box(rxRF - LOCK_POST_HALF, rxRF + LOCK_POST_HALF, 0, LOCK_POST_TOP_Y, d - LOCK_POST_HALF, d + LOCK_POST_HALF),
+      );
+    }
+
+    const rxB2 = ropeX(RIG_BY_ID.B2);
     const b2 = ropeDepth('B2');
-    for (const y of [0.45, 1.0]) steel.push(cylBetween(P(W - 0.62, y, b2 - 0.25), P(W - 0.62, y, b2 + 0.25), 0.03, 8));
-    // стойки фиксатора
-    for (let d = lockL[0]; d <= lockL[1] + 1e-6; d += 1.2) steel.push(box(-W, -W + 0.65, 0.98, 1.02, d - 0.02, d + 0.02), box(-W + 0.6, -W + 0.64, 0, 1.0, d - 0.02, d + 0.02));
+    const lockB2 = [b2 - LOCK_B2_HALF, b2 + LOCK_B2_HALF];
+    for (const y of LOCK_HEIGHTS) steel.push(cylBetween(P(rxB2, y, lockB2[0]), P(rxB2, y, lockB2[1]), LOCK_PIPE_R, 8));
+    for (const d of lockB2) {
+      steel.push(
+        box(rxB2 - LOCK_PIPE_R, W, LOCK_TIE_Y0, LOCK_POST_TOP_Y, d - LOCK_POST_HALF, d + LOCK_POST_HALF),
+        box(rxB2 - LOCK_POST_HALF, rxB2 + LOCK_POST_HALF, 0, LOCK_POST_TOP_Y, d - LOCK_POST_HALF, d + LOCK_POST_HALF),
+      );
+    }
     // решётка-ограждение противовесов на левой стене (сетка + стойки), как на фото
     const cageX = -W + 0.32;
     steel.push(box(cageX - 0.02, cageX + 0.02, 1.9, 1.94, lockL[0], lockL[1]));
@@ -183,9 +236,8 @@ export class RiggingSystem {
     // подписи у канатов управления
     if (this.opts.labels && this.opts.ropeLabels) {
       for (const r of RIGGING) {
-        const left = r.control === 'left';
         const s = this.opts.labels.make(r.name, { px: 12, color: '#f3e6c8', bg: 'rgba(40,30,15,0.8)', kind: 'rope' });
-        s.position.set(left ? -W + 0.62 : W - 0.62, 1.35, -ropeDepth(r.id));
+        s.position.set(ropeX(r), 1.35, -ropeDepth(r.id));
         s.userData.rigId = r.id;
         this.root.add(s);
       }
@@ -216,7 +268,7 @@ export class RiggingSystem {
     for (let k = 0; k < ci.count; k++) pos.setY(ci.start + k * 2, it.h);
     pos.needsUpdate = true;
     // противовес: 1:1 — штанкет вниз, каретка вверх
-    const x = r.control === 'left' ? CW_X_LEFT : CW_X_RIGHT;
+    const x = counterweightX(r);
     const y = 0.6 + (r.max - it.h);
     const m = new THREE.Matrix4().makeTranslation(x, y, -ropeDepth(id));
     this.arbors.setMatrixAt(it.cwIndex, m);

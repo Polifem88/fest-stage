@@ -5,6 +5,8 @@
 //  min/max — ход по высоте (высота трубы над планшетом), rest — исходное положение.
 // =============================================================================
 
+import { DIM, BOX_HALF, LEFT_GALLERY } from './dimensions.js';
+
 // Расстояния из тех. файла (от портала вглубь), м
 export const SPACING = [
   ['Portal', 'Z', 0.3],
@@ -47,10 +49,11 @@ export function computeDepths() {
 }
 
 const D = computeDepths();
+const B1_GAP = 0.15; // зазор Б1 от внутренней кромки левой галереи (уточнение заказчика)
 
 /**
  * kind:
- *   batten — штанкет (труба Ø50, 14 м, 4 подвеса)
+ *   batten — штанкет (труба Ø50, 13,5 м, 4 подвеса)
  *   light  — софит (такая же труба с приборами, глубина по приборам 0.5 м)
  *   track  — дорога занавеса (15 м, 0.2 м)
  *   side   — боковой штанкет (вдоль глубины, 3 подвеса)
@@ -59,14 +62,14 @@ const D = computeDepths();
 export const RIGGING = [
   { id: 'C0', name: 'С0', kind: 'light', d: D.C0, min: 2, max: 6, rest: 5.6, control: 'right-front', via: 'redirect', lines: 4 },
   { id: 'Sh0', name: 'Ш0', kind: 'batten', d: D.Sh0, min: 1, max: 6, rest: 5.9, control: 'left', via: 'redirect', lines: 4 },
-  { id: 'Z', name: 'З', kind: 'track', d: D.Z, min: 3, max: 6, rest: 6, control: 'right-front', via: 'direct', lines: 4, fullName: 'Дорога занавеса' },
+  { id: 'Z', name: 'З', kind: 'track', d: D.Z, min: 2, max: 6, rest: 6, control: 'right-front', via: 'direct', lines: 4, fullName: 'Дорога занавеса' },
   { id: 'Sh1', name: 'Ш1', kind: 'batten', d: D.Sh1, min: 1.5, max: 6, rest: 6, control: 'right-front', via: 'direct', lines: 4 },
-  { id: 'Sh2', name: 'Ш2', kind: 'batten', d: D.Sh2, min: 1, max: 6.5, rest: 6.5, control: 'left', via: 'direct', lines: 4 },
+  { id: 'Sh2', name: 'Ш2', kind: 'batten', d: D.Sh2, min: 1, max: 6.7, rest: 6.7, control: 'left', via: 'direct', lines: 4 },
   { id: 'C1', name: 'С1', kind: 'light', d: D.C1, min: 2, max: 7, rest: 6.6, control: 'left', via: 'direct', lines: 4 },
-  { id: 'Sh3', name: 'Ш3', kind: 'batten', d: D.Sh3, min: 1, max: 6.5, rest: 6.5, control: 'left', via: 'direct', lines: 4 },
-  { id: 'Sh4', name: 'Ш4', kind: 'batten', d: D.Sh4, min: 1, max: 6.5, rest: 6.5, control: 'left', via: 'direct', lines: 4 },
-  { id: 'Sh5', name: 'Ш5', kind: 'batten', d: D.Sh5, min: 1, max: 6.5, rest: 6.5, control: 'left', via: 'direct', lines: 4 },
-  { id: 'Sh6', name: 'Ш6', kind: 'batten', d: D.Sh6, min: 1, max: 6.5, rest: 6.5, control: 'left', via: 'direct', lines: 4 },
+  { id: 'Sh3', name: 'Ш3', kind: 'batten', d: D.Sh3, min: 1, max: 6.7, rest: 6.7, control: 'left', via: 'direct', lines: 4 },
+  { id: 'Sh4', name: 'Ш4', kind: 'batten', d: D.Sh4, min: 1, max: 6.7, rest: 6.7, control: 'left', via: 'direct', lines: 4 },
+  { id: 'Sh5', name: 'Ш5', kind: 'batten', d: D.Sh5, min: 1, max: 6.7, rest: 6.7, control: 'left', via: 'direct', lines: 4 },
+  { id: 'Sh6', name: 'Ш6', kind: 'batten', d: D.Sh6, min: 1, max: 6.7, rest: 6.7, control: 'left', via: 'direct', lines: 4 },
   { id: 'C2', name: 'С2', kind: 'light', d: D.C2, min: 2, max: 7, rest: 6.6, control: 'left', via: 'direct', lines: 4 },
   { id: 'Sh7', name: 'Ш7', kind: 'batten', d: D.Sh7, min: 1, max: 6.9, rest: 6.9, control: 'left', via: 'direct', lines: 4 },
   { id: 'Sh8', name: 'Ш8', kind: 'batten', d: D.Sh8, min: 1, max: 6.9, rest: 6.9, control: 'left', via: 'direct', lines: 4 },
@@ -75,9 +78,9 @@ export const RIGGING = [
   { id: 'Sh10', name: 'Ш10', kind: 'batten', d: D.Sh10, min: 1, max: 6.9, rest: 6.9, control: 'left', via: 'direct', lines: 4 },
   { id: 'Sh11', name: 'Ш11', kind: 'batten', d: D.Sh11, min: 1, max: 6.9, rest: 6.9, control: 'left', via: 'direct', lines: 4 },
   { id: 'Sh12', name: 'Ш12', kind: 'batten', d: D.Sh12, min: 1, max: 6.9, rest: 6.9, control: 'left', via: 'direct', lines: 4 },
-  // Боковые: перпендикулярно сцене, между галереей и концами обычных штанкет (концы на ±7.0, перила на ±7.6)
-  { id: 'B1', name: 'Б1', kind: 'side', x: -7.3, dFrom: D.Sh2, dTo: D.Sh11, min: 1, max: 6.5, rest: 6.5, control: 'left', via: 'direct', lines: 3 },
-  { id: 'B2', name: 'Б2', kind: 'side', x: 7.3, dFrom: D.Sh2, dTo: D.Sh9, min: 1, max: 6.5, rest: 6.5, control: 'right-back-pad', via: 'direct', lines: 3 },
+  // Боковые: вдоль глубины сцены, между концами обычных штанкет (±6,75) и боковыми галереями (-6,95 и +7,60)
+  { id: 'B1', name: 'Б1', kind: 'side', x: +(LEFT_GALLERY.x1 + B1_GAP).toFixed(4), dFrom: D.Sh2, dTo: D.Sh11, min: 1, max: 6.3, rest: 6.3, control: 'left', via: 'direct', lines: 3 },
+  { id: 'B2', name: 'Б2', kind: 'side', x: 7.1, dFrom: D.Sh2, dTo: D.Sh9, min: 1, max: 6.6, rest: 6.6, control: 'right-back-pad', via: 'direct', lines: 3 },
 ];
 
 export const RIG_BY_ID = Object.fromEntries(RIGGING.map((r) => [r.id, r]));
@@ -105,6 +108,22 @@ export function ropeDepth(id) {
   for (let k = i + 1; k < order.length && next == null; k++) next = own(order[k]);
   if (prev != null && next != null) return (prev + next) / 2;
   return (prev ?? next) + (prev != null ? 0.15 : -0.15);
+}
+
+/** Координата X каретки противовеса и направляющих для подъёма r. */
+export function counterweightX(r) {
+  const c = DIM.controls;
+  if (r.control === 'left') return +(-BOX_HALF + c.cwInset).toFixed(4);
+  if (r.control === 'right-front') return +(BOX_HALF - c.cwInset - c.rightFront.shiftX).toFixed(4);
+  return +(BOX_HALF - c.cwInset).toFixed(4);
+}
+
+/** Координата X ручного каната управления и фиксатора для подъёма r. */
+export function ropeX(r) {
+  const c = DIM.controls;
+  if (r.control === 'left') return +(-BOX_HALF + c.ropeInset).toFixed(4);
+  if (r.control === 'right-front') return +(counterweightX(r) - c.rightFront.ropeGap).toFixed(4);
+  return +(BOX_HALF - c.ropeInset).toFixed(4);
 }
 
 // Линии дежурного освещения (ДО) — между соседними объектами
