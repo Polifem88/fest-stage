@@ -8,7 +8,7 @@
 // =============================================================================
 import {
   DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, LEFT_GALLERY, BACK_GALLERY_FRONT_D,
-  RAKE, rowFrontD, hallFloorY, pitEdgeX,
+  RAKE, rowFrontD, hallFloorY, pitEdgeX, gateNiche, doorNiche,
 } from '../config/dimensions.js';
 import { RIGGING, RIG_BY_ID, SPACING, LEFT_RAIL_ORDER, RIGHT_FRONT_ORDER, ropeDepth, counterweightX, DUTY_ROWS } from '../config/rigging.js';
 import { FIXTURES, TYPES, GROUPS, PORTABLE, portablePlacement, BAR_DEPTH } from '../config/fixtures.js';
@@ -160,7 +160,9 @@ export function buildPlanDXF(stage) {
   const HALL_BACK_D = -DIM.hall.portalToBoothWall; // -18.0
 
   // --- 1. Оси и метровая сетка (0_AXES, 0_GRID) ------------------------------
-  dxf.addLine(0, HALL_BACK_D - 2.8, 0, BACK + 1.2, { layer: '0_AXES' });
+  const gn = gateNiche();
+  const dn = doorNiche();
+  dxf.addLine(0, HALL_BACK_D - 2.8, 0, gn.d1 + 1.1, { layer: '0_AXES' });
   dxf.addLine(-HW - 1.2, 0, HW + 1.2, 0, { layer: '0_AXES' });
   dxf.addText(0.15, BACK + 0.85, 'ОСЬ СЦЕНЫ (X = 0)', { layer: '0_AXES', height: 0.18 });
   dxf.addText(-HW - 1.1, 0.12, 'КРАСНАЯ ЛИНИЯ ПОРТАЛА (d = 0)', { layer: '0_AXES', height: 0.18 });
@@ -185,7 +187,7 @@ export function buildPlanDXF(stage) {
       }
     }
     if (x % 2 === 0) {
-      dxf.addText(x, BACK + 0.35, `${x > 0 ? '+' : ''}${x}`, { layer: '0_GRID', height: 0.18, align: 'center', valign: 'bottom' });
+      dxf.addText(x, gn.d1 + 0.65, `${x > 0 ? '+' : ''}${x}`, { layer: '0_GRID', height: 0.18, align: 'center', valign: 'bottom' });
     }
   }
   for (let d = Math.ceil(-FS.depth); d <= Math.floor(BACK); d++) {
@@ -213,20 +215,29 @@ export function buildPlanDXF(stage) {
   dxf.addLine(W, sd.fromD, W + 0.75, sd.fromD + sd.width * 0.6, { layer: 'AR_WALLS' });
   dxf.addText(W + 0.45, sd.fromD + sd.width / 2, `Дверь (-${fmtM(pit.depth)})`, { layer: 'AR_WALLS', height: 0.15 });
 
-  // Задняя стена с грузовыми воротами и дверью
+  // Задняя стена с нишами грузовых ворот и двери (d = 9,20..10,30 м, пандус до -0,35 м)
   const gate = DIM.openings.gate;
-  const gX0 = gate.centerX - gate.width / 2, gX1 = gate.centerX + gate.width / 2;
   const bd = DIM.openings.backDoor;
-  const bdX0 = bd.centerX - bd.width / 2, bdX1 = bd.centerX + bd.width / 2;
-  dxf.addRect(-W, BACK, bdX0, BACK + wallT, { layer: 'AR_WALLS' });
-  dxf.addRect(bdX1, BACK, gX0, BACK + wallT, { layer: 'AR_WALLS' });
-  dxf.addRect(gX1, BACK, W, BACK + wallT, { layer: 'AR_WALLS' });
-  // Створки ворот и задней двери
-  dxf.addLine(bdX0, BACK, bdX1, BACK + 0.65, { layer: 'AR_WALLS' });
-  dxf.addLine(gX0, BACK, gate.centerX, BACK + 0.9, { layer: 'AR_WALLS' });
-  dxf.addLine(gX1, BACK, gate.centerX, BACK + 0.9, { layer: 'AR_WALLS' });
-  dxf.addText(gate.centerX, BACK + 0.42, `Ворота ${fmtM(gate.width, 1)}×${fmtM(gate.height, 1)} м`, { layer: 'AR_WALLS', height: 0.17, align: 'center' });
-  dxf.addText(bd.centerX, BACK + 0.42, 'Дверь', { layer: 'AR_WALLS', height: 0.16, align: 'center' });
+  const gMid = (gn.x0 + gn.x1) / 2;
+  const bdMid = (dn.x0 + dn.x1) / 2;
+  dxf.addRect(-W, BACK, dn.x0, BACK + wallT, { layer: 'AR_WALLS' });
+  dxf.addRect(dn.x1, BACK, gn.x0, BACK + wallT, { layer: 'AR_WALLS' });
+  dxf.addRect(gn.x1, BACK, W, BACK + wallT, { layer: 'AR_WALLS' });
+  // Пороги пандусов в плоскости стены (пунктир) и контуры ниш на d = 9,20..10,30 м
+  dxf.addLine(dn.x0, dn.d0, dn.x1, dn.d0, { layer: 'AR_WALLS', ltype: 'DASHED' });
+  dxf.addPolyline([[dn.x0, BACK + wallT], [dn.x0, dn.d1], [dn.x1, dn.d1], [dn.x1, BACK + wallT]], { layer: 'AR_WALLS' });
+  dxf.addLine(gn.x0, gn.d0, gn.x1, gn.d0, { layer: 'AR_WALLS', ltype: 'DASHED' });
+  dxf.addPolyline([[gn.x0, BACK + wallT], [gn.x0, gn.d1], [gn.x1, gn.d1], [gn.x1, BACK + wallT]], { layer: 'AR_WALLS' });
+  // Створки ворот и задней двери у дальней плоскости ниш (d = 10,30 м)
+  dxf.addLine(dn.x0, dn.d1, dn.x1, dn.d1 + 0.45, { layer: 'AR_WALLS' });
+  dxf.addLine(gn.x0, gn.d1, gMid, gn.d1 + 0.55, { layer: 'AR_WALLS' });
+  dxf.addLine(gn.x1, gn.d1, gMid, gn.d1 + 0.55, { layer: 'AR_WALLS' });
+  dxf.addText(gMid, (gn.d0 + gn.d1) / 2, `Ворота ${fmtM(gate.width)}×${fmtM(gate.height)} м (-${fmtM(gn.floorDrop)})`, {
+    layer: 'AR_WALLS', height: 0.15, align: 'center', valign: 'middle',
+  });
+  dxf.addText(bdMid, (dn.d0 + dn.d1) / 2, `Дверь ${fmtM(bd.width)}×${fmtM(bd.height)} (-${fmtM(dn.floorDrop)})`, {
+    layer: 'AR_WALLS', height: 0.13, align: 'center', valign: 'middle',
+  });
 
   // Пилоны портала
   dxf.addRect(-HW, 0, -PW2, PT, { layer: 'AR_WALLS' });
@@ -465,7 +476,7 @@ export function buildPlanDXF(stage) {
   // Горизонтальные размеры: портал, перед авансцены, ширина коробки, ширина зала
   dxf.addLinearDim(-PW2, 0, PW2, 0, { offset: -0.65, label: `Портал ${fmtM(DIM.portal.width)} м`, layer: 'DIMS' });
   dxf.addLinearDim(-FW2, -FS.depth, FW2, -FS.depth, { offset: -0.75, label: `Перед авансцены ${fmtM(FS.frontWidth)} м`, layer: 'DIMS' });
-  dxf.addLinearDim(-W, BACK, W, BACK, { offset: 1.55, label: `Ширина сценической коробки ${fmtM(DIM.box.width)} м`, layer: 'DIMS' });
+  dxf.addLinearDim(-W, BACK, W, BACK, { offset: 2.15, label: `Ширина сценической коробки ${fmtM(DIM.box.width)} м`, layer: 'DIMS' });
   dxf.addLinearDim(-HW, HALL_BACK_D, HW, HALL_BACK_D, { offset: -2.95, label: `Ширина зрительного зала ${fmtM(DIM.hall.width)} м`, layer: 'DIMS' });
 
   // Вертикальные размеры: глубина коробки, авансцены, зала (вынесены левее полок штанкетов)
@@ -602,12 +613,15 @@ export function buildSectionDXF(stage) {
   const GATEY = DIM.galleries.overGateY; // 2.9
   const RAIL_H = DIM.galleries.railH; // 1.0
 
+  const gn = gateNiche();
+  const gate = DIM.openings.gate;
+
   // --- 1. Оси и координатная сетка разреза (0_AXES, 0_GRID) ------------------
   // Красная линия портала (d = 0 -> X_cad = 0) и уровень чистого пола планшета (Y = 0)
   dxf.addLine(0, -2.5, 0, CEIL + 3.2, { layer: '0_AXES' });
-  dxf.addLine(X(BACK) - 1.5, 0, X(HALL_BACK_D - 2.6) + 1.2, 0, { layer: '0_AXES' });
+  dxf.addLine(X(gn.d1) - 1.8, 0, X(HALL_BACK_D - 2.6) + 1.2, 0, { layer: '0_AXES' });
   dxf.addText(0.12, CEIL + 2.8, 'КРАСНАЯ ЛИНИЯ ПОРТАЛА (d = 0)', { layer: '0_AXES', height: 0.18 });
-  dxf.addText(X(BACK) - 1.4, 0.12, 'УРОВЕНЬ ПЛАНШЕТА СЦЕНЫ (±0,000)', { layer: '0_AXES', height: 0.17 });
+  dxf.addText(X(gn.d1) - 1.7, 0.12, 'УРОВЕНЬ ПЛАНШЕТА СЦЕНЫ (±0,000)', { layer: '0_AXES', height: 0.17 });
 
   // Вертикальные линии сетки по глубине сцены (каждый 1 м)
   for (let d = -18; d <= 9; d++) {
@@ -676,12 +690,20 @@ export function buildSectionDXF(stage) {
   }
   dxf.addPolyline(hallProfilePts, { layer: 'AR_SECTION' });
 
-  // Задняя стена сцены (d = 9.2), ворота (H = 2.6) и потолок сценической коробки (Y = 8.5)
-  dxf.addRect(X(BACK) - 0.3, 0, X(BACK), CEIL, { layer: 'AR_SECTION' });
-  dxf.addRect(X(BACK) - 0.3, 0, X(BACK), DIM.openings.gate.height, { layer: 'AR_GALLERIES' });
-  dxf.addText(X(BACK) - 0.4, DIM.openings.gate.height / 2, `Ворота В=${fmtM(DIM.openings.gate.height, 1)} м`, {
-    layer: 'AR_SECTION', height: 0.16, align: 'right', valign: 'middle',
-  });
+  // Задняя стена сцены (d = 9.2), ниша ворот (d = 9.2..10.3, пандус -0.35, потолок +2.40, ворота В=2.60 + швеллер 0.15)
+  const gLeafTop = -gn.floorDrop + gate.height;
+  dxf.addRect(X(BACK) - 0.3, gn.ceilY, X(BACK), CEIL, { layer: 'AR_SECTION' });
+  dxf.addRect(X(BACK) - 0.3, 0, X(BACK), gn.ceilY, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  dxf.addLine(X(gn.d0), 0, X(gn.d1), -gn.floorDrop, { layer: 'AR_SECTION' });
+  dxf.addLine(X(gn.d0), gn.ceilY, X(gn.d1), gn.ceilY, { layer: 'AR_SECTION' });
+  dxf.addLine(X(gn.d1), -gn.floorDrop, X(gn.d1), gLeafTop, { layer: 'AR_GALLERIES' });
+  dxf.addRect(X(gn.d1), gLeafTop, X(gn.d1 - 0.08), gn.ceilY, { layer: 'AR_GALLERIES' });
+  dxf.addText(
+    X(gn.d1) - 0.15,
+    gn.ceilY / 2,
+    `Ворота В=${fmtM(gate.height)} м (проём +${fmtM(gn.ceilY)}, пол -${fmtM(gn.floorDrop)})`,
+    { layer: 'AR_SECTION', height: 0.15, align: 'right', valign: 'middle' },
+  );
   // Потолок сцены (от d = 9.2 до чердака над авансценой d = -2.9)
   dxf.addRect(X(BACK) - 0.3, CEIL, X(-2.9), CEIL + 0.25, { layer: 'AR_SECTION' });
   dxf.addLine(X(-2.9), DIM.decoCeilingY, X(-2.9), CEIL, { layer: 'AR_SECTION' });
@@ -836,7 +858,7 @@ export function buildSectionDXF(stage) {
   }
 
   // --- 6. Высотные отметки (▽) и размерные цепочки разреза (DIMS_SECTION) ----
-  const elevXLeft = X(BACK) - 1.8;
+  const elevXLeft = X(gn.d1) - 2.4;
   const elevXRight = X(HALL_BACK_D - 2.4) + 1.0;
 
   // Отметки по сценической коробке (слева) — близкие уровни разнесены по высоте полки

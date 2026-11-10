@@ -143,6 +143,17 @@ describe('Экспорт 2D продольного разреза (buildSectionD
       expect(s).toContain('0,85');
     }
   });
+
+  it('план и разрез: ниша задних ворот 2,95x2,60 и потолок 2,40 без устаревших 3,0x2,6', () => {
+    const plan = buildPlanDXF(null), sec = buildSectionDXF(null);
+    expect(plan).toContain('Ворота 2,95x2,60');
+    expect(plan).toContain('Дверь 0,95x2,00');
+    expect(plan).not.toContain('3,0x2,6');
+    expect(sec).toContain('Ворота В=2,60 м');
+    expect(sec).toContain('+2,40');
+    expect(sec).toContain('-0,35');
+    expect(sec).not.toContain('Ворота В=2,6 м');
+  });
 });
 
 describe('Экспорт 3D DXF (build3DDXF)', () => {

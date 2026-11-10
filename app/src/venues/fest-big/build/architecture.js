@@ -1,7 +1,10 @@
 // Архитектура: сценическая коробка, портал, авансцена, галереи, узел подъёма,
 // приямок с решёткой, ригель, зрительный зал, конструкции для света в зале.
 import * as THREE from 'three';
-import { DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, LEFT_GALLERY, BACK_GALLERY_FRONT_D, RAKE, rowFrontD, pitEdgeX } from '../config/dimensions.js';
+import {
+  DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, LEFT_GALLERY, BACK_GALLERY_FRONT_D,
+  RAKE, rowFrontD, pitEdgeX, gateNiche, doorNiche,
+} from '../config/dimensions.js';
 import { box, rect, wallWithHoles, cylBetween, P, prism } from '../../../core/geom.js';
 
 const W = BOX_HALF; // 8.5
@@ -40,13 +43,20 @@ const RACK_POST_HALF = 0.03;
 const RACK_BAR_HALF = 0.025;
 const RACK_RAIL_R = 0.028;
 const RACK_TIE_DROP = 0.06;
+const FASCIA_DROP = DIM.galleries.fasciaDrop;
+const FASCIA_RISE = 0.12;
+const FASCIA_THICK = 0.03;
+const GATE_STAIR_W = 0.6;
+const GATE_SEAM_HALF = 0.01;
+const GATE_LEAF_OFFSET = 0.015;
+const GATE_CHANNEL_DEPTH = 0.06;
 const pit = DIM.pit;
 const pier = DIM.wallPier;
 const rack = DIM.rack;
 const gate = DIM.openings.gate;
-const GATE_X0 = gate.centerX - gate.width / 2;
-const GATE_X1 = gate.centerX + gate.width / 2;
 const bdoor = DIM.openings.backDoor;
+const gn = gateNiche();
+const dn = doorNiche();
 const sdoor = DIM.openings.sideDoor;
 const FS = DIM.forestage;
 const FSH = FS.height;
@@ -115,6 +125,18 @@ function ladderAlong(out, [cx, cd], [ux, ud], y0, y1, width, k = 1) {
 function vQuad(x0, d0, x1, d1, y0, y1, facing = 1) {
   const p0 = P(x0, y0, d0), p1 = P(x1, y0, d1), p2 = P(x1, y1, d1), p3 = P(x0, y1, d0);
   const verts = facing > 0 ? [p0, p1, p2, p0, p2, p3] : [p0, p2, p1, p0, p3, p2];
+  const pos = new Float32Array(18);
+  verts.forEach((v, i) => { pos[i * 3] = v.x; pos[i * 3 + 1] = v.y; pos[i * 3 + 2] = v.z; });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
+/** Наклонная плита-пандус от (x0..x1, y0, d0) к (x0..x1, y1, d1), видимая сверху (+Y). */
+function rampQuad(x0, x1, d0, y0, d1, y1) {
+  const p0 = P(x0, y0, d0), p1 = P(x1, y0, d0), p2 = P(x1, y1, d1), p3 = P(x0, y1, d1);
+  const verts = [p0, p1, p2, p0, p2, p3];
   const pos = new Float32Array(18);
   verts.forEach((v, i) => { pos[i * 3] = v.x; pos[i * 3 + 1] = v.y; pos[i * 3 + 2] = v.z; });
   const g = new THREE.BufferGeometry();
@@ -218,34 +240,53 @@ export function buildArchitecture(batch, M) {
     rect('d', sdoor.fromD + sdoor.width, W, W + 0.08, -pit.depth, -pit.depth + sdoor.height, -1),
     rect('y', -pit.depth + sdoor.height, W, W + 0.08, sdoor.fromD, sdoor.fromD + sdoor.width, -1),
   ]);
-  // задняя стена: ворота и дверь. Под нижней галереей (до её настила: 2.2, над воротами — 2.9)
+  // задняя стена: проёмы в ниши ворот (2,40) и двери (1,90). Под нижней галереей (2,20; над нишей ворот — 2,90)
   // кирпич закрашен матовым чёрным, выше — обычная кладка.
   const backHoles = [
-    { a0: GATE_X0, a1: GATE_X1, b0: -0.01, b1: gate.height },
-    { a0: bdoor.centerX - bdoor.width / 2, a1: bdoor.centerX + bdoor.width / 2, b0: -0.01, b1: bdoor.height },
+    { a0: gn.x0, a1: gn.x1, b0: -0.01, b1: gn.ceilY },
+    { a0: dn.x0, a1: dn.x1, b0: -0.01, b1: dn.ceilY },
   ];
-  const LOW_X0 = GATE_X0 - 0.6, LOW_X1 = GATE_X1; // участок нижней галереи на 2.9 (см. ниже UP_X0/UP_X1)
-  const lowBands = [[-W, LOW_X0, LOWY], [LOW_X0, LOW_X1, GATEY], [LOW_X1, W, LOWY]];
+  const lowBands = [[-W, gn.x0, LOWY], [gn.x0, gn.x1, GATEY], [gn.x1, W, LOWY]];
   const brickHoles = [...backHoles, ...lowBands.map(([a0, a1, h]) => ({ a0, a1, b0: -0.01, b1: h }))];
   batch.add('walls', M.brickBack, wallWithHoles('d', BACK, -W, W, 0, CEIL, -1, brickHoles), { tag: 'wallB' });
   for (const [a0, a1, h] of lowBands) {
-    const holes = backHoles.filter((h) => h.a1 > a0 && h.a0 < a1); // wallWithHoles не отсекает проёмы вне [a0, a1]
+    const holes = backHoles.filter((hole) => hole.a1 > a0 && hole.a0 < a1); // wallWithHoles не отсекает проёмы вне [a0, a1]
     batch.add('walls', M.brickBlack, wallWithHoles('d', BACK, a0, a1, 0, h, -1, holes), { tag: 'wallB' });
   }
-  // створки ворот (закрыты) и дверь — в глубине проёма
-  batch.add('walls', M.gate, [
-    rect('d', BACK + 0.2, GATE_X0, gate.centerX - 0.01, 0, gate.height, -1),
-    rect('d', BACK + 0.22, gate.centerX + 0.01, GATE_X1, 0, gate.height, -1),
-  ]);
-  batch.add('walls', M.door, rect('d', BACK + 0.12, bdoor.centerX - bdoor.width / 2, bdoor.centerX + bdoor.width / 2, 0, bdoor.height, -1));
-  // откосы проёмов
-  for (const [x0, x1, h, dd] of [[GATE_X0, GATE_X1, gate.height, 0.25], [bdoor.centerX - bdoor.width / 2, bdoor.centerX + bdoor.width / 2, bdoor.height, 0.15]]) {
-    batch.add('walls', M.blackWall, [
-      rect('x', x0, BACK, BACK + dd, 0, h, 1),
-      rect('x', x1, BACK, BACK + dd, 0, h, -1),
-      rect('y', h, x0, x1, BACK, BACK + dd, -1),
-    ]);
+  // ниши задних ворот и двери (d = 9,20..10,30 м, пандус 0 → -0,35 м, ровный потолок ниши)
+  const gMid = (gn.x0 + gn.x1) / 2;
+  const gLeafTop = -gn.floorDrop + gate.height; // 2.25
+  const dLeafTop = -dn.floorDrop + bdoor.height; // 1.65
+  const nicheWalls = [];
+  for (const n of [gn, dn]) {
+    const sidePts = [[n.d0, 0], [n.d1, -n.floorDrop], [n.d1, n.ceilY], [n.d0, n.ceilY]];
+    nicheWalls.push(
+      sideWallPoly(n.x0, sidePts, 1),
+      sideWallPoly(n.x1, sidePts, -1),
+      rect('y', n.ceilY, n.x0, n.x1, n.d0, n.d1, -1),
+    );
   }
+  // тёмная подложка за левой створкой и швом ворот + полоска стены 0,25 м над задней дверью
+  nicheWalls.push(
+    rect('d', gn.d1, gn.x0, gMid + GATE_SEAM_HALF, -gn.floorDrop, gLeafTop, -1),
+    rect('d', dn.d1, dn.x0, dn.x1, dLeafTop, dn.ceilY, -1),
+  );
+  batch.add('walls', M.blackWall, nicheWalls, { tag: 'wallB' });
+  // пандусы ниш (лицом вверх)
+  batch.add('walls', M.stageEdge, [
+    rampQuad(gn.x0, gn.x1, gn.d0, 0, gn.d1, -gn.floorDrop),
+    rampQuad(dn.x0, dn.x1, dn.d0, 0, dn.d1, -dn.floorDrop),
+  ]);
+  // створки ворот (2 шт., стык по оси ниши), швеллер-направляющая 0,15 м над ними и полотно задней двери
+  batch.add('walls', M.gate, [
+    rect('d', gn.d1 - GATE_LEAF_OFFSET, gn.x0, gMid - GATE_SEAM_HALF, -gn.floorDrop, gLeafTop, -1),
+    rect('d', gn.d1, gMid + GATE_SEAM_HALF, gn.x1, -gn.floorDrop, gLeafTop, -1),
+  ]);
+  batch.add('walls', M.steel, [
+    rect('d', gn.d1 - GATE_CHANNEL_DEPTH, gn.x0, gn.x1, gLeafTop, gn.ceilY, -1),
+    rect('y', gLeafTop, gn.x0, gn.x1, gn.d1 - GATE_CHANNEL_DEPTH, gn.d1, -1),
+  ]);
+  batch.add('walls', M.door, rect('d', dn.d1, dn.x0, dn.x1, -dn.floorDrop, dLeafTop, -1));
   // потолок коробки (виден только снизу) + чердак над авансценой
   batch.add('walls', M.blackWall, rect('y', CEIL, -W, W, -2.9, BACK, -1), { tag: 'ceiling', shadow: false });
   batch.add('walls', M.attic, [
@@ -342,23 +383,23 @@ export function buildArchitecture(batch, M) {
   }
 
   // ===========================================================================
-  //  НИЖНЯЯ ГАЛЕРЕЯ (задняя стена, 2.2; над воротами — 2.9)
+  //  НИЖНЯЯ ГАЛЕРЕЯ (задняя стена, 2.2; над нишей ворот — 2.9)
   // ===========================================================================
-  const UP_X0 = GATE_X0 - 0.6, UP_X1 = GATE_X1; // участок 2.9
-  deck.push(box(-W, UP_X0, LOWY - 0.06, LOWY, GB, BACK));
-  deck.push(box(UP_X0 + 0.6, UP_X1, GATEY - 0.06, GATEY, GB, BACK));
-  stairBlocks(steel, { x0: UP_X0, x1: UP_X0 + 0.6, d0: GB, d1: BACK, yFrom: LOWY, yTo: GATEY, steps: 3, axis: 'x' });
+  const UP_X0 = gn.x0 - GATE_STAIR_W, UP_X1 = gn.x1; // участок 2,90 ровно над нишей ворот (x = 3,15..6,10)
+  deck.push(box(-W, UP_X0, LOWY - DECK_T, LOWY, GB, BACK));
+  deck.push(box(gn.x0, UP_X1, GATEY - DECK_T, GATEY, GB, BACK));
+  stairBlocks(steel, { x0: UP_X0, x1: gn.x0, d0: GB, d1: BACK, yFrom: LOWY, yTo: GATEY, steps: 3, axis: 'x' });
   stairBlocks(steel, { x0: UP_X1, x1: PAD_X0, d0: GB, d1: BACK, yFrom: GATEY, yTo: LOWY, steps: 3, axis: 'x' });
   // серая обшивка-кромка (как на фото)
   const fascia = [
-    box(-W, UP_X0, LOWY - 0.35, LOWY + 0.12, GB - 0.03, GB),
-    box(UP_X0 + 0.6, UP_X1, GATEY - 0.35, GATEY + 0.12, GB - 0.03, GB),
+    box(-W, UP_X0, LOWY - FASCIA_DROP, LOWY + FASCIA_RISE, GB - FASCIA_THICK, GB),
+    box(gn.x0, UP_X1, GATEY - FASCIA_DROP, GATEY + FASCIA_RISE, GB - FASCIA_THICK, GB),
   ];
   batch.add('galleries', M.fascia, fascia);
   railing(steel, -W, GB, UP_X0, GB, LOWY);
-  railing(steel, UP_X0 + 0.6, GB, UP_X1, GB, GATEY);
+  railing(steel, gn.x0, GB, UP_X1, GB, GATEY);
   // подвесы нижней галереи к верхней
-  for (let x = -7.5; x < PAD_X0; x += 2.5) steel.push(cylBetween(P(x, x > UP_X0 ? GATEY : LOWY, GB + 0.03), P(x, UPY - 0.06, GB + 0.03), 0.022, 5));
+  for (let x = -7.5; x < PAD_X0; x += 2.5) steel.push(cylBetween(P(x, x >= gn.x0 && x <= UP_X1 ? GATEY : LOWY, GB + 0.03), P(x, UPY - DECK_T, GB + 0.03), 0.022, 5));
   // труба под нижней галереей с синими приборами дежурки
   steel.push(cylBetween(P(-W, LOWY - 0.45, BACK - 0.35), P(UP_X0, LOWY - 0.45, BACK - 0.35), 0.024, 6));
 

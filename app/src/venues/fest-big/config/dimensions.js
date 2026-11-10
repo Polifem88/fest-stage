@@ -70,6 +70,7 @@ export const DIM = {
     frontToD: 0.8, // assumption (A3) — над дорогой занавеса, видно Ш1
     lowerY: 2.2, // нижняя галерея (только задняя стена) и заход
     overGateY: 2.9, // участок нижней галереи над воротами
+    fasciaDrop: 0.35, // свес серой обшивки нижней галереи вниз от верха настила
     railH: 1.0,
   },
 
@@ -85,8 +86,24 @@ export const DIM = {
 
   // --- Проёмы ------------------------------------------------------------------
   openings: {
-    gate: { width: 3.0, height: 2.6, centerX: 4.6, assumption: true }, // сзади справа, 2 створки
-    backDoor: { width: 0.9, height: 2.1, centerX: -4.4, assumption: true }, // сзади слева
+    // ниши задних грузовых ворот и задней левой двери за стеной d = 9,20..10,30 м с пандусом до -0,35 м
+    gate: {
+      fromRightWall: 2.4,
+      width: 2.95,
+      depth: 1.1,
+      heightAtWall: 2.4,
+      heightAtGate: 2.75,
+      height: 2.6,
+      guideH: 0.15,
+    },
+    backDoor: {
+      fromLeftWall: 3.6,
+      width: 0.95,
+      depth: 1.1,
+      heightAtWall: 1.9,
+      heightAtDoor: 2.25,
+      height: 2.0,
+    },
     // правая боковая дверь в стенке приямка на 0,85 м ниже планшета, сразу за выступом стены
     sideDoor: { width: 0.9, height: 2.1, fromD: 1.4, assumption: true },
     // широкие двойные двери у портала в зрительном зале (слева и справа)
@@ -196,6 +213,40 @@ export function pitEdgeX(d) {
 export function inPit(x, d) {
   const p = DIM.pit;
   return d > p.fromD && d < p.toD && x > pitEdgeX(d);
+}
+
+/** Габариты и отметки ниши задних грузовых ворот. */
+export function gateNiche() {
+  const o = DIM.openings.gate;
+  const x1 = +(BOX_HALF - o.fromRightWall).toFixed(4);
+  const x0 = +(x1 - o.width).toFixed(4);
+  const d0 = DIM.box.backWallD;
+  const d1 = +(d0 + o.depth).toFixed(4);
+  return {
+    x0,
+    x1,
+    d0,
+    d1,
+    ceilY: o.heightAtWall,
+    floorDrop: +(o.heightAtGate - o.heightAtWall).toFixed(4),
+  };
+}
+
+/** Габариты и отметки ниши задней левой двери. */
+export function doorNiche() {
+  const o = DIM.openings.backDoor;
+  const x0 = +(-BOX_HALF + o.fromLeftWall).toFixed(4);
+  const x1 = +(x0 + o.width).toFixed(4);
+  const d0 = DIM.box.backWallD;
+  const d1 = +(d0 + o.depth).toFixed(4);
+  return {
+    x0,
+    x1,
+    d0,
+    d1,
+    ceilY: o.heightAtWall,
+    floorDrop: +(o.heightAtDoor - o.heightAtWall).toFixed(4),
+  };
 }
 
 /** Полуширина авансцены на глубине d (−depth ≤ d ≤ 0): прямой участок, затем скос к порталу. */

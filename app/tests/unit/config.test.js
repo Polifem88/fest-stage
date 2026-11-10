@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { DIM, BOX_HALF, GALLERY_INNER_X, BACK_GALLERY_FRONT_D, LEFT_GALLERY, pitEdgeX, inPit } from '../../src/venues/fest-big/config/dimensions.js';
+import { DIM, BOX_HALF, GALLERY_INNER_X, BACK_GALLERY_FRONT_D, LEFT_GALLERY, pitEdgeX, inPit, gateNiche, doorNiche } from '../../src/venues/fest-big/config/dimensions.js';
 import { RIGGING, SPACING, DEPTHS, LEFT_RAIL_ORDER, RIG_BY_ID, ropeDepth, DUTY_ROWS, counterweightX, ropeX } from '../../src/venues/fest-big/config/rigging.js';
 import { FIXTURES, TYPES, GROUPS, INVENTORY, countByType, PORTABLE, portablePlacement, SPECS } from '../../src/venues/fest-big/config/fixtures.js';
 import { RiggingSystem } from '../../src/venues/fest-big/build/rigging.js';
@@ -303,5 +303,39 @@ describe('Патч 1 · раздел 2', () => {
     const down = new THREE.Vector3(0, -1, 0);
     expect(traceToFloor(new THREE.Vector3(8.2, 5, -3.0), down).point.y).toBeCloseTo(-0.85, 6);
     expect(traceToFloor(new THREE.Vector3(7.7, 5, -2.0), down).point.y).toBeCloseTo(0, 6);
+  });
+});
+
+describe('Патч 1 · раздел 3', () => {
+  it('ниша ворот 2,95 × 1,1 в 2,4 от правой стены; высоты сходятся; без assumption', () => {
+    const g = gateNiche(), o = DIM.openings.gate;
+    expect(o.assumption).toBeUndefined();
+    expect(o.centerX).toBeUndefined();
+    expect(g.x1).toBeCloseTo(BOX_HALF - 2.4, 6);
+    expect(g.x0).toBeCloseTo(3.15, 6);
+    expect(g.d1 - g.d0).toBeCloseTo(1.1, 6);
+    expect(g.d0).toBe(DIM.box.backWallD);
+    expect(g.ceilY).toBe(2.4);
+    expect(g.floorDrop).toBeCloseTo(0.35, 6);
+    expect(o.height + o.guideH).toBeCloseTo(o.heightAtGate, 6);
+  });
+
+  it('ниша двери 0,95 × 1,1 в 3,6 от левой стены; над дверью 0,25; без assumption', () => {
+    const n = doorNiche(), o = DIM.openings.backDoor;
+    expect(o.assumption).toBeUndefined();
+    expect(o.centerX).toBeUndefined();
+    expect(n.x0).toBeCloseTo(-4.9, 6);
+    expect(n.x1).toBeCloseTo(-3.95, 6);
+    expect(n.d1 - n.d0).toBeCloseTo(1.1, 6);
+    expect(n.ceilY).toBe(1.9);
+    expect(n.floorDrop).toBeCloseTo(0.35, 6);
+    expect(o.heightAtDoor - o.height).toBeCloseTo(0.25, 6);
+  });
+
+  it('галерея над воротами: подъём ровно над нишей, обшивка выше проёма', () => {
+    const g = gateNiche();
+    expect(DIM.galleries.fasciaDrop).toBe(0.35);
+    expect(DIM.galleries.overGateY - DIM.galleries.fasciaDrop).toBeGreaterThan(g.ceilY);
+    expect(g.x1).toBeLessThan(BOX_HALF - DIM.liftNode.padSize);
   });
 });
