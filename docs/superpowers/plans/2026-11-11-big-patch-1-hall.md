@@ -56,7 +56,7 @@
 - Create: `app/review/patch1-hall/closeups.mjs`
 - Create: `app/review/patch1-hall/REPORT.md`
 
-- [ ] **Step 1: Снять свежий эталон паритета с актуального `master` и проверить самосовпадение 100 %**
+- [x] **Step 1: Снять свежий эталон паритета с актуального `master` и проверить самосовпадение 100 %**
 
 Run:
 ```powershell
@@ -68,7 +68,7 @@ git checkout big-patch-1-hall
 ```
 Expected: `compare` завершается с кодом `0` и выводит `Паритет: ПРОЙДЕН` по площадкам `big`, `chamber`, `roof`; рабочая ветка возвращена на `big-patch-1-hall`.
 
-- [ ] **Step 2: Создать скрипт контрольных крупных планов зала `app/review/patch1-hall/closeups.mjs`**
+- [x] **Step 2: Создать скрипт контрольных крупных планов зала `app/review/patch1-hall/closeups.mjs`**
 
 По образцу `app/review/patch1/closeups.mjs` (Playwright Chromium с `CHROME_ARGS` из `scripts/parity.mjs`, окно `1600×1000`, открытие `<distDir>/desktop.html#v=big`, ожидание `window.__fest.ready`): скрипт принимает `<distDir> <outDir>` и сохраняет PNG по 10 целевым ракурсам зала (координаты `[x, y, d]`, а для `sawtoothLedsOff` перед кадром выключает зальный свет через `window.__fest.stage.setFlag('house', false)` и затем возвращает `true`):
 
@@ -85,7 +85,7 @@ Expected: `compare` завершается с кодом `0` и выводит `
 | `hallFromBooth` | `[0.0, 3.6, -17.4]` | `[0.0, 1.2, -2.0]` | Вид от операторской на портал, ряды кресел, ложи и прострелы на стенах `±8,0 м` |
 | `hallOutsideDollhouse` | `[18.5, 8.0, -11.0]` | `[0.0, 1.8, -11.0]` | Внешний вид «кукольного домика» справа: односторонние внешние стены прозрачны снаружи, без перевёрнутых граней |
 
-- [ ] **Step 3: Снять кадры «до» и завести `app/review/patch1-hall/REPORT.md`**
+- [x] **Step 3: Снять кадры «до» и завести `app/review/patch1-hall/REPORT.md`**
 
 Run:
 ```powershell
@@ -93,7 +93,7 @@ cd app; node review/patch1-hall/closeups.mjs review/modular/baseline/dist-pre-ha
 ```
 Expected: 10 PNG-файлов созданы в `app/review/patch1-hall/before/` (папка `review/*/*.png` игнорируется git); создать `app/review/patch1-hall/REPORT.md` со списком исходных ракурсов и базовых метрик.
 
-- [ ] **Step 4: Закоммитить скрипт контроля и шаблон отчёта**
+- [x] **Step 4: Закоммитить скрипт контроля и шаблон отчёта**
 
 ```powershell
 git add app/review/patch1-hall/closeups.mjs app/review/patch1-hall/REPORT.md
