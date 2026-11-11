@@ -1,9 +1,9 @@
 // Подвижная механика: штанкеты, софиты, дорога занавеса, боковые штанкеты,
 // тросы подвеса, канаты управления, противовесы (каретки) на рабочей галерее.
 import * as THREE from 'three';
-import { DIM, BOX_HALF } from '../config/dimensions.js';
-import { RIGGING, RIG_BY_ID, ropeDepth, counterweightX, ropeX, LEFT_RAIL_ORDER, RIGHT_FRONT_ORDER } from '../config/rigging.js';
-import { box, cylBetween, P } from '../../../core/geom.js';
+import { DIM, BOX_HALF, B2_SHAFT } from '../config/dimensions.js';
+import { RIGGING, RIG_BY_ID, ropeDepth, counterweightX, ropeX, rightFrontRailX, LEFT_RAIL_ORDER, RIGHT_FRONT_ORDER } from '../config/rigging.js';
+import { box, rect, cylBetween, P } from '../../../core/geom.js';
 
 const W = BOX_HALF;
 const CEIL = DIM.box.ceiling;
@@ -22,7 +22,9 @@ const LOCK_TIE_Y0 = 0.98;
 const LOCK_LEFT_PAD = 0.3;
 const LOCK_LEFT_STEP = 1.2;
 const LOCK_RF_PAD = 0.2;
-const LOCK_B2_HALF = 0.25;
+const CAGE_BAR_HALF = 0.02;
+const CAGE_BAND_H = 0.04;
+const LEFT_CAGE_INSET = 0.32;
 
 export class RiggingSystem {
   /**
@@ -195,32 +197,64 @@ export class RiggingSystem {
       box(rxL - LOCK_POST_HALF, rxL + LOCK_POST_HALF, 0, LOCK_POST_TOP_Y, lockL[1] - LOCK_POST_HALF, lockL[1] + LOCK_POST_HALF),
     );
 
-    const rxRF = ropeX(RIG_BY_ID[RIGHT_FRONT_ORDER[0]]);
+    const railXRF = rightFrontRailX();
     const lockR = [ropeDepth(RIGHT_FRONT_ORDER[0]) - LOCK_RF_PAD, ropeDepth(RIGHT_FRONT_ORDER.at(-1)) + LOCK_RF_PAD];
-    for (const y of LOCK_HEIGHTS) steel.push(cylBetween(P(rxRF, y, lockR[0]), P(rxRF, y, lockR[1]), LOCK_PIPE_R, 8));
+    for (const y of LOCK_HEIGHTS) {
+      steel.push(cylBetween(P(railXRF, y, lockR[0]), P(railXRF, y, lockR[1]), LOCK_PIPE_R, 8));
+      for (const d of lockR) {
+        steel.push(cylBetween(P(railXRF, y, d), P(DIM.wallPier.x0, y, d), LOCK_PIPE_R * 0.75, 6));
+      }
+    }
     for (const d of lockR) {
       steel.push(
-        box(rxRF - LOCK_PIPE_R, DIM.wallPier.x0, LOCK_TIE_Y0, LOCK_POST_TOP_Y, d - LOCK_POST_HALF, d + LOCK_POST_HALF),
-        box(rxRF - LOCK_POST_HALF, rxRF + LOCK_POST_HALF, 0, LOCK_POST_TOP_Y, d - LOCK_POST_HALF, d + LOCK_POST_HALF),
+        box(railXRF - LOCK_PIPE_R, DIM.wallPier.x0, LOCK_TIE_Y0, LOCK_POST_TOP_Y, d - LOCK_POST_HALF, d + LOCK_POST_HALF),
+        box(railXRF - LOCK_POST_HALF, railXRF + LOCK_POST_HALF, 0, LOCK_POST_TOP_Y, d - LOCK_POST_HALF, d + LOCK_POST_HALF),
       );
     }
 
-    const rxB2 = ropeX(RIG_BY_ID.B2);
-    const b2 = ropeDepth('B2');
-    const lockB2 = [b2 - LOCK_B2_HALF, b2 + LOCK_B2_HALF];
-    for (const y of LOCK_HEIGHTS) steel.push(cylBetween(P(rxB2, y, lockB2[0]), P(rxB2, y, lockB2[1]), LOCK_PIPE_R, 8));
-    for (const d of lockB2) {
+    // угловой узел Б2: поручни-защита 0,5 × 0,5 м на планшете (x = 8,00..8,50, d = 8,70..9,20)
+    for (const y of LOCK_HEIGHTS) {
       steel.push(
-        box(rxB2 - LOCK_PIPE_R, W, LOCK_TIE_Y0, LOCK_POST_TOP_Y, d - LOCK_POST_HALF, d + LOCK_POST_HALF),
-        box(rxB2 - LOCK_POST_HALF, rxB2 + LOCK_POST_HALF, 0, LOCK_POST_TOP_Y, d - LOCK_POST_HALF, d + LOCK_POST_HALF),
+        cylBetween(P(B2_SHAFT.x0, y, B2_SHAFT.d0), P(B2_SHAFT.x0, y, B2_SHAFT.d1), LOCK_PIPE_R, 8),
+        cylBetween(P(B2_SHAFT.x0, y, B2_SHAFT.d0), P(B2_SHAFT.x1, y, B2_SHAFT.d0), LOCK_PIPE_R, 8),
       );
     }
-    // решётка-ограждение противовесов на левой стене (сетка + стойки), как на фото
-    const cageX = -W + 0.32;
-    steel.push(box(cageX - 0.02, cageX + 0.02, 1.9, 1.94, lockL[0], lockL[1]));
-    for (let d = lockL[0]; d <= lockL[1] + 1e-6; d += (lockL[1] - lockL[0]) / 8) steel.push(box(cageX - 0.02, cageX + 0.02, 0, DIM.galleries.upperY - 0.2, d - 0.02, d + 0.02));
-    const meshPanel = new THREE.PlaneGeometry(lockL[1] - lockL[0], DIM.galleries.upperY - 2.2).rotateY(Math.PI / 2).translate(cageX, 2.0 + (DIM.galleries.upperY - 2.2) / 2, -(lockL[0] + lockL[1]) / 2);
-    batch.add('rigging', M.mesh, meshPanel, { shadow: false });
+    steel.push(
+      box(B2_SHAFT.x0 - LOCK_POST_HALF, B2_SHAFT.x0 + LOCK_POST_HALF, LOCK_TIE_Y0, LOCK_POST_TOP_Y, B2_SHAFT.d0 - LOCK_POST_HALF, B2_SHAFT.d1),
+      box(B2_SHAFT.x0 - LOCK_POST_HALF, B2_SHAFT.x1, LOCK_TIE_Y0, LOCK_POST_TOP_Y, B2_SHAFT.d0 - LOCK_POST_HALF, B2_SHAFT.d0 + LOCK_POST_HALF),
+      box(B2_SHAFT.x0 - LOCK_POST_HALF, B2_SHAFT.x0 + LOCK_POST_HALF, 0, LOCK_POST_TOP_Y, B2_SHAFT.d0 - LOCK_POST_HALF, B2_SHAFT.d0 + LOCK_POST_HALF),
+      box(B2_SHAFT.x0 - LOCK_POST_HALF, B2_SHAFT.x0 + LOCK_POST_HALF, 0, LOCK_POST_TOP_Y, B2_SHAFT.d1 - 2 * LOCK_POST_HALF, B2_SHAFT.d1),
+      box(B2_SHAFT.x1 - 2 * LOCK_POST_HALF, B2_SHAFT.x1, 0, LOCK_POST_TOP_Y, B2_SHAFT.d0 - LOCK_POST_HALF, B2_SHAFT.d0 + LOCK_POST_HALF),
+    );
+
+    // шахта Б2 с сеткой-рабицей: от верха нижней площадки (2,20) до низа настила верхней галереи (5,64) с обеих открытых сторон
+    const shaftY0 = DIM.liftNode.padY;
+    const shaftY1 = DIM.galleries.upperY - FRONT_DECK_T;
+    const shaftMidY = (shaftY0 + shaftY1) / 2;
+    steel.push(
+      box(B2_SHAFT.x0 - CAGE_BAR_HALF, B2_SHAFT.x0 + CAGE_BAR_HALF, shaftY0, shaftY1, B2_SHAFT.d0 - CAGE_BAR_HALF, B2_SHAFT.d0 + CAGE_BAR_HALF),
+      box(B2_SHAFT.x0 - CAGE_BAR_HALF, B2_SHAFT.x0 + CAGE_BAR_HALF, shaftY0, shaftY1, B2_SHAFT.d1 - 2 * CAGE_BAR_HALF, B2_SHAFT.d1),
+      box(B2_SHAFT.x1 - 2 * CAGE_BAR_HALF, B2_SHAFT.x1, shaftY0, shaftY1, B2_SHAFT.d0 - CAGE_BAR_HALF, B2_SHAFT.d0 + CAGE_BAR_HALF),
+    );
+    for (const y0 of [shaftY0, shaftMidY - CAGE_BAND_H / 2, shaftY1 - CAGE_BAND_H]) {
+      steel.push(
+        box(B2_SHAFT.x0 - CAGE_BAR_HALF, B2_SHAFT.x0 + CAGE_BAR_HALF, y0, y0 + CAGE_BAND_H, B2_SHAFT.d0, B2_SHAFT.d1),
+        box(B2_SHAFT.x0, B2_SHAFT.x1, y0, y0 + CAGE_BAND_H, B2_SHAFT.d0 - CAGE_BAR_HALF, B2_SHAFT.d0 + CAGE_BAR_HALF),
+      );
+    }
+
+    // решётка-ограждение противовесов на левой стене + сетка шахты Б2 с обеих открытых сторон
+    const cageX = -W + LEFT_CAGE_INSET;
+    steel.push(box(cageX - CAGE_BAR_HALF, cageX + CAGE_BAR_HALF, 1.9, 1.9 + CAGE_BAND_H, lockL[0], lockL[1]));
+    for (let d = lockL[0]; d <= lockL[1] + 1e-6; d += (lockL[1] - lockL[0]) / 8) {
+      steel.push(box(cageX - CAGE_BAR_HALF, cageX + CAGE_BAR_HALF, 0, DIM.galleries.upperY - 0.2, d - CAGE_BAR_HALF, d + CAGE_BAR_HALF));
+    }
+    const meshPanelL = new THREE.PlaneGeometry(lockL[1] - lockL[0], DIM.galleries.upperY - 2.2)
+      .rotateY(Math.PI / 2)
+      .translate(cageX, 2.0 + (DIM.galleries.upperY - 2.2) / 2, -(lockL[0] + lockL[1]) / 2);
+    const meshB2X = rect('x', B2_SHAFT.x0, B2_SHAFT.d0, B2_SHAFT.d1, shaftY0, shaftY1, -1);
+    const meshB2D = rect('d', B2_SHAFT.d0, B2_SHAFT.x0, B2_SHAFT.x1, shaftY0, shaftY1, -1);
+    batch.add('rigging', M.mesh, [meshPanelL, meshB2X, meshB2D], { shadow: false });
 
     batch.add('rigging', M.steel, steel);
     batch.add('rigging', M.pipe, blocks);

@@ -2,7 +2,7 @@
 // приямок с решёткой, ригель, зрительный зал, конструкции для света в зале.
 import * as THREE from 'three';
 import {
-  DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, LEFT_GALLERY, BACK_GALLERY_FRONT_D,
+  DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, LEFT_GALLERY, BACK_GALLERY_FRONT_D, B2_SHAFT,
   RAKE, rowFrontD, pitEdgeX, gateNiche, doorNiche,
 } from '../config/dimensions.js';
 import { box, rect, wallWithHoles, cylBetween, P, prism } from '../../../core/geom.js';
@@ -39,7 +39,6 @@ const HANGER_BEAM_DROP = 0.16;
 const HANGER_BEAM_HALF = 0.025;
 const VERT_LADDER_OFFSET_X = 0.05;
 const VERT_LADDER_GAP_MARGIN = 0.1;
-const BACK_RAIL_LADDER_HALF = 0.35;
 const SIDE_LADDER_WALL_INSET = 0.12;
 const SIDE_LADDER_GAP_W = 0.56;
 const SIDE_DOOR_RECESS = 0.08;
@@ -352,9 +351,10 @@ export function buildArchitecture(batch, M) {
   const FRONT_D1 = DIM.galleries.frontToD; // 0.8
   const STAIR_LEN = DIM.galleries.upperStairLen; // 0.8
   const STAIR_D1 = FRONT_D1 + STAIR_LEN; // 1.6
-  // боковые (горизонтальный настил начинается за переходной лесенкой 6,20 → 5,70) и единая задняя галерея (-W..GX)
+  // боковые (горизонтальный настил начинается за переходной лесенкой 6,20 → 5,70, в правом заднем углу вырез 0,5 × 0,5 под Б2) и единая задняя галерея (-W..GX)
   deck.push(box(LX0, LX1, UPY - DECK_T, UPY, STAIR_D1, GB));
-  deck.push(box(GX, W, UPY - DECK_T, UPY, STAIR_D1, BACK));
+  deck.push(box(GX, W, UPY - DECK_T, UPY, STAIR_D1, B2_SHAFT.d0));
+  deck.push(box(GX, B2_SHAFT.x0, UPY - DECK_T, UPY, B2_SHAFT.d0, BACK));
   deck.push(box(-W, GX, UPY - DECK_T, UPY, GB, BACK));
   // передняя над порталом
   deck.push(box(-W, W, FRY - DECK_T, FRY, DIM.galleries.frontFromD, FRONT_D1));
@@ -374,9 +374,13 @@ export function buildArchitecture(batch, M) {
   railing(steel, GX, STAIR_D1, GX, GB, UPY);
   const vlD = pad.vertLadder.d;
   const vlX = PAD_X0 - VERT_LADDER_OFFSET_X;
+  const vlUpperGapW = pad.vertLadder.upperGapW;
   const backSpan = GX - LX1;
   railing(steel, -W, GB, LX0, GB, UPY); // над зазором у заднего левого угла
-  railing(steel, LX1, GB, GX, GB, UPY, { gaps: [[(vlX - BACK_RAIL_LADDER_HALF - LX1) / backSpan, (vlX + BACK_RAIL_LADDER_HALF - LX1) / backSpan]] });
+  railing(steel, LX1, GB, GX, GB, UPY, { gaps: [[(vlX - LX1) / backSpan, (vlX + vlUpperGapW - LX1) / backSpan]] });
+  // перила вокруг отверстия 0,5 × 0,5 м в углу верхней галереи под узел Б2
+  railing(steel, B2_SHAFT.x0, B2_SHAFT.d0, B2_SHAFT.x0, BACK, UPY);
+  railing(steel, B2_SHAFT.x0, B2_SHAFT.d0, W, B2_SHAFT.d0, UPY);
   railing(steel, -W, FRONT_D1, LX0, FRONT_D1, FRY); // передняя галерея над зазором
   railing(steel, LX1, FRONT_D1, GX, FRONT_D1, FRY); // передняя галерея со стороны сцены
   railing(steel, -W, DIM.galleries.frontFromD, W, DIM.galleries.frontFromD, FRY); // со стороны зала
@@ -427,9 +431,10 @@ export function buildArchitecture(batch, M) {
   // ===========================================================================
   //  УЗЕЛ ПОДЪЁМА (задний правый угол)
   // ===========================================================================
-  // трубы ограждения и лестниц узла — в 1.5 раза толще галерейных (на фото узел заметно массивнее)
+  // трубы ограждения и лестниц узла — в 1.5 раза толще галерейных (на фото узел заметно массивнее); в углу вырез 0,5 × 0,5 под Б2
   const LIFT_K = 1.5;
-  deck.push(box(PAD_X0, W, pad.padY - 0.08, pad.padY, PAD_D0, BACK));
+  deck.push(box(PAD_X0, W, pad.padY - 0.08, pad.padY, PAD_D0, B2_SHAFT.d0));
+  deck.push(box(PAD_X0, B2_SHAFT.x0, pad.padY - 0.08, pad.padY, B2_SHAFT.d0, BACK));
   const slGapT0 = (pad.padSize - SIDE_LADDER_GAP_W) / pad.padSize;
   const vlGapD0 = vlD - pad.vertLadder.width / 2 - VERT_LADDER_GAP_MARGIN;
   const vlGapT0 = (vlGapD0 - PAD_D0) / (GB - PAD_D0);

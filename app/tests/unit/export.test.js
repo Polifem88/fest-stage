@@ -156,6 +156,17 @@ describe('Экспорт 2D продольного разреза (buildSectionD
     expect(sec).toContain('-0,35');
     expect(sec).not.toContain('Ворота В=2,6 м');
   });
+
+  it('план и разрез: Б1/Б2 на +6,20 м (ход 1,0..6,2 м) и угловой вырез 0,5×0,5 под Б2 на плане', () => {
+    const plan = buildPlanDXF(null), sec = buildSectionDXF(null);
+    expect(plan).toContain('Б1 (x=-6,8, H=+6,20)');
+    expect(plan).toContain('Б2 (x=7,1, H=+6,20)');
+    expect(plan).toContain('1,0..6,2 м');
+    expect(sec).toContain('Б1 (+6,20 м)');
+    expect(sec).toContain('Б2 (+6,20 м)');
+    // Вырез 0,5×0,5 м в углу (x = 8,00, d = 8,70) присутствует на слое AR_GALLERIES
+    expect(plan).toContain('\n10\n8\n20\n8.7\n');
+  });
 });
 
 describe('Экспорт 3D DXF (build3DDXF)', () => {

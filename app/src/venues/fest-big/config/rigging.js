@@ -5,7 +5,7 @@
 //  min/max — ход по высоте (высота трубы над планшетом), rest — исходное положение.
 // =============================================================================
 
-import { DIM, BOX_HALF, LEFT_GALLERY } from './dimensions.js';
+import { DIM, BOX_HALF, LEFT_GALLERY, B2_SHAFT } from './dimensions.js';
 
 // Расстояния из тех. файла (от портала вглубь), м
 export const SPACING = [
@@ -79,8 +79,8 @@ export const RIGGING = [
   { id: 'Sh11', name: 'Ш11', kind: 'batten', d: D.Sh11, min: 1, max: 6.9, rest: 6.9, control: 'left', via: 'direct', lines: 4 },
   { id: 'Sh12', name: 'Ш12', kind: 'batten', d: D.Sh12, min: 1, max: 6.9, rest: 6.9, control: 'left', via: 'direct', lines: 4 },
   // Боковые: вдоль глубины сцены, между концами обычных штанкет (±6,75) и боковыми галереями (-6,95 и +7,60)
-  { id: 'B1', name: 'Б1', kind: 'side', x: +(LEFT_GALLERY.x1 + B1_GAP).toFixed(4), dFrom: D.Sh2, dTo: D.Sh11, min: 1, max: 6.3, rest: 6.3, control: 'left', via: 'direct', lines: 3 },
-  { id: 'B2', name: 'Б2', kind: 'side', x: 7.1, dFrom: D.Sh2, dTo: D.Sh9, min: 1, max: 6.6, rest: 6.6, control: 'right-back-pad', via: 'direct', lines: 3 },
+  { id: 'B1', name: 'Б1', kind: 'side', x: +(LEFT_GALLERY.x1 + B1_GAP).toFixed(4), dFrom: D.Sh2, dTo: D.Sh11, min: 1, max: 6.2, rest: 6.2, control: 'left', via: 'direct', lines: 3 },
+  { id: 'B2', name: 'Б2', kind: 'side', x: 7.1, dFrom: D.Sh2, dTo: D.Sh9, min: 1, max: 6.2, rest: 6.2, control: 'right-back-pad', via: 'direct', lines: 3 },
 ];
 
 export const RIG_BY_ID = Object.fromEntries(RIGGING.map((r) => [r.id, r]));
@@ -97,7 +97,7 @@ export const RIGHT_FRONT_ORDER = ['Z', 'C0', 'Sh1'];
 export function ropeDepth(id) {
   const r = RIG_BY_ID[id];
   const order = r.control === 'left' ? LEFT_RAIL_ORDER : r.control === 'right-front' ? RIGHT_FRONT_ORDER : null;
-  if (!order) return D.Rail - 0.6; // Б2 — под площадкой узла подъёма
+  if (!order) return +((B2_SHAFT.d0 + B2_SHAFT.d1) / 2).toFixed(4); // Б2 — по центру угловой шахты 0,5 × 0,5 м (d = 8,95)
   const own = (x) => (RIG_BY_ID[x].kind === 'side' ? null : RIG_BY_ID[x].via === 'redirect' ? null : RIG_BY_ID[x].d);
   const i = order.indexOf(id);
   const self = own(id);
@@ -118,12 +118,17 @@ export function counterweightX(r) {
   return +(BOX_HALF - c.cwInset).toFixed(4);
 }
 
+/** Координата X продольных перил (труб-фиксаторов) правого переднего узла Ш1/С0/З (0,50 м от выступа стены). */
+export function rightFrontRailX() {
+  return +(DIM.wallPier.x0 - DIM.controls.rightFront.railWidth).toFixed(4);
+}
+
 /** Координата X ручного каната управления и фиксатора для подъёма r. */
 export function ropeX(r) {
   const c = DIM.controls;
   if (r.control === 'left') return +(-BOX_HALF + c.ropeInset).toFixed(4);
   if (r.control === 'right-front') return +(counterweightX(r) - c.rightFront.ropeGap).toFixed(4);
-  return +(BOX_HALF - c.ropeInset).toFixed(4);
+  return +(counterweightX(r) - c.b2Corner.ropeGap).toFixed(4);
 }
 
 // Линии дежурного освещения (ДО) — между соседними объектами

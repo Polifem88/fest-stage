@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { DIM, BOX_HALF, GALLERY_INNER_X, BACK_GALLERY_FRONT_D, LEFT_GALLERY, pitEdgeX, inPit, gateNiche, doorNiche } from '../../src/venues/fest-big/config/dimensions.js';
-import { RIGGING, SPACING, DEPTHS, LEFT_RAIL_ORDER, RIG_BY_ID, ropeDepth, DUTY_ROWS, counterweightX, ropeX } from '../../src/venues/fest-big/config/rigging.js';
+import { DIM, BOX_HALF, GALLERY_INNER_X, BACK_GALLERY_FRONT_D, LEFT_GALLERY, B2_SHAFT, pitEdgeX, inPit, gateNiche, doorNiche } from '../../src/venues/fest-big/config/dimensions.js';
+import { RIGGING, SPACING, DEPTHS, LEFT_RAIL_ORDER, RIG_BY_ID, ropeDepth, DUTY_ROWS, counterweightX, ropeX, rightFrontRailX } from '../../src/venues/fest-big/config/rigging.js';
 import { FIXTURES, TYPES, GROUPS, INVENTORY, countByType, PORTABLE, portablePlacement, SPECS } from '../../src/venues/fest-big/config/fixtures.js';
+import { buildArchitecture } from '../../src/venues/fest-big/build/architecture.js';
 import { RiggingSystem } from '../../src/venues/fest-big/build/rigging.js';
 import { traceToFloor } from '../../src/venues/fest-big/build/floor.js';
+import { StaticBatch } from '../../src/core/geom.js';
 
 describe('Паспорта приборов', () => {
   it('у каждого типа прибора есть паспортные данные с источником', () => {
@@ -212,7 +214,7 @@ describe('Патч 1 · раздел 1', () => {
   });
 
   it('пределы хода по ТЗ', () => {
-    const want = { B1: [6.3, 6.3], B2: [6.6, 6.6], Sh2: [6.7, 6.7], Sh3: [6.7, 6.7], Sh4: [6.7, 6.7], Sh5: [6.7, 6.7], Sh6: [6.7, 6.7] };
+    const want = { B1: [6.2, 6.2], B2: [6.2, 6.2], Sh2: [6.7, 6.7], Sh3: [6.7, 6.7], Sh4: [6.7, 6.7], Sh5: [6.7, 6.7], Sh6: [6.7, 6.7] };
     for (const [id, [max, rest]] of Object.entries(want)) {
       expect(RIG_BY_ID[id].max, id).toBe(max);
       expect(RIG_BY_ID[id].rest, id).toBe(rest);
@@ -249,12 +251,12 @@ describe('Патч 1 · раздел 1', () => {
     for (const f of galL) expect(f.mount.x, String(f.no)).toBeCloseTo(-6.85, 6);
   });
 
-  it('старая высота Б1/Б2 = 6,5 обрезается до нового максимума', () => {
+  it('старая высота Б1/Б2 = 6,5 обрезается до нового максимума 6,2', () => {
     const rs = new RiggingSystem(fakeM(), {});
     rs.setHeight('B1', 6.5);
     rs.setHeight('B2', 6.5);
-    expect(rs.height('B1')).toBe(6.3);
-    expect(rs.height('B2')).toBe(6.5); // 6,5 ≤ 6,6 — без изменений
+    expect(rs.height('B1')).toBe(6.2);
+    expect(rs.height('B2')).toBe(6.2);
   });
 });
 
@@ -286,14 +288,17 @@ describe('Патч 1 · раздел 2', () => {
     expect(DIM.rack.topY).toBe(DIM.wallPier.topY);
   });
 
-  it('узел Ш1/С0/З сдвинут на 0,5; канат — в 0,2 от противовеса; конец дороги не задевает канат', () => {
+  it('узел Ш1/С0/З: перила 0,50 м от выступа стены (x = 7,50), канаты вплотную изнутри (7,54) вне фермы З', () => {
+    expect(rightFrontRailX()).toBeCloseTo(7.5, 6);
+    expect(DIM.wallPier.x0 - rightFrontRailX()).toBeCloseTo(0.5, 6);
     for (const id of ['Z', 'C0', 'Sh1']) {
       expect(counterweightX(RIG_BY_ID[id])).toBeCloseTo(7.86, 6);
-      expect(ropeX(RIG_BY_ID[id])).toBeCloseTo(7.66, 6);
+      expect(ropeX(RIG_BY_ID[id])).toBeCloseTo(7.54, 6);
     }
-    expect(ropeX(RIG_BY_ID.Z) - DIM.pipe.trackLength / 2).toBeGreaterThan(0.1);
+    expect(ropeX(RIG_BY_ID.Z) - DIM.pipe.trackLength / 2).toBeGreaterThan(0.03);
+    expect(ropeX(RIG_BY_ID.Z) - rightFrontRailX()).toBeCloseTo(0.04, 6);
     expect(counterweightX(RIG_BY_ID.Sh2)).toBeCloseTo(-8.36, 6); // левая стена — как было
-    expect(counterweightX(RIG_BY_ID.B2)).toBeCloseTo(8.36, 6);  // узел Б2 — как было
+    expect(counterweightX(RIG_BY_ID.B2)).toBeCloseTo(8.36, 6);  // каретка Б2 у правой стены
     expect(DIM.wallPier.x0 - (counterweightX(RIG_BY_ID.Z) + 0.05)).toBeGreaterThan(0); // каретка не в выступе
   });
 
@@ -342,5 +347,120 @@ describe('Патч 1 · раздел 3', () => {
     expect(DIM.galleries.gateStairW).toBe(0.6);
     expect(DIM.galleries.overGateY - DIM.galleries.fasciaDrop).toBeGreaterThan(g.ceilY);
     expect(g.x1).toBeLessThan(BOX_HALF - DIM.liftNode.padSize);
+  });
+});
+
+describe('Угловая шахта Б2, проём вертикальной лестницы и расширенный узел Ш1/С0/З', () => {
+  function builtStageStatic() {
+    const M = fakeM();
+    M.mesh.alphaMap = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+    const batch = new StaticBatch();
+    buildArchitecture(batch, M);
+    const rs = new RiggingSystem(M, { ropes: true });
+    rs.buildStatic(batch);
+    const layers = batch.build();
+    for (const grp of Object.values(layers)) grp.updateMatrixWorld(true);
+    return { layers, rs };
+  }
+
+  it('узел Б2 перемещён в правый задний угол 0,5 × 0,5 м (x = 8,00…8,50, d = 8,70…9,20)', () => {
+    expect(B2_SHAFT).toEqual({ x0: 8.0, x1: 8.5, d0: 8.7, d1: 9.2 });
+    expect(ropeDepth('B2')).toBeCloseTo(8.95, 6);
+    expect(counterweightX(RIG_BY_ID.B2)).toBeCloseTo(8.36, 6);
+    expect(ropeX(RIG_BY_ID.B2)).toBeGreaterThan(B2_SHAFT.x0 + 0.03);
+    expect(ropeX(RIG_BY_ID.B2)).toBeLessThan(counterweightX(RIG_BY_ID.B2) - 0.1);
+  });
+
+  it('в углах нижней площадки (2,20) и верхней галереи (5,70) вырезаны отверстия 0,5 × 0,5 м, а на верхней галерее стоят перила', () => {
+    const { layers } = builtStageStatic();
+    const gal = layers.galleries;
+    const rc = new THREE.Raycaster();
+    const down = new THREE.Vector3(0, -1, 0);
+    const hitYs = (x, d) => {
+      rc.set(new THREE.Vector3(x, 7.2, -d), down);
+      return rc.intersectObject(gal, true).map((h) => h.point.y);
+    };
+
+    // Внутри отверстия 0,5 × 0,5 (x = 8.25, d = 8.95) настила нет ни на 5.70, ни на 2.20
+    expect(hitYs(8.25, 8.95)).toEqual([]);
+
+    // Сразу снаружи отверстия по X (x = 7.80, d = 8.95) и по d (x = 8.25, d = 8.50) присутствуют оба настила
+    for (const [x, d] of [[7.8, 8.95], [8.25, 8.5]]) {
+      const ys = hitYs(x, d);
+      expect(ys.some((y) => Math.abs(y - DIM.galleries.upperY) < 0.02), `верхняя галерея в (${x}, ${d})`).toBe(true);
+      expect(ys.some((y) => Math.abs(y - DIM.liftNode.padY) < 0.02), `нижняя площадка в (${x}, ${d})`).toBe(true);
+    }
+
+    // На верхней галерее вокруг отверстия 0,5 × 0,5 стоят перила (верхний поручень ~6.70) по обеим открытым сторонам
+    const railHitX = new THREE.Raycaster(new THREE.Vector3(7.7, 6.7, -8.95), new THREE.Vector3(1, 0, 0), 0, 0.6).intersectObject(gal, true);
+    const railHitD = new THREE.Raycaster(new THREE.Vector3(8.25, 6.7, -8.4), new THREE.Vector3(0, 0, -1), 0, 0.6).intersectObject(gal, true);
+    expect(railHitX.length, 'перила верхней галереи вдоль d на x = 8,00').toBeGreaterThan(0);
+    expect(railHitD.length, 'перила верхней галереи вдоль X на d = 8,70').toBeGreaterThan(0);
+  });
+
+  it('шахта Б2 закрыта сеткой-рабицей с обеих открытых сторон от нижней площадки (2,20) до низа настила верхней галереи (5,64), а снизу — поручни 0,5 × 0,5 м', () => {
+    const { layers } = builtStageStatic();
+    const meshObj = layers.rigging.children.find((o) => o.material?.name === 'mesh');
+    expect(meshObj).toBeTruthy();
+    const pos = meshObj.geometry.attributes.position;
+    const nor = meshObj.geometry.attributes.normal;
+
+    let minY = Infinity, maxY = -Infinity;
+    let hasFaceX = false, hasFaceD = false;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i), d = -pos.getZ(i);
+      if (x > 7.5 && d > 8.5) {
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+        if (Math.abs(x - B2_SHAFT.x0) < 0.01 && Math.abs(nor.getX(i)) > 0.9) hasFaceX = true;
+        if (Math.abs(d - B2_SHAFT.d0) < 0.01 && Math.abs(nor.getZ(i)) > 0.9) hasFaceD = true;
+      }
+    }
+    expect(hasFaceX, 'сетка вдоль оси d на x = 8,00').toBe(true);
+    expect(hasFaceD, 'сетка вдоль оси X на d = 8,70').toBe(true);
+    expect(minY).toBeCloseTo(DIM.liftNode.padY, 3);
+    expect(maxY).toBeCloseTo(DIM.galleries.upperY - 0.06, 3);
+
+    // Поручни-защита 0,5 × 0,5 м снизу на высоте 1,0 м с обеих сторон угла Б2, и старого ограждения на d = 7,70 больше нет
+    const steelObj = layers.rigging.children.find((o) => o.material?.name === 'steel');
+    const guardX = new THREE.Raycaster(new THREE.Vector3(7.7, 1.0, -8.95), new THREE.Vector3(1, 0, 0), 0, 0.6).intersectObject(steelObj, true);
+    const guardD = new THREE.Raycaster(new THREE.Vector3(8.25, 1.0, -8.4), new THREE.Vector3(0, 0, -1), 0, 0.6).intersectObject(steelObj, true);
+    const oldGuard = new THREE.Raycaster(new THREE.Vector3(7.5, 1.0, -7.7), new THREE.Vector3(1, 0, 0), 0, 1.0).intersectObject(steelObj, true);
+    expect(guardX.length, 'нижний поручень Б2 на x = 8,00').toBeGreaterThan(0);
+    expect(guardD.length, 'нижний поручень Б2 на d = 8,70').toBeGreaterThan(0);
+    expect(oldGuard.length, 'старое ограждение Б2 на d = 7,70 убрано').toBe(0);
+  });
+
+  it('проём в перилах верхней галереи у вертикальной лестницы перенесён на x = 6,60…7,30 м (левый край вровень с лестницей)', () => {
+    const { layers } = builtStageStatic();
+    const gal = layers.galleries;
+    const hitBackRailAt = (x) => new THREE.Raycaster(
+      new THREE.Vector3(x, 6.7, -8.0),
+      new THREE.Vector3(0, 0, -1),
+      0,
+      0.6,
+    ).intersectObject(gal, true).length > 0;
+
+    // Слева от лестницы (x = 6,42 — раньше был пустой проём) теперь идут сплошные перила до 6,60
+    expect(hitBackRailAt(6.42)).toBe(true);
+    // В новом проёме правее лестницы (x = 6,75 и 7,15) перил нет
+    expect(hitBackRailAt(6.75)).toBe(false);
+    expect(hitBackRailAt(7.15)).toBe(false);
+    // Правее проёма (x = 7,45, между 7,30 и 7,60) перила снова есть
+    expect(hitBackRailAt(7.45)).toBe(true);
+  });
+
+  it('нижние перила узла Ш1/С0/З стоят на x = 7,50 м и соединены с выступом стены 8,00 м поперечинами 0,50 м', () => {
+    const { layers } = builtStageStatic();
+    const steelObj = layers.rigging.children.find((o) => o.material?.name === 'steel');
+    const hits = new THREE.Raycaster(
+      new THREE.Vector3(7.2, 1.0, -0.7),
+      new THREE.Vector3(1, 0, 0),
+      0,
+      0.6,
+    ).intersectObject(steelObj, true);
+    expect(hits.length).toBeGreaterThan(0);
+    // Наружная поверхность трубы (r = 0.03) с осью x = 7.50 находится около 7.47
+    expect(hits[0].point.x).toBeCloseTo(7.5 - 0.03, 2);
   });
 });

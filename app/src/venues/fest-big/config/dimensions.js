@@ -82,8 +82,8 @@ export const DIM = {
     padY: 2.2,
     // техническая лестница к правой стене, перед площадкой; лезут лицом к стене
     sideLadder: { width: 0.5, gapToPad: 0.05 },
-    // вертикальная лестница без ограждения: у края площадки со стороны ворот
-    vertLadder: { width: 0.45, topY: 5.7, d: 8.0 },
+    // вертикальная лестница без ограждения: у края площадки со стороны ворот; проём в перилах верхней галереи — вправо от неё
+    vertLadder: { width: 0.45, topY: 5.7, d: 8.0, upperGapW: 0.7 },
   },
 
   // --- Проёмы ------------------------------------------------------------------
@@ -138,8 +138,10 @@ export const DIM = {
   controls: {
     cwInset: 0.14,
     ropeInset: 0.62,
-    // правый передний узел (Ш1, С0, З): сдвинут на 0,50 м к центру сцены, канаты вплотную к противовесам
-    rightFront: { shiftX: 0.5, ropeGap: 0.2, guideTopY: 5.95, assumption: true },
+    // правый передний узел (Ш1, С0, З): у выступа стены (x = 8,00), ограждение 0,50 м по X (до x = 7,50), канаты вплотную изнутри перил
+    rightFront: { shiftX: 0.5, railWidth: 0.5, ropeGap: 0.32, guideTopY: 5.95, assumption: true },
+    // правый задний угловой узел (Б2): шахта, поручни и вырезы 0,50 × 0,50 м в углу сцены (x = 8,00..8,50, d = 8,70..9,20)
+    b2Corner: { size: 0.5, ropeGap: 0.3 },
   },
 
   // --- Ригель ------------------------------------------------------------------
@@ -202,6 +204,12 @@ export const LEFT_GALLERY = {
   x1: +(-BOX_HALF + DIM.galleries.leftGap + DIM.galleries.width).toFixed(4), // -6.95
 };
 export const BACK_GALLERY_FRONT_D = DIM.box.backWallD - DIM.galleries.width; // 8.30
+export const B2_SHAFT = {
+  x0: +(BOX_HALF - DIM.controls.b2Corner.size).toFixed(4), // 8.00
+  x1: BOX_HALF, // 8.50
+  d0: +(DIM.box.backWallD - DIM.controls.b2Corner.size).toFixed(4), // 8.70
+  d1: DIM.box.backWallD, // 9.20
+};
 export const RAKE = Math.tan((DIM.hall.rakeDeg * Math.PI) / 180);
 
 /** Координата X косой сценической кромки приямка на глубине d (fromD ≤ d ≤ toD). */

@@ -7,10 +7,10 @@
 //  а высоты подъёмов, вкл/выкл приборов и режим переносных — из состояния stage.
 // =============================================================================
 import {
-  DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, LEFT_GALLERY, BACK_GALLERY_FRONT_D,
+  DIM, BOX_HALF, HALL_HALF, GALLERY_INNER_X, LEFT_GALLERY, BACK_GALLERY_FRONT_D, B2_SHAFT,
   RAKE, rowFrontD, hallFloorY, pitEdgeX, gateNiche, doorNiche,
 } from '../config/dimensions.js';
-import { RIGGING, RIG_BY_ID, SPACING, LEFT_RAIL_ORDER, RIGHT_FRONT_ORDER, ropeDepth, counterweightX, DUTY_ROWS } from '../config/rigging.js';
+import { RIGGING, RIG_BY_ID, SPACING, LEFT_RAIL_ORDER, RIGHT_FRONT_ORDER, ropeDepth, counterweightX, rightFrontRailX, DUTY_ROWS } from '../config/rigging.js';
 import { FIXTURES, TYPES, GROUPS, PORTABLE, portablePlacement, BAR_DEPTH } from '../config/fixtures.js';
 import { SPECS } from '../config/fixtures.js';
 import { HALL_CEIL_PROFILE, HALL_BACK_FLOOR_Y } from '../build/architecture.js';
@@ -292,9 +292,12 @@ export function buildPlanDXF(stage) {
   const fToD = DIM.galleries.frontToD;
   const upX0 = gn.x0 - DIM.galleries.gateStairW;
   const padX0 = W - DIM.liftNode.padSize, padD0 = BACK - DIM.liftNode.padSize;
-  // Верхние галереи: левая (с зазором от стены), правая, единая задняя (-W..GX) и передняя
+  // Верхние галереи: левая (с зазором от стены), правая (с вырезом 0,5×0,5 под узел Б2), единая задняя (-W..GX) и передняя
   dxf.addRect(LEFT_GALLERY.x0, fToD, LEFT_GALLERY.x1, GB, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
-  dxf.addRect(GX, fToD, W, BACK, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  dxf.addPolyline(
+    [[GX, fToD], [W, fToD], [W, B2_SHAFT.d0], [B2_SHAFT.x0, B2_SHAFT.d0], [B2_SHAFT.x0, BACK], [GX, BACK]],
+    { layer: 'AR_GALLERIES', closed: true, ltype: 'DASHED' },
+  );
   dxf.addRect(-W, GB, GX, BACK, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
   dxf.addRect(-W, DIM.galleries.frontFromD, W, fToD, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
   // Поднятый участок нижней галереи над воротами (+2,90) и боковые марши ступеней
@@ -310,8 +313,11 @@ export function buildPlanDXF(stage) {
   dxf.addText(gMid, (GB + BACK) / 2, `Галерея +${fmtM(DIM.galleries.overGateY)}`, {
     layer: 'AR_GALLERIES', height: 0.13, align: 'center', valign: 'middle',
   });
-  // Площадка узла подъёма (1,85 × 1,85 м в правом заднем углу)
-  dxf.addRect(padX0, padD0, W, BACK, { layer: 'AR_GALLERIES' });
+  // Площадка узла подъёма (1,85 × 1,85 м в правом заднем углу с угловым вырезом 0,5 × 0,5 м под узел Б2)
+  dxf.addPolyline(
+    [[padX0, padD0], [W, padD0], [W, B2_SHAFT.d0], [B2_SHAFT.x0, B2_SHAFT.d0], [B2_SHAFT.x0, BACK], [padX0, BACK]],
+    { layer: 'AR_GALLERIES', closed: true },
+  );
   const padCx = (padX0 + W) / 2, padCy = (padD0 + BACK) / 2;
   dxf.addText(padCx, padCy + 0.14, 'Узел подъёма', {
     layer: 'AR_GALLERIES', height: 0.12, align: 'center', valign: 'middle',
@@ -448,12 +454,23 @@ export function buildPlanDXF(stage) {
     );
   }
 
-  // Каретки противовесов у левой и правой стен (включая сдвинутый правый передний узел)
+  // Каретки противовесов у левой и правой стен и ограждения правых узлов управления
   for (const r of RIGGING) {
     const rd = ropeDepth(r.id);
     const cwX = counterweightX(r);
     dxf.addRect(cwX - 0.06, rd - 0.07, cwX + 0.06, rd + 0.07, { layer: 'RIG_SIDE' });
   }
+  const rfRailX = rightFrontRailX();
+  const rfLockD0 = ropeDepth(RIGHT_FRONT_ORDER[0]) - 0.2;
+  const rfLockD1 = ropeDepth(RIGHT_FRONT_ORDER.at(-1)) + 0.2;
+  dxf.addPolyline(
+    [[pier.x0, rfLockD0], [rfRailX, rfLockD0], [rfRailX, rfLockD1], [pier.x0, rfLockD1]],
+    { layer: 'RIG_SIDE' },
+  );
+  dxf.addPolyline(
+    [[B2_SHAFT.x0, BACK], [B2_SHAFT.x0, B2_SHAFT.d0], [W, B2_SHAFT.d0]],
+    { layer: 'RIG_SIDE' },
+  );
 
   // Линии дежурного освещения (ДО1–ДО3)
   for (const dr of DUTY_ROWS) {

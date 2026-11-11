@@ -6,10 +6,10 @@
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { DIM, HALL_HALF, RAKE, rowFrontD } from '../config/dimensions.js';
-import { RIGGING, RIG_BY_ID, RIGHT_FRONT_ORDER, ropeDepth, counterweightX, DUTY_ROWS } from '../config/rigging.js';
+import { DIM, HALL_HALF, B2_SHAFT, RAKE, rowFrontD } from '../config/dimensions.js';
+import { RIGGING, RIG_BY_ID, RIGHT_FRONT_ORDER, ropeDepth, counterweightX, rightFrontRailX, DUTY_ROWS } from '../config/rigging.js';
 import { FIXTURES, TYPES, PORTABLE, portablePlacement, BAR_DEPTH } from '../config/fixtures.js';
-import { StaticBatch, box } from '../../../core/geom.js';
+import { StaticBatch, box, cylBetween, P } from '../../../core/geom.js';
 import { buildArchitecture, buildSeats, buildEmitters } from '../build/architecture.js';
 import { DxfWriter } from '../../../export/dxfWriter.js';
 
@@ -467,6 +467,45 @@ export function buildExportSceneForGLTF(stage) {
     box(cwRF - 0.03, DIM.wallPier.x0, DIM.wallPier.topY - 0.06, DIM.wallPier.topY, rfD0, rfD0 + 0.04),
     box(cwRF - 0.03, DIM.wallPier.x0, DIM.wallPier.topY - 0.06, DIM.wallPier.topY, rfD1 - 0.04, rfD1),
   );
+  // Перила правого переднего узла (0,50 м по X) и углового узла Б2 (0,5 × 0,5 м) + каркас шахты Б2
+  const railXRF = rightFrontRailX();
+  const lockR = [ropeDepth(RIGHT_FRONT_ORDER[0]) - 0.2, ropeDepth(RIGHT_FRONT_ORDER.at(-1)) + 0.2];
+  for (const y of [0.45, 1.0]) {
+    staticRigGeoms.push(
+      cylBetween(P(railXRF, y, lockR[0]), P(railXRF, y, lockR[1]), 0.03, 8),
+      cylBetween(P(railXRF, y, lockR[0]), P(DIM.wallPier.x0, y, lockR[0]), 0.0225, 6),
+      cylBetween(P(railXRF, y, lockR[1]), P(DIM.wallPier.x0, y, lockR[1]), 0.0225, 6),
+      cylBetween(P(B2_SHAFT.x0, y, B2_SHAFT.d0), P(B2_SHAFT.x0, y, B2_SHAFT.d1), 0.03, 8),
+      cylBetween(P(B2_SHAFT.x0, y, B2_SHAFT.d0), P(B2_SHAFT.x1, y, B2_SHAFT.d0), 0.03, 8),
+    );
+  }
+  for (const d of lockR) {
+    staticRigGeoms.push(
+      box(railXRF - 0.03, DIM.wallPier.x0, 0.98, 1.02, d - 0.02, d + 0.02),
+      box(railXRF - 0.02, railXRF + 0.02, 0, 1.02, d - 0.02, d + 0.02),
+    );
+  }
+  staticRigGeoms.push(
+    box(B2_SHAFT.x0 - 0.02, B2_SHAFT.x0 + 0.02, 0.98, 1.02, B2_SHAFT.d0 - 0.02, B2_SHAFT.d1),
+    box(B2_SHAFT.x0 - 0.02, B2_SHAFT.x1, 0.98, 1.02, B2_SHAFT.d0 - 0.02, B2_SHAFT.d0 + 0.02),
+    box(B2_SHAFT.x0 - 0.02, B2_SHAFT.x0 + 0.02, 0, 1.02, B2_SHAFT.d0 - 0.02, B2_SHAFT.d0 + 0.02),
+    box(B2_SHAFT.x0 - 0.02, B2_SHAFT.x0 + 0.02, 0, 1.02, B2_SHAFT.d1 - 0.04, B2_SHAFT.d1),
+    box(B2_SHAFT.x1 - 0.04, B2_SHAFT.x1, 0, 1.02, B2_SHAFT.d0 - 0.02, B2_SHAFT.d0 + 0.02),
+  );
+  const shaftY0 = DIM.liftNode.padY;
+  const shaftY1 = DIM.galleries.upperY - 0.06;
+  const shaftMidY = (shaftY0 + shaftY1) / 2;
+  staticRigGeoms.push(
+    box(B2_SHAFT.x0 - 0.02, B2_SHAFT.x0 + 0.02, shaftY0, shaftY1, B2_SHAFT.d0 - 0.02, B2_SHAFT.d0 + 0.02),
+    box(B2_SHAFT.x0 - 0.02, B2_SHAFT.x0 + 0.02, shaftY0, shaftY1, B2_SHAFT.d1 - 0.04, B2_SHAFT.d1),
+    box(B2_SHAFT.x1 - 0.04, B2_SHAFT.x1, shaftY0, shaftY1, B2_SHAFT.d0 - 0.02, B2_SHAFT.d0 + 0.02),
+  );
+  for (const y0 of [shaftY0, shaftMidY - 0.02, shaftY1 - 0.04]) {
+    staticRigGeoms.push(
+      box(B2_SHAFT.x0 - 0.02, B2_SHAFT.x0 + 0.02, y0, y0 + 0.04, B2_SHAFT.d0, B2_SHAFT.d1),
+      box(B2_SHAFT.x0, B2_SHAFT.x1, y0, y0 + 0.04, B2_SHAFT.d0 - 0.02, B2_SHAFT.d0 + 0.02),
+    );
+  }
   batch.add('rigging', M.steel, staticRigGeoms);
 
   const builtLayers = batch.build();
