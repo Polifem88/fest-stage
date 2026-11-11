@@ -22,11 +22,11 @@ const VIEWS = {
   overview: { name: 'Общий вид', type: 'persp', pos: [15.5, 12.5, -16], target: [0, 2.2, 2.5], portraitPullback: true },
   hall: { name: 'Из зала (8-й ряд)', type: 'persp', pos: [0, eyeY(7), rowFrontD(7) - 0.42], target: [0, 2.6, 4] },
   booth: { name: 'С пульта', type: 'persp', pos: [0.8, HALL_BACK_FLOOR_Y + 2.7, -DIM.hall.portalToBoothWall + 0.3], target: [0, 1.4, 3] },
-  plan: { name: 'План сверху', type: 'ortho', dir: 'top', center: [0, 0, -4.2], height: 31 },
+  plan: { name: 'План сверху', type: 'ortho', dir: 'top', center: [0, 0, -5.0], height: 33 },
   // только коробка и авансцена, крупно; снизу остаётся полоса под экспликацию (legendRows)
   planStage: { name: 'План сцены (крупно)', type: 'ortho', dir: 'top', center: [0, 0, 0.4], height: 20.5, legendRows: 7 },
-  // вся глубина здания: от задней стены сцены (9,2) до операторской (−18)
-  section: { name: 'Разрез сбоку', type: 'ortho', dir: 'side', center: [0, 3.6, -4.4], height: 19.5 },
+  // вся глубина здания: от ниш задних ворот (10,3) до торцевых выходов зала (−20,34)
+  section: { name: 'Разрез сбоку', type: 'ortho', dir: 'side', center: [0, 3.6, -5.0], height: 19.5 },
   stageToHall: { name: 'Со сцены в зал', type: 'persp', pos: [0, 1.7, 4.5], target: [0, 1.6, -12] },
   upperGallery: { name: 'С верхней галереи', type: 'persp', pos: [-1.5, DIM.galleries.upperY + 1.6, 8.75], target: [0, 2.2, 1.0] },
   // подписи всех 16 канатов читаются только вблизи — показываются в этом виде (allRopeLabels)

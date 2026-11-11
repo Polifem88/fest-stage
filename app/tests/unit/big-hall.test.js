@@ -12,6 +12,9 @@ import {
 } from '../../src/venues/fest-big/config/hallGeometry.js';
 import { buildArchitecture, buildSeats, buildEmitters } from '../../src/venues/fest-big/build/architecture.js';
 import { ambientLights } from '../../src/venues/fest-big/build/ambient.js';
+import { traceToFloor, clipPoolsToFloor } from '../../src/venues/fest-big/build/floor.js';
+import { buildDims } from '../../src/venues/fest-big/build/overlays.js';
+import bigVenue from '../../src/venues/fest-big/index.js';
 
 describe('Большая сцена · геометрия зрительного зала (Патч 1, часть 2)', () => {
   it('верхняя ширина зала 16,0 м, ступени ±7,06 м под 26 креслами по 0,54 м', () => {
@@ -176,5 +179,64 @@ describe('Большая сцена · 3D-сборка зала и свет', ()
       p.setFromMatrixPosition(m);
       expect(Math.abs(p.x) + DIM.hall.seatWidth / 2).toBeLessThanOrEqual(STEP_HALF_X + 1e-4);
     }
+  });
+});
+
+describe('Большая сцена · трассировка лучей, пятна света, оверлеи и виды зала', () => {
+  const down = new THREE.Vector3(0, -1, 0);
+
+  it('луч на сцене при |x| = 8,2 м (между 8,0 м зала и 8,5 м коробки) попадает в планшет, а не в стену зала', () => {
+    const hitLeft = traceToFloor(new THREE.Vector3(-7.0, 5.0, -3.0), new THREE.Vector3(-1.2, -5.0, 0).normalize());
+    expect(hitLeft.floor).toBe(true);
+    expect(hitLeft.point.y).toBeCloseTo(0, 3);
+    expect(hitLeft.point.x).toBeCloseTo(-8.2, 3);
+
+    const hitRight = traceToFloor(new THREE.Vector3(7.0, 5.0, -6.0), new THREE.Vector3(1.2, -5.0, 0).normalize());
+    expect(hitRight.floor).toBe(true);
+    expect(hitRight.point.y).toBeCloseTo(0, 3);
+    expect(hitRight.point.x).toBeCloseTo(8.2, 3);
+  });
+
+  it('вертикальные и наклонные лучи в зале попадают точно в ступень, пандус, порог -0,85 и тамбур выхода', () => {
+    expect(traceToFloor(new THREE.Vector3(8.3, 3.0, 0.5), down).point.y).toBeCloseTo(-0.85, 3);
+    expect(traceToFloor(new THREE.Vector3(8.0, 3.0, 0.5), down).point.y).toBeCloseTo(hallFloorY(-0.5, 8.0), 4);
+    expect(traceToFloor(new THREE.Vector3(7.8, 4.0, 10.0), down).point.y).toBeCloseTo(hallFloorY(-10.0, 7.8), 3);
+    expect(traceToFloor(new THREE.Vector3(10.5, 5.0, 19.5), down).point.y).toBeCloseTo(hallFloorY(-19.5, 10.5), 3);
+    expect(traceToFloor(new THREE.Vector3(11.5, 5.0, 10.0), down).floor).toBe(false);
+    expect(traceToFloor(new THREE.Vector3(0, 5.0, 19.5), down).floor).toBe(false);
+    // луч в переднюю стену операторской обрезается на d = -18,0 м (z = +18,0)
+    const toBooth = traceToFloor(new THREE.Vector3(0, 2.5, 14.0), new THREE.Vector3(0, 0, 1));
+    expect(toBooth.floor).toBe(false);
+    expect(toBooth.point.z).toBeCloseTo(18.0, 3);
+  });
+
+  it('clipPoolsToFloor встраивает кусочно-линейный контур зала с кишками и вырезом операторской', () => {
+    const mat = new THREE.MeshBasicMaterial();
+    clipPoolsToFloor(mat);
+    const sh = { vertexShader: '#include <common>\nvoid main() {\n#include <project_vertex>\n}', fragmentShader: '#include <common>\nvoid main() {\n}' };
+    mat.onBeforeCompile(sh);
+    expect(sh.fragmentShader).toContain('11.9123');
+    expect(sh.fragmentShader).toContain('-20.3418');
+    expect(sh.fragmentShader).toContain('9.3123');
+  });
+
+  it('размерные выноски и ортографические виды учитывают ширину 16 м и выходы до -20,34 м', () => {
+    const made = [];
+    const fakeLabels = {
+      make(text) {
+        const obj = new THREE.Object3D();
+        obj.userData.text = text;
+        made.push(obj);
+        return obj;
+      },
+    };
+    buildDims(fakeLabels);
+    const texts = made.map((o) => o.userData.text);
+    expect(texts).toContain('Зал 16 м');
+    const longDim = made.find((o) => o.userData.text.startsWith('Портал — операторская'));
+    expect(longDim).toBeTruthy();
+    expect(longDim.position.x).toBeGreaterThan(12.2);
+    expect(bigVenue.views.plan.height).toBeGreaterThanOrEqual(33);
+    expect(bigVenue.views.plan.center[2]).toBeCloseTo(-5.0, 3);
   });
 });

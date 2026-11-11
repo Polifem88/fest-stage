@@ -377,7 +377,7 @@ git rev-list --count HEAD
 - Consumes: `hallFloorY`, `hallCanopyY`, `inHallFloor`, `hallOuterXAtD`, `hallInnerMinXAtD` из `config/hallGeometry.js`.
 - Produces: обновлённые `traceToFloor(p, dir)` и `clipPoolsToFloor(mat)` в `build/floor.js`, `buildDims(labels)` в `build/overlays.js` и `VIEWS` в `index.js`.
 
-- [ ] **Step 1: Добавить в `app/tests/unit/big-hall.test.js` падающие тесты на `traceToFloor` и размерные выноски**
+- [x] **Step 1: Добавить в `app/tests/unit/big-hall.test.js` падающие тесты на `traceToFloor` и размерные выноски**
 
 ```js
 import { traceToFloor } from '../../src/venues/fest-big/build/floor.js';
@@ -402,12 +402,12 @@ describe('Большая сцена · трассировка лучей и ов
 });
 ```
 
-- [ ] **Step 2: Запустить тест и убедиться, что он падает**
+- [x] **Step 2: Запустить тест и убедиться, что он падает**
 
 Run: `cd app; npx.cmd vitest run tests/unit/big-hall.test.js`
 Expected: FAIL (старый `traceToFloor` режет сценический луч на `x = 8.0`, не знает `x`-зависимости `hallFloorY` и тамбура `x = 10.5`).
 
-- [ ] **Step 3: Обновить `floor.js`, `overlays.js` и `index.js`**
+- [x] **Step 3: Обновить `floor.js`, `overlays.js` и `index.js`**
 
 1. **`build/floor.js`:**
    - в `traceToFloor(p, dir)` итерации пересечения с полом зала вызывать `hallFloorY(-qq.z, qq.x)` и принимать точку при `inHallFloor(qq.x, -qq.z)`;
@@ -419,12 +419,12 @@ Expected: FAIL (старый `traceToFloor` режет сценический л
 3. **`index.js`:**
    - обновить ортогональные виды `plan` (`center: [0, 0, -5.0], height: 33`) и `section` (`center: [0, 3.6, -5.0], height: 19.5`), чтобы торцевые двери на `d = -20.34 м` и ниши ворот на `d = +10.30 м` полностью входили в кадр.
 
-- [ ] **Step 4: Проверить прохождение юнит-тестов**
+- [x] **Step 4: Проверить прохождение юнит-тестов**
 
 Run: `cd app; npm.cmd test`
 Expected: PASS.
 
-- [ ] **Step 5: Закоммитить обновления света на полу, выносок и камер**
+- [x] **Step 5: Закоммитить обновления света на полу, выносок и камер**
 
 ```powershell
 git add app/src/venues/fest-big/build/floor.js app/src/venues/fest-big/build/overlays.js app/src/venues/fest-big/index.js app/tests/unit/big-hall.test.js

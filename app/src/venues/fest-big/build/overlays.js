@@ -1,6 +1,7 @@
 // Размерные линии с подписями и сетка на планшете.
 import * as THREE from 'three';
 import { DIM, BOX_HALF, HALL_HALF, LEFT_GALLERY, rowFrontD, pitEdgeX } from '../config/dimensions.js';
+import { HALL_CONTOUR_BY_ID } from '../config/hallGeometry.js';
 import { HALL_BACK_FLOOR_Y } from './architecture.js';
 import { buildDimsFromList } from '../../../core/overlays.js';
 
@@ -26,8 +27,8 @@ function dimList() {
     [[-3.5, -FS.height, -FS.depth - 0.1], [-3.5, 0, -FS.depth - 0.1], `Сцена ${fmt(FS.height)}`],
     [[2.5, -FS.height + 0.03, -FS.depth], [2.5, -FS.height + 0.03, rowFrontD(0)], `До 1-го ряда ${fmt(DIM.hall.firstRowGap)}`],
     [[-HALL_HALF, HALL_BACK_FLOOR_Y + 0.05, -DIM.hall.portalToBoothWall + 0.6], [HALL_HALF, HALL_BACK_FLOOR_Y + 0.05, -DIM.hall.portalToBoothWall + 0.6], `Зал ${fmt(DIM.hall.width)}`],
-    // справа за стеной зала: слева на плане экспликация, и там же приборы лож
-    [[HALL_HALF + 0.7, -FS.height + 0.05, 0], [HALL_HALF + 0.7, -FS.height + 0.05, -DIM.hall.portalToBoothWall], `Портал — операторская ${fmt(DIM.hall.portalToBoothWall)}`],
+    // справа снаружи выходного кармана «кишки» (E1.x = 11,91 м): слева на плане экспликация, и там же приборы лож
+    [[+(HALL_CONTOUR_BY_ID.E1.x + 0.65).toFixed(2), -FS.height + 0.05, 0], [+(HALL_CONTOUR_BY_ID.E1.x + 0.65).toFixed(2), -FS.height + 0.05, -DIM.hall.portalToBoothWall], `Портал — операторская ${fmt(DIM.hall.portalToBoothWall)}`],
     // над авансценой, в 1 м от портала: на разрезе не сливается с высотой портала
     [[-PW2 + 0.5, 0, -1.0], [-PW2 + 0.5, DIM.decoCeilingY, -1.0], `Деко-потолок ${fmt(DIM.decoCeilingY)}`],
   ];
