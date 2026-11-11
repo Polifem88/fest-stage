@@ -132,6 +132,17 @@ describe('Большая сцена · 3D-сборка зала и свет', ()
       mats.add(o.material.name);
       if (o.material.name === 'hallCanopy') {
         expect(o.material.side).toBe(THREE.FrontSide);
+        expect(o.material.color.getHex()).toBe(0xcfb896);
+      }
+      if (o.material.name === 'hallBeigePanel') {
+        expect(o.material.userData.uvScale).toBeCloseTo(1.15, 3);
+      }
+      if (o.material.name === 'booth') {
+        const pos = o.geometry.getAttribute('position');
+        let minZ = Infinity;
+        for (let i = 0; i < pos.count; i++) minZ = Math.min(minZ, pos.getZ(i));
+        // Внутренняя коробка рубки утоплена за плоскость стены d = -18,00 м (z >= 18,015), исключая z-fighting
+        expect(minZ).toBeGreaterThanOrEqual(18.015);
       }
     });
     expect(mats.has('hallBeigePanel')).toBe(true);

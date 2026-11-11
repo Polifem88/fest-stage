@@ -500,7 +500,7 @@ git rev-list --count HEAD
 - Create: `app/review/patch1-hall/REVIEW.md` (создаётся ревьюером или сохраняется по его отчёту)
 - Modify: файлы `fest-big` / `ASSUMPTIONS.md` (только при наличии замечаний ревьюера)
 
-- [ ] **Step 1: Вызвать субагента-ревьюера с `Model: 'inherit'`**
+- [x] **Step 1: Вызвать субагента-ревьюера с `Model: 'inherit'`**
 
 Вызвать `invoke_subagent` со строгими параметрами (по прямому требованию заказчика и правилу приоритета `AGENTS.md` §8):
 - `TypeName: 'self'`
@@ -514,13 +514,13 @@ git rev-list --count HEAD
   > 4. Проверь экспорт 2D-плана, 2D-разреза, 3D-DXF и GLB, корректность `traceToFloor` (включая отсутствие обрезки сценических лучей при `d ≥ 0`), неизменность общего кода (`git diff master...big-patch-1-hall -- app/src/core app/src/engine app/src/systems app/src/ui app/src/library app/src/export` должен быть пустым), актуальность `ASSUMPTIONS.md` и 100 % паритет `chamber` и `roof` в `app/review/modular/parity-report.md`.
   > 5. Сам код не изменяй: запиши подробный отчёт (критичные / важные / мелкие замечания и итоговый вердикт «готово к показу заказчику / нужны правки») в `app/review/patch1-hall/REVIEW.md` и верни резюме.
 
-- [ ] **Step 2: Отработать замечания ревьюера (навык `superpowers:receiving-code-review`)**
+- [x] **Step 2: Отработать замечания ревьюера (навык `superpowers:receiving-code-review`)**
 
 После получения ответа ревьюера:
 - все критичные и важные замечания устранить в коде; спорные архитектурные вопросы (если ревьюер нашёл расхождение со спецификацией) вынести пользователю;
 - при внесении правок повторно выполнить `cd app; npm.cmd run check`, переснять `after`-кадры и перепроверить паритет `chamber` / `roof` = 100 %.
 
-- [ ] **Step 3: Закоммитить отчёт ревью и правки по ревью**
+- [x] **Step 3: Закоммитить отчёт ревью и правки по ревью**
 
 ```powershell
 git add app/review/patch1-hall/REVIEW.md app/review/patch1-hall/REPORT.md app/src/venues/fest-big app/tests ASSUMPTIONS.md
@@ -536,7 +536,7 @@ git rev-list --count HEAD
 **Files:**
 - Modify (при правках от пользователя): файлы в `app/src/venues/fest-big/` и `ASSUMPTIONS.md`
 
-- [ ] **Step 1: Поднять локальный сервер для личной проверки пользователем**
+- [x] **Step 1: Поднять локальный сервер для личной проверки пользователем**
 
 Запустить фоновый dev-сервер Vite (`IsDaemon: true` в `run_command`):
 ```powershell

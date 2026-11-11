@@ -410,10 +410,11 @@ export function buildPlanDXF(stage) {
           { layer: 'AR_HALL' },
         );
       } else {
+        // Однопольная дверь на скосе операторской открывается наружу в тамбур (петли на внешнем косяке у B2)
         dxf.addLine(
           xA, dA,
-          xA + (tx * DOOR_SWING_COS + ox * DOOR_SWING_SIN) * width,
-          dA + (td * DOOR_SWING_COS + od * DOOR_SWING_SIN) * width,
+          xA + (tx * DOOR_SWING_COS + ix * DOOR_SWING_SIN) * width,
+          dA + (td * DOOR_SWING_COS + id * DOOR_SWING_SIN) * width,
           { layer: 'AR_HALL' },
         );
       }

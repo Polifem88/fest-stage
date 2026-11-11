@@ -125,6 +125,22 @@ describe('Экспорт 2D-плана сцены (buildPlanDXF)', () => {
     expect(dxf).toContain('11.9123');
     expect(dxf).toContain('\n10\n-7.06\n');
     expect(dxf).toContain('\n11\n7.06\n');
+
+    // Однопольная дверь на правом скосе операторской (петля xA ≈ 9.166, dA ≈ -18.554) открывается наружу в тамбур (d2 > -18.0)
+    const lineBlocks = dxf.split('\n0\nLINE\n').slice(1);
+    let boothDoorOutward = false;
+    for (const blk of lineBlocks) {
+      const lines = blk.split('\n');
+      const map = {};
+      for (let i = 0; i + 1 < lines.length; i += 2) {
+        if (lines[i] === '0') break;
+        map[lines[i]] = lines[i + 1];
+      }
+      if (map['8'] === 'AR_HALL' && Math.abs(Number(map['10']) - 9.1663) < 0.01 && Math.abs(Number(map['20']) - (-18.5536)) < 0.01) {
+        if (Number(map['21']) > -18.0) boothDoorOutward = true;
+      }
+    }
+    expect(boothDoorOutward).toBe(true);
   });
 });
 

@@ -61,8 +61,8 @@ function createExportMaterials() {
     hallCeiling: std('hallCeiling', 0x2c3038, 0.85, 0.05),
     decoCeiling: std('decoCeiling', 0x353942, 0.8, 0.1),
     wallPanel: Object.assign(std('wallPanel', 0x6f737a, 0.85, 0.05), { userData: { uvScale: 1.2 } }),
-    hallBeigePanel: Object.assign(std('hallBeigePanel', 0xc8b191, 0.72, 0.05), { userData: { uvScale: 0.575 } }),
-    hallCanopy: std('hallCanopy', 0xdfd6c7, 0.85, 0.05),
+    hallBeigePanel: Object.assign(std('hallBeigePanel', 0xc8b191, 0.72, 0.05), { userData: { uvScale: 1.15 } }),
+    hallCanopy: std('hallCanopy', 0xcfb896, 0.8, 0.05),
     hallLedStrip: std('hallLedStrip', 0xffdfad, 0.3, 0.05),
     booth: std('booth', 0x252830, 0.85, 0.05),
     glass: new THREE.MeshStandardMaterial({

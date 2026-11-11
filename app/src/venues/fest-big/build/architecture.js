@@ -69,6 +69,16 @@ const HALL_HANDLE_R = 0.011;
 const HALL_HANDLE_OFFSET = 0.065;
 const HALL_HANDLE_OUT = 0.028;
 const WALL_PANEL_UV_DEFAULT = 1.2;
+const HALL_BEIGE_UV_DEFAULT = 1.15;
+const CORNER_FLOOR_MAX_STEP_D = 0.14;
+const CORNER_FLOOR_STEPS_U = 8;
+const CANOPY_MAX_STEP_D = 0.25;
+const WALL_SEG_MAX_STEP = 0.25;
+const UPPER_WALL_SEGS = 48;
+const BOOTH_BOX_RECESS = 0.02;
+const BOOTH_BOX_MARGIN_X = 0.5;
+const BOOTH_BOX_Y0 = 1.0;
+const BOOTH_BOX_Y1 = 3.6;
 const pit = DIM.pit;
 const pier = DIM.wallPier;
 const rack = DIM.rack;
@@ -520,7 +530,7 @@ export function buildArchitecture(batch, M) {
 function buildHall(batch, M) {
   const H = DIM.hall;
   const { hallBeigePanel, hallCanopy } = getHallMaterials(M);
-  const beigeScale = hallBeigePanel.userData?.uvScale || 0.575;
+  const beigeScale = hallBeigePanel.userData?.uvScale || HALL_BEIGE_UV_DEFAULT;
   const panelScale = M.wallPanel?.userData?.uvScale || WALL_PANEL_UV_DEFAULT;
   const backD = -H.portalToBoothWall;
   const fy = -FSH;
@@ -548,9 +558,9 @@ function buildHall(batch, M) {
   const floorGeoms = [];
 
   // 1а. Передние боковые карманы d ∈ [-FS.depth, 0] снаружи лестниц авансцены
-  const cornerCuts = subdivideSortedD([0, HALL_CONTOUR_BY_ID.P1.d, HALL_CONTOUR_BY_ID.Z0.d, -FS.depth], 0.14);
+  const cornerCuts = subdivideSortedD([0, HALL_CONTOUR_BY_ID.P1.d, HALL_CONTOUR_BY_ID.Z0.d, -FS.depth], CORNER_FLOOR_MAX_STEP_D);
   for (const side of [-1, 1]) {
-    floorGeoms.push(buildCornerFloorGrid(side, cornerCuts, 8));
+    floorGeoms.push(buildCornerFloorGrid(side, cornerCuts, CORNER_FLOOR_STEPS_U));
   }
 
   // 1б. Горизонтальный партер и 1-й ряд кресел d ∈ [-5,70; -2,75]
@@ -620,7 +630,7 @@ function buildHall(batch, M) {
   // ===========================================================================
   const canopyGeoms = [];
   const canopySeeds = [0, secondRowD, E1.d, ...HALL_OUTER_BREAKS.filter((p) => p.d >= E1.d).map((p) => p.d)];
-  const canopyD = subdivideSortedD(canopySeeds, 0.25);
+  const canopyD = subdivideSortedD(canopySeeds, CANOPY_MAX_STEP_D);
   for (const s of [-1, 1]) {
     for (let i = 0; i < canopyD.length - 1; i++) {
       const dA = canopyD[i], dB = canopyD[i + 1];
@@ -657,9 +667,8 @@ function buildHall(batch, M) {
   const upperWallGeoms = [];
   for (const s of [-1, 1]) {
     const botPts = [];
-    const N = 48;
-    for (let k = 0; k <= N; k++) {
-      const d = (backD * k) / N;
+    for (let k = 0; k <= UPPER_WALL_SEGS; k++) {
+      const d = (backD * k) / UPPER_WALL_SEGS;
       botPts.push([d, hallCanopyY(d) + H.canopyFasciaH]);
     }
     upperWallGeoms.push(sideWallPoly(s * HW, [...botPts, ...HALL_CEIL_PROFILE.slice().reverse()], -s));
@@ -677,16 +686,17 @@ function buildHall(batch, M) {
   );
   batch.add('hall', M.wallPanel, upperWallGeoms, { tag: 'hallWall' });
 
-  // Остекление и внутренняя камера операторской (строго внутри контура B3..B2..B1)
+  // Остекление и внутренняя камера операторской (строго внутри контура B3..B2..B1, отступ BOOTH_BOX_RECESS исключает z-fighting)
   const boothBackD = E2.d;
-  const boothHalfW = win.windowW / 2 + 0.5;
-  batch.add('hall', M.glass, rect('d', backD - 0.02, -win.windowW / 2, win.windowW / 2, wy0, wy1, 1), { shadow: false });
+  const boothFrontD = backD - BOOTH_BOX_RECESS;
+  const boothHalfW = win.windowW / 2 + BOOTH_BOX_MARGIN_X;
+  batch.add('hall', M.glass, rect('d', boothFrontD, -win.windowW / 2, win.windowW / 2, wy0, wy1, 1), { shadow: false });
   batch.add('hall', M.booth, [
-    rect('d', boothBackD, -boothHalfW, boothHalfW, backY + 1.0, backY + 3.6, 1),
-    rect('y', backY + 1.0, -boothHalfW, boothHalfW, boothBackD, backD, 1),
-    rect('y', backY + 3.6, -boothHalfW, boothHalfW, boothBackD, backD, -1),
-    rect('x', -boothHalfW, boothBackD, backD, backY + 1.0, backY + 3.6, 1),
-    rect('x', boothHalfW, boothBackD, backD, backY + 1.0, backY + 3.6, -1),
+    rect('d', boothBackD, -boothHalfW, boothHalfW, backY + BOOTH_BOX_Y0, backY + BOOTH_BOX_Y1, 1),
+    rect('y', backY + BOOTH_BOX_Y0, -boothHalfW, boothHalfW, boothBackD, boothFrontD, 1),
+    rect('y', backY + BOOTH_BOX_Y1, -boothHalfW, boothHalfW, boothBackD, boothFrontD, -1),
+    rect('x', -boothHalfW, boothBackD, boothFrontD, backY + BOOTH_BOX_Y0, backY + BOOTH_BOX_Y1, 1),
+    rect('x', boothHalfW, boothBackD, boothFrontD, backY + BOOTH_BOX_Y0, backY + BOOTH_BOX_Y1, -1),
   ]);
   const mull = [];
   for (let x = -win.windowW / 2; x <= win.windowW / 2 + 1e-6; x += win.windowW / 4) {
@@ -860,7 +870,7 @@ function buildHallSegmentWithDoor(seg, side, uvScale, wallOut, leafOut, trimOut,
 
   const emitWallSpan = (uA, uB, yBotOverride = null) => {
     if (uB - uA < 1e-4) return;
-    const steps = Math.max(1, Math.ceil((uB - uA) / 0.25));
+    const steps = Math.max(1, Math.ceil((uB - uA) / WALL_SEG_MAX_STEP));
     for (let k = 0; k < steps; k++) {
       const ua = uA + ((uB - uA) * k) / steps;
       const ub = uA + ((uB - uA) * (k + 1)) / steps;

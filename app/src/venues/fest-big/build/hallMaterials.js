@@ -3,7 +3,7 @@
 // Материалы записываются на объект M, чтобы sharedSet(stage.M) защищал их от dispose при смене сцен.
 import * as THREE from 'three';
 
-const BEIGE_UV_SCALE = 0.575; // 4 модуля по 0,575 м на панель 2,30 м (8 реек в повторе)
+const BEIGE_UV_SCALE = 1.15; // 2 широких модуля по 1,15 м на грань 2,30 м (горизонтальные ламели + вертикальный шов)
 
 function createBeigeSlatsTexture() {
   if (typeof document === 'undefined') return null;
@@ -16,24 +16,26 @@ function createBeigeSlatsTexture() {
   g.fillStyle = '#c8b191';
   g.fillRect(0, 0, S, S);
 
-  // Тонкие вертикальные рейки/бороздки (8 реек на модуль 0,575 м ≈ шаг 7,2 см)
-  const slats = 8;
+  // Горизонтальные акустические бороздки/ламели (16 ламелей на модуль 1,15 м ≈ шаг 7,2 см, как на фото зала)
+  const slats = 16;
   const step = S / slats;
   for (let i = 0; i < slats; i++) {
-    const x = i * step;
-    const gr = g.createLinearGradient(x, 0, x + step, 0);
-    gr.addColorStop(0, '#ae9574');
-    gr.addColorStop(0.14, '#d3be9f');
+    const y = i * step;
+    const gr = g.createLinearGradient(0, y, 0, y + step);
+    gr.addColorStop(0, '#a88f6e');
+    gr.addColorStop(0.16, '#d5c0a1');
     gr.addColorStop(0.55, '#c8b191');
-    gr.addColorStop(0.9, '#bfa786');
-    gr.addColorStop(1, '#ae9574');
+    gr.addColorStop(0.88, '#bea684');
+    gr.addColorStop(1, '#a88f6e');
     g.fillStyle = gr;
-    g.fillRect(x, 0, step, S);
+    g.fillRect(0, y, S, step);
   }
 
-  // Более чёткий стыковочный шов панели на границе модуля
-  g.fillStyle = 'rgba(115, 92, 64, 0.45)';
-  g.fillRect(0, 0, 3, S);
+  // Тонкий светлый/латунный вертикальный нащельник на стыке модулей 1,15 м
+  g.fillStyle = 'rgba(232, 212, 178, 0.65)';
+  g.fillRect(0, 0, 2, S);
+  g.fillStyle = 'rgba(110, 88, 60, 0.45)';
+  g.fillRect(2, 0, 2, S);
 
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -80,10 +82,10 @@ export function getHallMaterials(M) {
 
   const hallCanopy = new THREE.MeshStandardMaterial({
     name: 'hallCanopy',
-    color: 0xdfd6c7,
-    emissive: 0xdfd6c7,
+    color: 0xcfb896,
+    emissive: 0xcfb896,
     emissiveIntensity: 0.04,
-    roughness: 0.85,
+    roughness: 0.8,
     metalness: 0,
     side: THREE.FrontSide,
   });
