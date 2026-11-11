@@ -128,7 +128,7 @@ git rev-list --count HEAD
   - `hallOuterXAtD(d)` и `hallInnerMinXAtD(d)`: точные кусочно-линейные границы пола зала $|X| \in [\text{innerMinX}(d),\; \text{outerX}(d)]$ на $d \in [E_2.d,\; 0]$ (при $d > -18{,}0$: `innerMinX = 0`, кроме выреза авансцены на $d \in [-2{,}75;\; 0]$; при $d \le -18{,}0$: `innerMinX` идёт по скосу `B1 → B2` и боковине `B2 → B3` операторской).
   - `inHallFloor(x, d)`, `stairBottomX(d)`, `hallRampY(d)`, `hallFloorY(d, x = 0)`, `hallCanopyY(d)`.
 
-- [ ] **Step 1: Написать падающие юнит-тесты геометрии зала в `app/tests/unit/big-hall.test.js` и обновить проверки в `app/tests/unit/config.test.js`**
+- [x] **Step 1: Написать падающие юнит-тесты геометрии зала в `app/tests/unit/big-hall.test.js` и обновить проверки в `app/tests/unit/config.test.js`**
 
 Создать `app/tests/unit/big-hall.test.js`:
 ```js
@@ -217,21 +217,21 @@ describe('Большая сцена · геометрия зрительного
 - в тесте `прострелы (sideTowers) и их приборы перенесены на серую часть стены` заменить старую константу `woodTopY` на `hallCanopyY(t.d) + DIM.hall.canopyFasciaH` и проверять превышение над верхом новых дверей `DIM.hall.frontCornerFloorY + DIM.openings.portalDoors.height` (`-0.85 + 2.15 = 1.30 м`);
 - в тесте `все приборы внутри здания` проверять сценические приборы (`f.mount.d >= 0`) по `DIM.box.width / 2` (`8.50`), а зальные (`f.mount.d < 0`) — по `DIM.hall.width / 2` (`8.00`).
 
-- [ ] **Step 2: Запустить юнит-тесты и убедиться, что новые проверки падают**
+- [x] **Step 2: Запустить юнит-тесты и убедиться, что новые проверки падают**
 
 Run: `cd app; npx.cmd vitest run tests/unit/big-hall.test.js tests/unit/config.test.js`
 Expected: FAIL (`Cannot find module ... hallGeometry.js`).
 
-- [ ] **Step 3: Реализовать `hallGeometry.js`, обновить `dimensions.js` и синхронизировать `ASSUMPTIONS.md`**
+- [x] **Step 3: Реализовать `hallGeometry.js`, обновить `dimensions.js` и синхронизировать `ASSUMPTIONS.md`**
 
 В `app/src/venues/fest-big/config/dimensions.js` и `app/src/venues/fest-big/config/hallGeometry.js` реализовать формулы строго по разделу 3 и разделу 4 спецификации `2026-11-11-big-patch-1-hall-design.md` (`hallFloorY(d, x = 0)` при вызове с одним аргументом `d` сохраняет поведение по оси `x = 0` для обратной совместимости). В `ASSUMPTIONS.md` обновить раздел Большой сцены согласно разделу 6 спецификации.
 
-- [ ] **Step 4: Запустить юнит-тесты и убедиться в прохождении**
+- [x] **Step 4: Запустить юнит-тесты и убедиться в прохождении**
 
 Run: `cd app; npm.cmd test`
 Expected: PASS по всем юнит-тестам.
 
-- [ ] **Step 5: Закоммитить конфиг, геометрическое ядро и реестр допущений**
+- [x] **Step 5: Закоммитить конфиг, геометрическое ядро и реестр допущений**
 
 ```powershell
 git add app/src/venues/fest-big/config/dimensions.js app/src/venues/fest-big/config/hallGeometry.js app/tests/unit/big-hall.test.js app/tests/unit/config.test.js ASSUMPTIONS.md
