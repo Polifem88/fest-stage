@@ -6,7 +6,8 @@
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { DIM, HALL_HALF, B2_SHAFT, RAKE, rowFrontD } from '../config/dimensions.js';
+import { DIM, BOX_HALF, HALL_HALF, B2_SHAFT, RAKE, rowFrontD } from '../config/dimensions.js';
+import { HALL_CONTOUR_BY_ID } from '../config/hallGeometry.js';
 import { RIGGING, RIG_BY_ID, RIGHT_FRONT_ORDER, ropeDepth, counterweightX, rightFrontRailX, DUTY_ROWS } from '../config/rigging.js';
 import { FIXTURES, TYPES, PORTABLE, portablePlacement, BAR_DEPTH } from '../config/fixtures.js';
 import { StaticBatch, box, cylBetween, P } from '../../../core/geom.js';
@@ -59,6 +60,10 @@ function createExportMaterials() {
     hallAcoustic: std('hallAcoustic', 0x423833, 0.85, 0.05),
     hallCeiling: std('hallCeiling', 0x2c3038, 0.85, 0.05),
     decoCeiling: std('decoCeiling', 0x353942, 0.8, 0.1),
+    wallPanel: Object.assign(std('wallPanel', 0x6f737a, 0.85, 0.05), { userData: { uvScale: 1.2 } }),
+    hallBeigePanel: Object.assign(std('hallBeigePanel', 0xc8b191, 0.72, 0.05), { userData: { uvScale: 0.575 } }),
+    hallCanopy: std('hallCanopy', 0xdfd6c7, 0.85, 0.05),
+    hallLedStrip: std('hallLedStrip', 0xffdfad, 0.3, 0.05),
     booth: std('booth', 0x252830, 0.85, 0.05),
     glass: new THREE.MeshStandardMaterial({
       name: 'glass', color: 0x88b5d6, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.35, side: THREE.FrontSide,
@@ -169,8 +174,8 @@ export function build3DDXF(stage) {
     .addLayer('3D_FIXTURES', { color: 8, ltype: 'CONTINUOUS' });
 
   // 1. Оси сцены в 3D (Z = 0)
-  dxf.addLine3D([0, -DIM.hall.portalToBoothWall, 0], [0, DIM.box.backWallD, 0], { layer: '0_AXES' });
-  dxf.addLine3D([-HALL_HALF, 0, 0], [HALL_HALF, 0, 0], { layer: '0_AXES' });
+  dxf.addLine3D([0, HALL_CONTOUR_BY_ID.E2.d, 0], [0, DIM.box.backWallD, 0], { layer: '0_AXES' });
+  dxf.addLine3D([-BOX_HALF, 0, 0], [BOX_HALF, 0, 0], { layer: '0_AXES' });
 
   // 2. Статическая архитектура (внешние стены и потолок вынесены на отключённый по умолчанию слой 3D_OUTER_WALLS)
   const M = createExportMaterials();
@@ -181,8 +186,9 @@ export function build3DDXF(stage) {
   const outerShellMats = new Set([
     'brickSide', 'brickBack', 'brickBlack', 'blackWall', 'attic',
     'hallWood', 'hallAcoustic', 'hallCeiling', 'decoCeiling', 'booth',
+    'wallPanel', 'hallBeigePanel', 'hallCanopy',
   ]);
-  const outerShellTags = new Set(['wallL', 'wallR', 'wallB', 'ceiling']);
+  const outerShellTags = new Set(['wallL', 'wallR', 'wallB', 'ceiling', 'hallWall', 'hallCanopy']);
 
   const layerMap = {
     walls: '3D_WALLS',

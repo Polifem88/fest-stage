@@ -446,7 +446,7 @@ git rev-list --count HEAD
 - Consumes: `HALL_CONTOUR_RIGHT`, `hallSideWallSegments`, `hallLedCorners`, `hallFloorY`, `hallCanopyY`, `STEP_HALF_X` из `config/`.
 - Produces: синхронизированные `buildPlanDXF`, `buildSectionDXF`, `build3DDXF`, `buildGLB`.
 
-- [ ] **Step 1: Добавить падающие тесты на 2D/3D-экспорт зала в `app/tests/unit/export.test.js`**
+- [x] **Step 1: Добавить падающие тесты на 2D/3D-экспорт зала в `app/tests/unit/export.test.js`**
 
 Добавить проверки для Большой сцены (`fest-big`):
 - `buildPlanDXF(null)` содержит актуальную дверь у портала `1,75×2,15` и не содержит устаревшую `2,2×2,0`; содержит подпись верхнего габарита зала `16`;
@@ -454,12 +454,12 @@ git rev-list --count HEAD
 - `build3DDXF(null)` успешно строится, содержит слои `3D_OUTER_WALLS` и `3D_HALL`, причём меши с материалами `wallPanel`, `hallBeigePanel`, `hallCanopy` попадают в `3D_OUTER_WALLS`;
 - `await buildGLB(null)` возвращает непустой `ArrayBuffer` (`byteLength > 10000`).
 
-- [ ] **Step 2: Запустить `export.test.js` и убедиться в падении новых проверок**
+- [x] **Step 2: Запустить `export.test.js` и убедиться в падении новых проверок**
 
 Run: `cd app; npx.cmd vitest run tests/unit/export.test.js`
 Expected: FAIL (в плане всё ещё `2,2×2,0`, в `export3d.js` нет новых материалов в `createExportMaterials` / `outerShellMats`).
 
-- [ ] **Step 3: Обновить `export/dxf2d.js` и `export/export3d.js`**
+- [x] **Step 3: Обновить `export/dxf2d.js` и `export/export3d.js`**
 
 1. **`export/export3d.js`:**
    - добавить в `createExportMaterials()` материалы `wallPanel` (`0x6f737a`), `hallBeigePanel` (`0xc8b191`), `hallCanopy` (`0xdfd6c7`), `hallLedStrip` (`0xffdfad`);
@@ -469,7 +469,7 @@ Expected: FAIL (в плане всё ещё `2,2×2,0`, в `export3d.js` нет 
    - **План (`buildPlanDXF`):** расширить координатную сетку и габариты листа под `d = -20,34 м` и `|X| = 11,91 м`; вместо старого прямоугольника `-HW..HW` построить полилинию контура нижних стен по `HALL_CONTOUR_RIGHT` для обеих сторон, пунктиром `DASHED` линию нависающего карниза / верхних серых стен `X = ±8,00 м`, ступени рядов строго на `[-STEP_HALF_X, +STEP_HALF_X]`, условные обозначения косых передних дверей `1,75×2,15 м`, торцевых выходных дверей `1,75×2,15 м`, однопольных дверей в скосах операторской `0,90×2,05 м`, 8 точек угловых LED-полос, ложи и прострелы на стенах `±8,00 м` и вынесенные за контур размерные цепочки;
    - **Разрез (`buildSectionDXF`):** расширить сетку по `d` до `-21`; показать ступенчатый профиль по оси зала, пунктиром — гладкий пандус бокового прохода `9°` с выполаживанием на `d = -17,74..-20,34 м` и спуск переднего угла до `-0,85 м` у портала, плавную линию низа карниза `hallCanopyY(d)` (`+1,45 → +2,00 → +3,91 м`) и контур операторской.
 
-- [ ] **Step 4: Прогнать полную проверку проекта `npm.cmd run check`, переснять `shots`, `closeups` и проверить паритет `chamber` / `roof`**
+- [x] **Step 4: Прогнать полную проверку проекта `npm.cmd run check`, переснять `shots`, `closeups` и проверить паритет `chamber` / `roof`**
 
 Run:
 ```powershell
@@ -483,7 +483,7 @@ Expected:
 - в `review/modular/parity-report.md` площадки **`chamber` и `roof` — 100 % совпадение (все ✅)**, расхождения только у `big`;
 - просмотреть обновлённые снимки `shots` и все 10 кадров `review/patch1-hall/after/`, заполнить `app/review/patch1-hall/REPORT.md` таблицей соответствия всех 12 пунктов ТЗ файлам кода и снимкам «до/после».
 
-- [ ] **Step 5: Закоммитить экспорт и сводный отчёт**
+- [x] **Step 5: Закоммитить экспорт и сводный отчёт**
 
 ```powershell
 git add app/src/venues/fest-big/export/dxf2d.js app/src/venues/fest-big/export/export3d.js app/tests/unit/export.test.js app/review/patch1-hall/REPORT.md
