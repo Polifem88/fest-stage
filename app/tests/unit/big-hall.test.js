@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import * as THREE from 'three';
+import { StaticBatch } from '../../src/core/geom.js';
 import { DIM, HALL_HALF, STEP_HALF_X, rowFrontD } from '../../src/venues/fest-big/config/dimensions.js';
+import { DUTY_ROWS } from '../../src/venues/fest-big/config/rigging.js';
 import {
   HALL_CONTOUR_RIGHT,
   hallLedCorners,
@@ -7,6 +10,8 @@ import {
   hallCanopyY,
   inHallFloor,
 } from '../../src/venues/fest-big/config/hallGeometry.js';
+import { buildArchitecture, buildSeats, buildEmitters } from '../../src/venues/fest-big/build/architecture.js';
+import { ambientLights } from '../../src/venues/fest-big/build/ambient.js';
 
 describe('Большая сцена · геометрия зрительного зала (Патч 1, часть 2)', () => {
   it('верхняя ширина зала 16,0 м, ступени ±7,06 м под 26 креслами по 0,54 м', () => {
@@ -83,6 +88,93 @@ describe('Большая сцена · геометрия зрительного
       for (const c of leds.slice(1)) {
         expect(c.y1 - c.y0).toBeCloseTo(2.75, 4);
       }
+    }
+  });
+});
+
+function fakeMats() {
+  return new Proxy({}, {
+    get(t, k) {
+      if (!(k in t)) t[k] = new THREE.MeshStandardMaterial({ name: String(k) });
+      return t[k];
+    },
+  });
+}
+
+describe('Большая сцена · 3D-сборка зала и свет', () => {
+  it('потолок зала использует wallPanel и имеет метрические UV-координаты', () => {
+    const M = fakeMats();
+    const batch = new StaticBatch();
+    buildArchitecture(batch, M);
+    const built = batch.build();
+    let ceilFound = false;
+    built.hall.traverse((o) => {
+      if (o.isMesh && o.userData?.tag === 'ceiling') {
+        ceilFound = true;
+        expect(o.material.name).toBe('wallPanel');
+        expect(o.geometry.getAttribute('uv')).toBeTruthy();
+      }
+    });
+    expect(ceilFound).toBe(true);
+  });
+
+  it('нижние бежевые стены, карниз и ступени с щёчками присутствуют и ориентированы внутрь зала (FrontSide)', () => {
+    const M = fakeMats();
+    const batch = new StaticBatch();
+    buildArchitecture(batch, M);
+    const built = batch.build();
+    const mats = new Set();
+    built.hall.traverse((o) => {
+      if (!o.isMesh) return;
+      mats.add(o.material.name);
+      if (o.material.name === 'hallCanopy') {
+        expect(o.material.side).toBe(THREE.FrontSide);
+      }
+    });
+    expect(mats.has('hallBeigePanel')).toBe(true);
+    expect(mats.has('hallCanopy')).toBe(true);
+    expect(mats.has('wallPanel')).toBe(true);
+
+    // Боковые лестницы авансцены и лицевая грань портала опущены до -0,85 м
+    let portalMinY = Infinity;
+    let stairMinY = Infinity;
+    built.walls.traverse((o) => {
+      if (!o.isMesh) return;
+      const pos = o.geometry.getAttribute('position');
+      if (o.material.name === 'portal') {
+        for (let i = 0; i < pos.count; i++) portalMinY = Math.min(portalMinY, pos.getY(i));
+      }
+      if (o.material.name === 'stageEdge') {
+        for (let i = 0; i < pos.count; i++) {
+          if (pos.getZ(i) > 0.05) stairMinY = Math.min(stairMinY, pos.getY(i));
+        }
+      }
+    });
+    expect(portalMinY).toBeCloseTo(-0.85, 3);
+    expect(stairMinY).toBeCloseTo(-0.85, 3);
+  });
+
+  it('emitters.house содержит прямым потомком меш 8 вертикальных LED-лент с userData.emitter = house', () => {
+    const M = fakeMats();
+    const em = buildEmitters(M, DUTY_ROWS);
+    const houseEmitters = em.groups.house.children.filter((c) => c.userData?.emitter === 'house');
+    expect(houseEmitters.length).toBeGreaterThanOrEqual(2); // потолочные лампы + 8 LED-лент в углах ёлочки
+    const ambFull = ambientLights('full', em);
+    const ambLite = ambientLights('lite', em);
+    expect(ambFull.house.length).toBe(7); // 3 потолочных SpotLight + 4 безтеневых PointLight ниш
+    expect(ambLite.house.length).toBe(1); // мобильный профиль без утяжеления
+  });
+
+  it('buildSeats строит 390 кресел с шагом 0,54 м внутри ±7,06 м', () => {
+    const M = fakeMats();
+    const [iF] = buildSeats(M);
+    expect(iF.count).toBe(390);
+    const p = new THREE.Vector3();
+    const m = new THREE.Matrix4();
+    for (let i = 0; i < iF.count; i++) {
+      iF.getMatrixAt(i, m);
+      p.setFromMatrixPosition(m);
+      expect(Math.abs(p.x) + DIM.hall.seatWidth / 2).toBeLessThanOrEqual(STEP_HALF_X + 1e-4);
     }
   });
 });

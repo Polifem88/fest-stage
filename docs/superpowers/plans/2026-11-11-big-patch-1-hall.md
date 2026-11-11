@@ -256,7 +256,7 @@ git rev-list --count HEAD
   - `HALL_BACK_FLOOR_Y` в `build/architecture.js` (`= hallFloorY(-DIM.hall.portalToBoothWall, 0)`, сохраняет экспорт для `index.js`, `overlays.js`, `dxf2d.js`).
   - Обновлённые `buildArchitecture(batch, M)`, `buildSeats(M)`, `buildEmitters(M, dutyRows)` и `ambientLights(plan, em)`.
 
-- [ ] **Step 1: Добавить в `app/tests/unit/big-hall.test.js` падающие тесты на 3D-сборку зала, UV потолка, 8 LED-лент и нормали**
+- [x] **Step 1: Добавить в `app/tests/unit/big-hall.test.js` падающие тесты на 3D-сборку зала, UV потолка, 8 LED-лент и нормали**
 
 В `app/tests/unit/big-hall.test.js` добавить блок `3D-сборка зрительного зала`:
 ```js
@@ -318,12 +318,12 @@ describe('Большая сцена · 3D-сборка зала и свет', ()
 });
 ```
 
-- [ ] **Step 2: Запустить тест и убедиться, что он падает**
+- [x] **Step 2: Запустить тест и убедиться, что он падает**
 
 Run: `cd app; npx.cmd vitest run tests/unit/big-hall.test.js`
 Expected: FAIL (`ceiling` использует старый материал `decoCeiling`/`hallCeiling` без `uv`, `houseEmitters` содержит только 1 меш).
 
-- [ ] **Step 3: Создать `build/hallMaterials.js`, перестроить `buildHall`/`buildEmitters` в `build/architecture.js` и подсветку ниш в `build/ambient.js`**
+- [x] **Step 3: Создать `build/hallMaterials.js`, перестроить `buildHall`/`buildEmitters` в `build/architecture.js` и подсветку ниш в `build/ambient.js`**
 
 Ключевые требования к реализации:
 1. **`build/hallMaterials.js`:** процедурная Canvas-текстура вертикальных/продольных реек светло-бежевого тона (`#c8b191` с мягкими бороздами `#b29978`, `wrapS = wrapT = RepeatWrapping`) для `hallBeigePanel`, матовый `hallCanopy` (`0xdfd6c7`, `roughness: 0.85`, `side: THREE.FrontSide`) и самосветящийся `hallLedStrip` (`color: 0xfff5e4`, `emissive: 0xffdfad`, `emissiveIntensity: 1.5`). Если `M.hallBeigePanel` уже передан извне (`export3d.js`), использовать готовый материал из `M`.
@@ -345,7 +345,7 @@ Expected: FAIL (`ceiling` использует старый материал `de
    - в `buildEmitters` по `hallLedCorners(-1)` и `hallLedCorners(+1)` собрать 8 вертикальных призм `0,04 × 0,025 м` в один меш `hallLedMesh` с материалом `hallLedStrip`, `hallLedMesh.userData.emitter = 'house'`, добавить прямым потомком в `groups.house`;
    - в `build/ambient.js` при `plan === 'full'` добавить в массив `house` 4 безтеневых `THREE.PointLight(0xffe6bf, 0, 4.2, 1.6)` (`userData.base = 14`) в нишах «ёлочки» (по 2 на каждую сторону — между 1–2 и 3–4 впадинами на полувысоте ниши).
 
-- [ ] **Step 4: Запустить юнит-тесты и снять проверочные крупные планы**
+- [x] **Step 4: Запустить юнит-тесты и снять проверочные крупные планы**
 
 Run:
 ```powershell
@@ -355,7 +355,7 @@ node review/patch1-hall/closeups.mjs dist review/patch1-hall/step2
 ```
 Expected: все юнит-тесты PASS; визуально проверить все 10 снимков в `app/review/patch1-hall/step2/` через `read_file` (нет щелей у портала и лестниц, чёткие треугольные торцы ступеней у гладкого пандуса, расшивка `M.wallPanel` на стенах и потолке, 8 LED-лент горят в `sawtoothLedsRight` и гаснут в `sawtoothLedsOff`, снаружи в `hallOutsideDollhouse` стены прозрачны за счёт `FrontSide`).
 
-- [ ] **Step 5: Закоммитить 3D-архитектуру, материалы и свет**
+- [x] **Step 5: Закоммитить 3D-архитектуру, материалы и свет**
 
 ```powershell
 git add app/src/venues/fest-big/build/hallMaterials.js app/src/venues/fest-big/build/architecture.js app/src/venues/fest-big/build/ambient.js app/tests/unit/big-hall.test.js
