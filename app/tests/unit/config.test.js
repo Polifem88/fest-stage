@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { DIM, BOX_HALF, GALLERY_INNER_X, BACK_GALLERY_FRONT_D, LEFT_GALLERY, B2_SHAFT, pitEdgeX, inPit, gateNiche, doorNiche } from '../../src/venues/fest-big/config/dimensions.js';
+import { DIM, BOX_HALF, GALLERY_INNER_X, BACK_GALLERY_FRONT_D, LEFT_GALLERY, B2_SHAFT, pitEdgeX, inPit, gateNiche, doorNiche, hallCanopyY } from '../../src/venues/fest-big/config/dimensions.js';
 import { RIGGING, SPACING, DEPTHS, LEFT_RAIL_ORDER, RIG_BY_ID, ropeDepth, DUTY_ROWS, counterweightX, ropeX, rightFrontRailX } from '../../src/venues/fest-big/config/rigging.js';
 import { FIXTURES, TYPES, GROUPS, INVENTORY, countByType, PORTABLE, portablePlacement, SPECS } from '../../src/venues/fest-big/config/fixtures.js';
 import { buildArchitecture } from '../../src/venues/fest-big/build/architecture.js';
@@ -41,12 +41,14 @@ describe('Размеры и глубины', () => {
     for (let i = 1; i < ds.length; i++) expect(ds[i]).toBeGreaterThan(ds[i - 1]);
   });
 
-  it('двойные двери у портала заданы по размерам 2.2×2.0 м и примыкают к порталу (d = 0)', () => {
+  it('косые двойные двери у портала 1,75×2,15 м на пороге -0,85 м, двери выходов и операторской заданы', () => {
     const pd = DIM.openings.portalDoors;
     expect(pd).toBeTruthy();
-    expect(pd.width).toBe(2.2);
-    expect(pd.height).toBe(2.0);
-    expect(pd.fromD).toBe(0.0);
+    expect(pd.width).toBe(1.75);
+    expect(pd.height).toBe(2.15);
+    expect(pd.sillY).toBe(-0.85);
+    expect(DIM.openings.hallExitDoors).toMatchObject({ width: 1.75, height: 2.15, widthAssumption: true });
+    expect(DIM.openings.boothDoors).toMatchObject({ width: 0.9, height: 2.05, assumption: true });
   });
 });
 
@@ -130,9 +132,10 @@ describe('Приборы', () => {
   });
 
   it('прострелы (sideTowers) и их приборы перенесены на серую часть стены (Y = 2.2..5.2 м)', () => {
-    const woodTopY = -DIM.forestage.height + 2.6; // 1.85 м — граница деревянной обшивки
+    const doorTopY = DIM.hall.frontCornerFloorY + DIM.openings.portalDoors.height; // -0.85 + 2.15 = 1.30 м
     for (const [key, t] of Object.entries(DIM.hallRig.sideTowers)) {
-      expect(t.y, `низ стойки ${key}`).toBeGreaterThan(woodTopY);
+      const canopyTopY = hallCanopyY(t.d) + DIM.hall.canopyFasciaH;
+      expect(t.y, `низ стойки ${key}`).toBeGreaterThan(canopyTopY);
       expect(t.y, `низ стойки ${key}`).toBe(2.2);
       expect(t.h, `высота стойки ${key}`).toBe(3.0);
       expect(t.y + t.h, `верх стойки ${key}`).toBeLessThan(DIM.decoCeilingY);
@@ -146,10 +149,11 @@ describe('Приборы', () => {
     expect(byNo['140'].mount.y).toBeCloseTo(3.6, 2);
     expect(byNo['28'].mount.y).toBeCloseTo(2.4, 2);
     expect(byNo['29'].mount.y).toBeCloseTo(2.4, 2);
-    // Все 6 приборов строго выше деревянной обшивки (1.85 м) и выше проёма двери (-0.75 + 2.0 = 1.25 м)
+    // Все 6 приборов строго выше карниза с фаской и выше проёма передней двери (-0.85 + 2.15 = 1.30 м)
     for (const no of ['26', '27', '139', '140', '28', '29']) {
-      expect(byNo[no].mount.y).toBeGreaterThan(woodTopY);
-      expect(byNo[no].mount.y).toBeGreaterThan(-DIM.forestage.height + DIM.openings.portalDoors.height);
+      const f = byNo[no];
+      expect(f.mount.y).toBeGreaterThan(hallCanopyY(f.mount.d) + DIM.hall.canopyFasciaH);
+      expect(f.mount.y).toBeGreaterThan(doorTopY);
     }
   });
 
@@ -169,7 +173,8 @@ describe('Приборы', () => {
 
   it('все приборы внутри здания', () => {
     for (const f of FIXTURES) {
-      expect(Math.abs(f.mount.x), String(f.no)).toBeLessThanOrEqual(DIM.hall.width / 2);
+      const halfW = f.mount.d >= 0 ? DIM.box.width / 2 : DIM.hall.width / 2;
+      expect(Math.abs(f.mount.x), String(f.no)).toBeLessThanOrEqual(halfW);
       if (!f.mount.on) expect(f.mount.y, String(f.no)).toBeLessThan(DIM.box.ceiling);
     }
   });

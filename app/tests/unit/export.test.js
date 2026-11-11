@@ -113,6 +113,35 @@ describe('Экспорт 2D-плана сцены (buildPlanDXF)', () => {
       expect(slope).toBeCloseTo(expectedSlope, 3);
     }
   });
+
+  it('отражает обновлённую геометрию зала Патча 1: контур ±11,91 м, карниз ±8,00 м, ступени ±7,06 м и актуальные двери', () => {
+    const dxf = buildPlanDXF(null);
+    expect(dxf).toContain('1,75x2,15');
+    expect(dxf).not.toContain('2,2x2,0');
+    expect(dxf).not.toContain('1,8x2,2');
+    expect(dxf).toContain('0,90x2,05');
+    expect(dxf).toContain('Ширина зрительного зала 16,00 м');
+    expect(dxf).toContain('16,50');
+    expect(dxf).toContain('11.9123');
+    expect(dxf).toContain('\n10\n-7.06\n');
+    expect(dxf).toContain('\n11\n7.06\n');
+
+    // Однопольная дверь на правом скосе операторской (петля xA ≈ 9.166, dA ≈ -18.554) открывается наружу в тамбур (d2 > -18.0)
+    const lineBlocks = dxf.split('\n0\nLINE\n').slice(1);
+    let boothDoorOutward = false;
+    for (const blk of lineBlocks) {
+      const lines = blk.split('\n');
+      const map = {};
+      for (let i = 0; i + 1 < lines.length; i += 2) {
+        if (lines[i] === '0') break;
+        map[lines[i]] = lines[i + 1];
+      }
+      if (map['8'] === 'AR_HALL' && Math.abs(Number(map['10']) - 9.1663) < 0.01 && Math.abs(Number(map['20']) - (-18.5536)) < 0.01) {
+        if (Number(map['21']) > -18.0) boothDoorOutward = true;
+      }
+    }
+    expect(boothDoorOutward).toBe(true);
+  });
 });
 
 describe('Экспорт 2D продольного разреза (buildSectionDXF)', () => {
@@ -167,6 +196,16 @@ describe('Экспорт 2D продольного разреза (buildSectionD
     // Вырез 0,5×0,5 м в углу (x = 8,00, d = 8,70) присутствует на слое AR_GALLERIES
     expect(plan).toContain('\n10\n8\n20\n8.7\n');
   });
+
+  it('разрез зала Патча 1: профиль карниза +1,45 → +3,91 м, спуск -0,850 у портала и тамбур выхода +1,157 до -20,34 м', () => {
+    const sec = buildSectionDXF(null);
+    expect(sec).toContain('1,75x2,15');
+    expect(sec).toContain('-0,850');
+    expect(sec).toContain('+1,157');
+    expect(sec).toContain('+1,45');
+    expect(sec).toContain('+3,91');
+    expect(sec).toContain('20.3418');
+  });
 });
 
 describe('Экспорт 3D DXF (build3DDXF)', () => {
@@ -175,11 +214,41 @@ describe('Экспорт 3D DXF (build3DDXF)', () => {
     expect(dxf).toContain('\n0\n3DFACE\n');
     expect(dxf).toContain('\n2\n3D_WALLS\n');
     expect(dxf).toContain('\n2\n3D_OUTER_WALLS\n');
+    expect(dxf).toContain('\n2\n3D_HALL\n');
     expect(dxf).toContain('\n2\n3D_RIG_COUNTERWEIGHTS\n');
     expect(dxf).toContain('\n2\n3D_FIXTURES\n');
     expect(dxf).not.toContain('3D_LIGHT_RAYS');
     expect(dxf).not.toContain('3D_FIXTURES_OFF');
     expect(dxf.trim().endsWith('0\nEOF')).toBe(true);
+
+    // Стены «кишки» выхода (|X| ≈ 11,91 м) и потолок зала (+7,50 м) попадают именно на 3D_OUTER_WALLS, а не остаются на 3D_HALL
+    const faces = dxf.split('\n0\n3DFACE\n').slice(1);
+    let outerWideWall = false;
+    let outerHighCeil = false;
+    let hallHighWallLeak = false;
+    for (const blk of faces) {
+      const lines = blk.split('\n');
+      let layer = '';
+      const xs = [], ys = [], zs = [];
+      for (let i = 0; i + 1 < lines.length; i += 2) {
+        const c = lines[i], v = lines[i + 1];
+        if (c === '0') break;
+        if (c === '8') layer = v;
+        if (c === '10' || c === '11' || c === '12' || c === '13') xs.push(Number(v));
+        if (c === '20' || c === '21' || c === '22' || c === '23') ys.push(Number(v));
+        if (c === '30' || c === '31' || c === '32' || c === '33') zs.push(Number(v));
+      }
+      const maxAbsX = Math.max(...xs.map(Math.abs));
+      const minY = Math.min(...ys);
+      const maxZ = Math.max(...zs);
+      if (layer === '3D_OUTER_WALLS' && maxAbsX > 11.8 && maxZ > 3.8) outerWideWall = true;
+      if (layer === '3D_OUTER_WALLS' && minY < -17.5 && maxZ > 7.45) outerHighCeil = true;
+      // В зоне выходных «кишок» (|X| > 8,5 м) стены и потолок тамбура (~3,91 м) не должны оставаться на 3D_HALL, как и потолок зала (+7,50 м)
+      if (layer === '3D_HALL' && minY < -17.5 && ((maxAbsX > 8.5 && maxZ > 3.5) || maxZ > 5.0)) hallHighWallLeak = true;
+    }
+    expect(outerWideWall).toBe(true);
+    expect(outerHighCeil).toBe(true);
+    expect(hallHighWallLeak).toBe(false);
   });
 });
 
@@ -208,6 +277,12 @@ describe('Экспорт 3D-модели Binary glTF 2.0 (buildGLB)', () => {
     expect(gltf.nodes.length).toBeGreaterThan(20);
 
     // Все материалы в GLB должны быть односторонними (без doubleSided: true), чтобы внешние стены были прозрачны снаружи
+    const matNames = new Set((gltf.materials || []).map((m) => m.name));
+    for (const reqMat of ['wallPanel', 'hallBeigePanel', 'hallCanopy', 'hallLedStrip']) {
+      expect(matNames.has(reqMat), `отсутствует материал ${reqMat} в GLB`).toBe(true);
+    }
+    const nodeNames = new Set((gltf.nodes || []).map((n) => n.name));
+    expect(nodeNames.has('hallLedStrips')).toBe(true);
     for (const mat of gltf.materials || []) {
       expect(mat.doubleSided).not.toBe(true);
     }

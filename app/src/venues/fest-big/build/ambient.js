@@ -1,9 +1,13 @@
 // Дежурный и зальный свет Большой сцены — настоящие источники для LightingSystem.
 // Положения ламп приходят из buildEmitters (architecture.js), высота потолка зала — из DIM.
 import * as THREE from 'three';
-import { DIM } from '../config/dimensions.js';
+import { DIM, hallCanopyY } from '../config/dimensions.js';
 
 const DUTY_GAIN = 0.6;
+const NICHE_LIGHT_DISTANCE = 10.5;
+const NICHE_LIGHT_DECAY = 1.25;
+const NICHE_LIGHT_BASE = 9.5;
+const NICHE_LIGHT_DROP = 0.55;
 
 /**
  * @param plan 'full' | 'lite' (профиль устройства)
@@ -31,7 +35,7 @@ export function ambientLights(plan, em) {
     L.userData.base = plan === 'full' ? 9 : 22;
     return L;
   });
-  // свет в зале
+  // свет в зале: потолочные светильники + (на компьютере) 4 мягких безтеневых источника в нишах «ёлочки»
   const hallPts = DIM.hall.houseLights[plan === 'full' ? 'full' : 'lite'];
   const house = hallPts.map(([x, d]) => {
     const L = new THREE.SpotLight(0xfff0d6, 0, 0, Math.PI / 2.6, 0.9, 1.3);
@@ -40,5 +44,18 @@ export function ambientLights(plan, em) {
     L.userData.base = plan === 'full' ? 120 : 260;
     return L;
   });
+  if (plan === 'full') {
+    for (const side of [-1, 1]) {
+      const nx = side * DIM.hall.nicheLightsX;
+      for (const d of DIM.hall.nicheLightsD) {
+        const yLight = hallCanopyY(d) - NICHE_LIGHT_DROP;
+        const NL = new THREE.PointLight(0xffe6bf, 0, NICHE_LIGHT_DISTANCE, NICHE_LIGHT_DECAY);
+        NL.castShadow = false;
+        NL.position.set(nx, yLight, -d);
+        NL.userData.base = NICHE_LIGHT_BASE;
+        house.push(NL);
+      }
+    }
+  }
   return { duty, blue, house };
 }

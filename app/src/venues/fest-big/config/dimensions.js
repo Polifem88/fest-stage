@@ -11,6 +11,8 @@
 //  assumption: true — значение не было дано, оценено по фото/схеме (см. план, A1–A13).
 // =============================================================================
 
+import { _initHallGeometry, hallFloorY, hallCanopyY } from './hallGeometry.js';
+
 export const DIM = {
   // --- Сценическая коробка ---------------------------------------------------
   box: {
@@ -43,18 +45,46 @@ export const DIM = {
   decoCeilingY: 6.1, // декоративный потолок над авансценой
 
   hall: {
-    width: 18.0,
-    portalToBoothWall: 18.0, // от портала до стены с операторской
-    rakeDeg: 9, // угол подъёма
+    width: 16.0, // верхний объём от серой стены до серой стены (±8,00 м)
+    portalToBoothWall: 18.0, // от портала до передней стены операторской
+    rakeDeg: 9, // угол подъёма пандусов и рядов
     firstRowGap: 2.15, // от края сцены до кресел первого ряда
     rows: 15,
     seatsPerRow: 26,
     rowPitch: 0.8, // assumption (A9)
-    seatWidth: 0.56, // assumption (A9)
+    rowPitchAssumption: true,
+    seatWidth: 0.54, // assumption (A9, уточнено под ширину боковых проходов)
+    seatWidthAssumption: true,
+    stepMargin: 0.04, // assumption: кант торца ступени за внешней опорой кресла (STEP_HALF_X = 7,06 м)
+    stepMarginAssumption: true,
+    frontCornerFloorY: -0.85, // пол у передних косых дверей и вдоль портала в углах зала
+    canopyHeightAtPortal: 2.3, // высота низа карниза над полом -0,85 м у портала (+1,45 м)
+    canopyHeightMain: 2.75, // высота низа карниза над пандусом начиная со 2-го ряда (+2,00 → +3,91 м)
+    canopyFasciaH: 0.16, // assumption: вертикальный бортик-фаска карниза на линии ±8,00 м
+    canopyFasciaAssumption: true,
+    nicheMinDepth: 0.2, // отступ пиков «ёлочки» от верхней серой стены (|X| = 8,20 м)
+    nicheMaxDepth: 0.7, // отступ впадин «ёлочки» от верхней серой стены (|X| = 8,70 м)
+    sawtoothStartD: -2.3, // начало чередования панелей 2,30 / 0,85 м от портала
+    sawtoothTeeth: 4,
+    sawtoothLong: 2.3,
+    sawtoothShort: 0.85,
+    ledStripW: 0.04, // assumption: ширина светящегося профиля в углах «ёлочки»
+    ledStripD: 0.025, // assumption: глубина профиля LED-ленты
+    ledStripAssumption: true,
+    exitFlareAngleDeg: 45, // assumption: разворот внешней 5,25-метровой стены «кишки» ради точного замыкания обмеров
+    exitFlareAngleAssumption: true,
+    exitFlareLen: 5.25,
+    exitStraightLen: 2.6,
+    exitBackWallW: 2.6,
+    boothFrontWidth: 16.5, // ширина передней грани операторской с окнами (±8,25 м)
+    boothSideLen: 1.7, // длина прямых боковых стен операторской
     ceilingY: 7.5, // assumption (A10), над уровнем планшета
     ceilingSlopeTo: -6.0, // assumption: потолок поднимается от 6.1 до ceilingY к этому d
     // источники зального света в модели [x, d]: на компьютере — 3, на телефоне — 1 (облегчённый профиль)
     houseLights: { full: [[-4, -9], [4, -9], [0, -15]], lite: [[0, -11]] },
+    // мягкая безтеневая подсветка бежевых ниш «ёлочки», карниза и выходов в полном профиле (по 2 точки на сторону)
+    nicheLightsX: 7.45,
+    nicheLightsD: [-5.5, -16.2],
   },
 
   // --- Галереи ---------------------------------------------------------------
@@ -108,8 +138,12 @@ export const DIM = {
     },
     // правая боковая дверь в стенке приямка на 0,85 м ниже планшета, сразу за выступом стены
     sideDoor: { width: 0.9, height: 2.1, fromD: 1.4, assumption: true },
-    // широкие двойные двери у портала в зрительном зале (слева и справа)
-    portalDoors: { width: 2.2, height: 2.0, fromD: 0.0 },
+    // косые двойные двери у портала в зрительном зале (порог на уровне приямка -0,85 м)
+    portalDoors: { width: 1.75, height: 2.15, sillY: -0.85 },
+    // торцевые двойные двери выходов из зала в конце 2,60-метровых «кишок» (ширина 1,75 м — по аналогии с передними)
+    hallExitDoors: { width: 1.75, height: 2.15, widthAssumption: true },
+    // однопольные двери в скошенных углах операторской
+    boothDoors: { width: 0.9, height: 2.05, assumption: true },
   },
 
   // приямок у правой стены — трапеция в плане: ширина 0,50 → 1,00 м на d = 1,35..4,75 м, глубина 0,85 м
@@ -197,6 +231,7 @@ DIM.wallPier = {
 DIM.rack.topY = DIM.wallPier.topY;
 
 export const HALL_HALF = DIM.hall.width / 2;
+export const STEP_HALF_X = +((DIM.hall.seatsPerRow / 2) * DIM.hall.seatWidth + DIM.hall.stepMargin).toFixed(4); // 7.06
 export const PORTAL_BACK_D = DIM.portal.thickness;
 export const GALLERY_INNER_X = BOX_HALF - DIM.galleries.width; // 7.60 — внутренняя кромка правой боковой галереи
 export const LEFT_GALLERY = {
@@ -268,15 +303,8 @@ export function forestageHalfWidth(d) {
   return fw2 + ((d - breakD) / -breakD) * (bw2 - fw2);
 }
 
-/** Пол зрительного зала (Y) в точке глубины d (d < 0). Ступенчатый по рядам. */
-export function hallFloorY(d) {
-  const h = DIM.hall;
-  const floor0 = -DIM.forestage.height;
-  const firstRowD = -(DIM.forestage.depth + h.firstRowGap);
-  if (d >= firstRowD) return floor0;
-  const row = Math.min(h.rows - 1, Math.floor((firstRowD - d) / h.rowPitch));
-  return floor0 + row * h.rowPitch * RAKE;
-}
+_initHallGeometry(DIM);
+export { hallFloorY, hallCanopyY };
 
 /** Глубина d передней кромки ряда i (0..rows-1). */
 export function rowFrontD(i) {
