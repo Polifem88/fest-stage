@@ -3,7 +3,7 @@
 //  Нулевая линия (d = 0) — передняя (зрительская) плоскость портала; Y = 0 — планшет сцены.
 //  Все размеры — config/dimensions.js, механика — config/rigging.js, развес — config/fixtures.js.
 // =============================================================================
-import { DIM, rowFrontD } from './config/dimensions.js';
+import { DIM, rowSeatD, rowFloorY } from './config/dimensions.js';
 import { RIGGING, DUTY_ROWS } from './config/rigging.js';
 import { FIXTURES, TYPES, SPECS, GROUPS, GROUP_SETS, BAR_DEPTH, PORTABLE, portablePlacement, powerOf, AIM_NOTE } from './config/fixtures.js';
 import { buildArchitecture, buildSeats, buildEmitters, HALL_BACK_FLOOR_Y } from './build/architecture.js';
@@ -14,13 +14,14 @@ import { ambientLights } from './build/ambient.js';
 import { buildPlanDXF, buildSectionDXF } from './export/dxf2d.js';
 import { build3DDXF, buildGLB } from './export/export3d.js';
 
-const eyeY = (row) => -DIM.forestage.height + row * DIM.hall.rowPitch * Math.tan((DIM.hall.rakeDeg * Math.PI) / 180) + 1.15;
+const EYE_ABOVE_FLOOR = 1.15;
+const eyeY = (row) => rowFloorY(row) + EYE_ABOVE_FLOOR;
 
 /** Готовые точки обзора. type: 'persp' | 'ortho'. Координаты: [x, y, d]. */
 const VIEWS = {
   // в книжной ориентации телефона общий вид отодвигается, чтобы влезла вся сцена (portraitPullback)
   overview: { name: 'Общий вид', type: 'persp', pos: [15.5, 12.5, -16], target: [0, 2.2, 2.5], portraitPullback: true },
-  hall: { name: 'Из зала (8-й ряд)', type: 'persp', pos: [0, eyeY(7), rowFrontD(7) - 0.42], target: [0, 2.6, 4] },
+  hall: { name: 'Из зала (8-й ряд)', type: 'persp', pos: [0, eyeY(7), rowSeatD(7)], target: [0, 2.6, 4] },
   booth: { name: 'С пульта', type: 'persp', pos: [0.8, HALL_BACK_FLOOR_Y + 2.7, -DIM.hall.portalToBoothWall + 0.3], target: [0, 1.4, 3] },
   plan: { name: 'План сверху', type: 'ortho', dir: 'top', center: [0, 0, -5.0], height: 33 },
   // только коробка и авансцена, крупно; снизу остаётся полоса под экспликацию (legendRows)

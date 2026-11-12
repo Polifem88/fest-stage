@@ -25,12 +25,14 @@ function dimList() {
     [[-1.5, 0, DIM.box.backWallD - 0.45], [-1.5, DIM.galleries.lowerY, DIM.box.backWallD - 0.45], `Нижняя галерея ${fmt(DIM.galleries.lowerY)}`],
     // высота сцены: у переднего края авансцены по оси (не на боковых ступенях)
     [[-3.5, -FS.height, -FS.depth - 0.1], [-3.5, 0, -FS.depth - 0.1], `Сцена ${fmt(FS.height)}`],
-    [[2.5, -FS.height + 0.03, -FS.depth], [2.5, -FS.height + 0.03, rowFrontD(0)], `До 1-го ряда ${fmt(DIM.hall.firstRowGap)}`],
+    [[2.5, -FS.height + 0.03, -FS.depth], [2.5, -FS.height + 0.03, rowFrontD(1)], `До 1-й ступени ${fmt(DIM.hall.firstStepGap)}`],
     [[-HALL_HALF, HALL_BACK_FLOOR_Y + 0.05, -DIM.hall.portalToBoothWall + 0.6], [HALL_HALF, HALL_BACK_FLOOR_Y + 0.05, -DIM.hall.portalToBoothWall + 0.6], `Зал ${fmt(DIM.hall.width)}`],
     // справа снаружи выходного кармана «кишки» (E1.x = 11,91 м): слева на плане экспликация, и там же приборы лож
     [[+(HALL_CONTOUR_BY_ID.E1.x + 0.65).toFixed(2), -FS.height + 0.05, 0], [+(HALL_CONTOUR_BY_ID.E1.x + 0.65).toFixed(2), -FS.height + 0.05, -DIM.hall.portalToBoothWall], `Портал — операторская ${fmt(DIM.hall.portalToBoothWall)}`],
     // над авансценой, в 1 м от портала: на разрезе не сливается с высотой портала
-    [[-PW2 + 0.5, 0, -1.0], [-PW2 + 0.5, DIM.decoCeilingY, -1.0], `Деко-потолок ${fmt(DIM.decoCeilingY)}`],
+    [[-PW2 + 0.5, 0, -1.0], [-PW2 + 0.5, DIM.decoCeilingY, -1.0], `Потолок зала ${fmt(DIM.decoCeilingY)}`],
+    // у операторской: потолок (верх окон) над ступенью последнего ряда
+    [[-4.5, HALL_BACK_FLOOR_Y, -DIM.hall.portalToBoothWall + 0.15], [-4.5, HALL_BACK_FLOOR_Y + DIM.hall.ceiling.boothClear, -DIM.hall.portalToBoothWall + 0.15], `Над 15-м рядом ${fmt(DIM.hall.ceiling.boothClear)}`],
   ];
 }
 

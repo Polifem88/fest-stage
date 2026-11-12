@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { RIGGING } from '../../src/venues/fest-big/config/rigging.js';
 import { FIXTURES } from '../../src/venues/fest-big/config/fixtures.js';
+import { DIM } from '../../src/venues/fest-big/config/dimensions.js';
+import { HALL_CONTOUR_BY_ID } from '../../src/venues/fest-big/config/hallGeometry.js';
 import { DxfWriter, encodeDxfWindows1251 } from '../../src/export/dxfWriter.js';
 import { buildPlanDXF, buildSectionDXF } from '../../src/venues/fest-big/export/dxf2d.js';
 import { build3DDXF, buildGLB } from '../../src/venues/fest-big/export/export3d.js';
@@ -114,7 +116,7 @@ describe('Экспорт 2D-плана сцены (buildPlanDXF)', () => {
     }
   });
 
-  it('отражает обновлённую геометрию зала Патча 1: контур ±11,91 м, карниз ±8,00 м, ступени ±7,06 м и актуальные двери', () => {
+  it('отражает обновлённую геометрию зала (патч 2): контур ±11,91 м, карниз ±8,00 м, ступени ±6,70 м, мосты в нишах и актуальные двери', () => {
     const dxf = buildPlanDXF(null);
     expect(dxf).toContain('1,75x2,15');
     expect(dxf).not.toContain('2,2x2,0');
@@ -123,10 +125,18 @@ describe('Экспорт 2D-плана сцены (buildPlanDXF)', () => {
     expect(dxf).toContain('Ширина зрительного зала 16,00 м');
     expect(dxf).toContain('16,50');
     expect(dxf).toContain('11.9123');
-    expect(dxf).toContain('\n10\n-7.06\n');
-    expect(dxf).toContain('\n11\n7.06\n');
+    expect(dxf).toContain('\n10\n-6.7\n');
+    expect(dxf).toContain('\n11\n6.7\n');
+    expect(dxf).toContain('Пандус 9,46°');
+    expect(dxf).toContain('1-й выносной мост в нише потолка');
+    expect(dxf).toContain('Ферма 2 дежурного света');
 
-    // Однопольная дверь на правом скосе операторской (петля xA ≈ 9.166, dA ≈ -18.554) открывается наружу в тамбур (d2 > -18.0)
+    // Однопольная дверь на правом скосе операторской (петля у B2) открывается наружу в тамбур (d2 > -18.0)
+    const B1 = HALL_CONTOUR_BY_ID.B1, B2 = HALL_CONTOUR_BY_ID.B2;
+    const chamferL = Math.hypot(B1.x - B2.x, B1.d - B2.d);
+    const u0 = (chamferL - DIM.openings.boothDoors.width) / 2;
+    const hingeX = B2.x + ((B1.x - B2.x) / chamferL) * u0;
+    const hingeD = B2.d + ((B1.d - B2.d) / chamferL) * u0;
     const lineBlocks = dxf.split('\n0\nLINE\n').slice(1);
     let boothDoorOutward = false;
     for (const blk of lineBlocks) {
@@ -136,7 +146,7 @@ describe('Экспорт 2D-плана сцены (buildPlanDXF)', () => {
         if (lines[i] === '0') break;
         map[lines[i]] = lines[i + 1];
       }
-      if (map['8'] === 'AR_HALL' && Math.abs(Number(map['10']) - 9.1663) < 0.01 && Math.abs(Number(map['20']) - (-18.5536)) < 0.01) {
+      if (map['8'] === 'AR_HALL' && Math.abs(Number(map['10']) - hingeX) < 0.01 && Math.abs(Number(map['20']) - hingeD) < 0.01) {
         if (Number(map['21']) > -18.0) boothDoorOutward = true;
       }
     }
@@ -197,14 +207,20 @@ describe('Экспорт 2D продольного разреза (buildSectionD
     expect(plan).toContain('\n10\n8\n20\n8.7\n');
   });
 
-  it('разрез зала Патча 1: профиль карниза +1,45 → +3,91 м, спуск -0,850 у портала и тамбур выхода +1,157 до -20,34 м', () => {
+  it('разрез зала (патч 2): карниз +1,45 → +4,30 м, спуск -0,850 у портала, пол у выходов +1,548, потолок +6,100 → +4,350 и ниши мостов', () => {
     const sec = buildSectionDXF(null);
     expect(sec).toContain('1,75x2,15');
     expect(sec).toContain('-0,850');
-    expect(sec).toContain('+1,157');
+    expect(sec).toContain('+1,548 (Пол у выходов)');
+    expect(sec).toContain('+1,350 (15-й ряд / Опер.)');
     expect(sec).toContain('+1,45');
-    expect(sec).toContain('+3,91');
-    expect(sec).toContain('20.3418');
+    expect(sec).toContain('+4,30');
+    expect(sec).toContain('+4,350 (Потолок у операторской)');
+    expect(sec).toContain('+6,100 (Потолок зала у портала)');
+    expect(sec).toContain('Мост 1 (+');
+    expect(sec).toContain('Ферма ДО 2');
+    expect(sec).toContain('20.1868');
+    expect(sec).not.toContain('+7,500');
   });
 });
 
@@ -221,7 +237,7 @@ describe('Экспорт 3D DXF (build3DDXF)', () => {
     expect(dxf).not.toContain('3D_FIXTURES_OFF');
     expect(dxf.trim().endsWith('0\nEOF')).toBe(true);
 
-    // Стены «кишки» выхода (|X| ≈ 11,91 м) и потолок зала (+7,50 м) попадают именно на 3D_OUTER_WALLS, а не остаются на 3D_HALL
+    // Стены «кишки» выхода (|X| ≈ 11,91 м) и большой наклон потолка у операторской (+4,35..+5,10 м) попадают именно на 3D_OUTER_WALLS, а не остаются на 3D_HALL
     const faces = dxf.split('\n0\n3DFACE\n').slice(1);
     let outerWideWall = false;
     let outerHighCeil = false;
@@ -242,9 +258,10 @@ describe('Экспорт 3D DXF (build3DDXF)', () => {
       const minY = Math.min(...ys);
       const maxZ = Math.max(...zs);
       if (layer === '3D_OUTER_WALLS' && maxAbsX > 11.8 && maxZ > 3.8) outerWideWall = true;
-      if (layer === '3D_OUTER_WALLS' && minY < -17.5 && maxZ > 7.45) outerHighCeil = true;
-      // В зоне выходных «кишок» (|X| > 8,5 м) стены и потолок тамбура (~3,91 м) не должны оставаться на 3D_HALL, как и потолок зала (+7,50 м)
-      if (layer === '3D_HALL' && minY < -17.5 && ((maxAbsX > 8.5 && maxZ > 3.5) || maxZ > 5.0)) hallHighWallLeak = true;
+      if (layer === '3D_OUTER_WALLS' && minY < -17.5 && maxZ > 5.0) outerHighCeil = true;
+      // В зоне выходных «кишок» (|X| > 8,5 м) стены и подшив (~4,1..4,3 м) не должны оставаться на 3D_HALL, как и потолок зала (> +4,35 м);
+      // двери выходов (верх +3,70 м) — допустимое наполнение 3D_HALL
+      if (layer === '3D_HALL' && minY < -17.5 && ((maxAbsX > 8.5 && maxZ > 3.9) || maxZ > 4.45)) hallHighWallLeak = true;
     }
     expect(outerWideWall).toBe(true);
     expect(outerHighCeil).toBe(true);

@@ -1,17 +1,22 @@
 // Дежурный и зальный свет Большой сцены — настоящие источники для LightingSystem.
 // Положения ламп приходят из buildEmitters (architecture.js), высота потолка зала — из DIM.
 import * as THREE from 'three';
-import { DIM, hallCanopyY } from '../config/dimensions.js';
+import { DIM, hallCanopyY, hallCeilingY } from '../config/dimensions.js';
 
 const DUTY_GAIN = 0.6;
 const NICHE_LIGHT_DISTANCE = 10.5;
 const NICHE_LIGHT_DECAY = 1.25;
 const NICHE_LIGHT_BASE = 9.5;
 const NICHE_LIGHT_DROP = 0.55;
+const HALL_DUTY_BASE = 18;
+const HALL_DUTY_ANGLE = Math.PI / 2.4;
+const HALL_DUTY_PENUMBRA = 0.85;
+const HALL_DUTY_DECAY = 1.4;
+const HOUSE_LIGHT_DROP = 0.2;
 
 /**
  * @param plan 'full' | 'lite' (профиль устройства)
- * @param em   результат buildEmitters: { dutyPoints (по 4 на линию ДО), blueX }
+ * @param em   результат buildEmitters: { dutyPoints (по 4 на линию ДО), hallDutyPoints (по ферме зала), blueX }
  * @returns { duty, blue, house } — массивы THREE-источников (яркость включения — userData.base)
  */
 export function ambientLights(plan, em) {
@@ -26,6 +31,16 @@ export function ambientLights(plan, em) {
     L.userData.base = (plan === 'full' ? 34 : 70) * DUTY_GAIN;
     return L;
   });
+  // дежурный свет зала: по одному мягкому источнику под каждой фермой (только на компьютере)
+  if (plan === 'full') {
+    for (const p of em.hallDutyPoints || []) {
+      const L = new THREE.SpotLight(0xffe2b0, 0, 0, HALL_DUTY_ANGLE, HALL_DUTY_PENUMBRA, HALL_DUTY_DECAY);
+      L.position.copy(p);
+      L.target.position.set(p.x, -1, p.z);
+      L.userData.base = HALL_DUTY_BASE * DUTY_GAIN;
+      duty.push(L);
+    }
+  }
   // синие приборы у задней стены
   const bluePts = plan === 'full' ? em.blueX : [em.blueX[1]];
   const blue = bluePts.map((p) => {
@@ -39,7 +54,7 @@ export function ambientLights(plan, em) {
   const hallPts = DIM.hall.houseLights[plan === 'full' ? 'full' : 'lite'];
   const house = hallPts.map(([x, d]) => {
     const L = new THREE.SpotLight(0xfff0d6, 0, 0, Math.PI / 2.6, 0.9, 1.3);
-    L.position.set(x, DIM.hall.ceilingY - 0.2, -d);
+    L.position.set(x, hallCeilingY(d) - HOUSE_LIGHT_DROP, -d);
     L.target.position.set(x, -1, -d);
     L.userData.base = plan === 'full' ? 120 : 260;
     return L;
