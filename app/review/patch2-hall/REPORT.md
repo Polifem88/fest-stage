@@ -21,3 +21,10 @@
 - `npm run check`: Vitest 195/195, сборка, Playwright 61 passed / 11 skipped (как и до патча).
 - Крупные планы: `node review/patch2-hall/closeups.mjs dist review/patch2-hall/after`.
 - Паритет: `chamber`, `roof` — см. `review/modular/parity-report.md`; `big` изменена намеренно — эталон переснимается после одобрения заказчиком.
+
+## Приёмка и финальный эталон паритета
+
+- **Личный осмотр на локальном сервере:** принят заказчиком.
+- **Повторный `npm run check`** перед слиянием: сборка, Vitest, Playwright 61 passed / 11 skipped.
+- **Финальный эталон паритета (`review/modular/baseline/dist-post-patch2`):** переснят со свежей однофайловой сборки (`23 / 947 / 945 КБ`), самопроверка `node scripts/parity.mjs compare` — код возврата `0`:
+  - **`Паритет: ПРОЙДЕН` — площадки `big`, `chamber`, `roof`: экспорт `28/28`, состояние `56/56`, снимки `108/108`, ошибки консоли `0`.**
