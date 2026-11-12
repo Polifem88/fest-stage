@@ -11,7 +11,7 @@
 //  assumption: true — значение не было дано, оценено по фото/схеме (см. план, A1–A13).
 // =============================================================================
 
-import { _initHallGeometry, hallFloorY, hallCanopyY } from './hallGeometry.js';
+import { _initHallGeometry, hallFloorY, hallCanopyY, hallCeilingY, hallCeilingNiche } from './hallGeometry.js';
 
 export const DIM = {
   // --- Сценическая коробка ---------------------------------------------------
@@ -42,21 +42,21 @@ export const DIM = {
     // авансцены до портала. steps — число подъёмов (последний — на планшет).
     stairs: { steps: 5 },
   },
-  decoCeilingY: 6.1, // декоративный потолок над авансценой
+  decoCeilingY: 6.1, // потолок зала у портала (горизонтальный участок hall.ceiling.frontFlat), верх перемычки портала
 
   hall: {
     width: 16.0, // верхний объём от серой стены до серой стены (±8,00 м)
     portalToBoothWall: 18.0, // от портала до передней стены операторской
-    rakeDeg: 9, // угол подъёма пандусов и рядов
-    firstRowGap: 2.15, // от края сцены до кресел первого ряда
+    stepRise: 0.15, // подъём каждой ступени ряда (замер патча 2); уклон пандусов = stepRise / rowPitch (≈ 9,46°)
+    firstStepGap: 2.45, // от края авансцены до первой ступени (на ней стоит 2-й ряд), замер патча 2
     rows: 15,
     seatsPerRow: 26,
-    rowPitch: 0.8, // assumption (A9)
-    rowPitchAssumption: true,
-    seatWidth: 0.54, // assumption (A9, уточнено под ширину боковых проходов)
-    seatWidthAssumption: true,
-    stepMargin: 0.04, // assumption: кант торца ступени за внешней опорой кресла (STEP_HALF_X = 7,06 м)
+    rowPitch: 0.9, // ширина ступени с рядом кресел (замер патча 2); последняя ступень доходит до операторской
+    aisleAtPeak: 1.5, // чистый проход от пика «ёлочки» (|X| = 8,20) до торца ступеней (замер патча 2)
+    stepMargin: 0.04, // assumption: кант торца ступени за внешней опорой кресла (ширина кресла выводится из прохода)
     stepMarginAssumption: true,
+    seatSetback: 0.52, // assumption: от передней кромки ступени до оси кресла (спинка ≈ 0,11 м от следующего подступенка)
+    seatSetbackAssumption: true,
     frontCornerFloorY: -0.85, // пол у передних косых дверей и вдоль портала в углах зала
     canopyHeightAtPortal: 2.3, // высота низа карниза над полом -0,85 м у портала (+1,45 м)
     canopyHeightMain: 2.75, // высота низа карниза над пандусом начиная со 2-го ряда (+2,00 → +3,91 м)
@@ -64,9 +64,9 @@ export const DIM = {
     canopyFasciaAssumption: true,
     nicheMinDepth: 0.2, // отступ пиков «ёлочки» от верхней серой стены (|X| = 8,20 м)
     nicheMaxDepth: 0.7, // отступ впадин «ёлочки» от верхней серой стены (|X| = 8,70 м)
-    sawtoothStartD: -2.3, // начало чередования панелей 2,30 / 0,85 м от портала
+    sawtoothStartD: -2.3, // начало чередования панелей 2,25 / 0,85 м от портала
     sawtoothTeeth: 4,
-    sawtoothLong: 2.3,
+    sawtoothLong: 2.25, // уточнено в патче 2 (было 2,30)
     sawtoothShort: 0.85,
     ledStripW: 0.04, // assumption: ширина светящегося профиля в углах «ёлочки»
     ledStripD: 0.025, // assumption: глубина профиля LED-ленты
@@ -74,12 +74,32 @@ export const DIM = {
     exitFlareAngleDeg: 45, // assumption: разворот внешней 5,25-метровой стены «кишки» ради точного замыкания обмеров
     exitFlareAngleAssumption: true,
     exitFlareLen: 5.25,
-    exitStraightLen: 2.6,
+    exitStraightLen: 2.65, // уточнено в патче 2 (было 2,60); скос операторской с дверью замыкает контур на 18,00 м
     exitBackWallW: 2.6,
+    exitFlatLen: 0.7, // пол «кишки» становится горизонтальным за 0,70 м до торцевой двери (замер патча 2)
+    exitBlendLen: 1.0, // assumption: длина плавного (C¹) перехода уклона пандуса в горизонталь перед дверью
+    exitBlendAssumption: true,
     boothFrontWidth: 16.5, // ширина передней грани операторской с окнами (±8,25 м)
     boothSideLen: 1.7, // длина прямых боковых стен операторской
-    ceilingY: 7.5, // assumption (A10), над уровнем планшета
-    ceilingSlopeTo: -6.0, // assumption: потолок поднимается от 6.1 до ceilingY к этому d
+    // Потолок зала (патч 2, по фото): от портала горизонтальный участок frontFlat на decoCeilingY,
+    // затем bays × (наклон slopeLen с понижением slopeDrop + горизонталь flatLen), затем большой наклон
+    // к верху окон операторской на boothClear над ступенью последнего ряда. Длины — по поверхности потолка
+    // (панели 1,2 × 0,6 м: в наклон ровно 1 полоса, в горизонталь — 4).
+    ceiling: {
+      frontFlat: 1.5,
+      slopeLen: 0.6,
+      flatLen: 2.4,
+      bays: 5,
+      slopeDrop: 0.2, // «примерно 20 см» каждый наклон
+      boothClear: 3.0, // высота потолка у операторской над ступенью последнего ряда
+      // открытые чёрные наклонные ниши выносных мостов (номера наклонов от портала, 1..bays): приборы висят над потолком
+      niches: [2, 4],
+      nicheWidth: 9.6, // 8 панелей по 1,2 м по центру зала
+      nicheBack: 0.4, // assumption: заглубление тёмной ниши за наклон (над нижним участком потолка)
+      nicheUp: 0.5, // assumption: высота ниши над верхней кромкой наклона
+      nicheAssumption: true,
+      houseLampStrip: 2, // ряд светильников — по центру 3-й полосы панелей каждого горизонтального участка
+    },
     // источники зального света в модели [x, d]: на компьютере — 3, на телефоне — 1 (облегчённый профиль)
     houseLights: { full: [[-4, -9], [4, -9], [0, -15]], lite: [[0, -11]] },
     // мягкая безтеневая подсветка бежевых ниш «ёлочки», карниза и выходов в полном профиле (по 2 точки на сторону)
@@ -200,21 +220,34 @@ export const DIM = {
 
   // --- Зал: свет и конструкции (A11, сымпровизировано) -----------------------
   hallRig: {
-    bridge1: { d: -7.0, y: 6.4, length: 12.0 },
-    bridge2: { d: -12.0, y: 6.8, length: 10.0 },
+    // выносные мосты с приборами — над потолком в открытых наклонных нишах (ниша = номер наклона из hall.ceiling.niches);
+    // d и y трубы вычисляются из профиля потолка ниже (головы приборов — в проёме наклона)
+    bridge1: { niche: 2, length: 9.4 },
+    bridge2: { niche: 4, length: 9.4 },
+    // фермы дежурного света зала под потолком (вплотную к нему), с небольшими светильниками дежурного света
+    dutyTrusses: {
+      size: 0.3, // сечение квадратной фермы
+      list: [
+        { d: -7.0, length: 12.0 }, // assumption (A11): d и длина — по фото
+        { d: -12.0, length: 10.0 },
+      ],
+      lightStep: 1.5, // assumption: шаг светильников дежурного света вдоль фермы
+      assumption: true,
+    },
     boxes: {
       // «ложи» — световые рамы на боковых стенах зала
       L1: { side: -1, d: -6.2, y: 4.2, w: 1.4, h: 2.2 },
-      L2: { side: -1, d: -12.5, y: 4.6, w: 1.2, h: 1.6 },
+      L2: { side: -1, d: -12.5, y: 4.3, w: 1.2, h: 1.6 },
       R1: { side: 1, d: -6.2, y: 4.2, w: 1.4, h: 2.2 },
-      R2: { side: 1, d: -12.5, y: 4.6, w: 1.2, h: 1.6 },
+      R2: { side: 1, d: -12.5, y: 4.3, w: 1.2, h: 1.6 },
     },
     // вертикальные прострелы у углов авансцены, на стенах зала (на серой акустической части)
     sideTowers: {
       L: { side: -1, d: -1.6, y: 2.2, h: 3.0 },
       R: { side: 1, d: -1.6, y: 2.2, h: 3.0 },
     },
-    booth: { windowFromY: 2.0, windowH: 1.2, windowW: 12.0 },
+    // окно операторской: верх — на линии потолка у операторской (низ большого наклона)
+    booth: { windowH: 1.2, windowW: 12.0 },
   },
 };
 
@@ -231,7 +264,12 @@ DIM.wallPier = {
 DIM.rack.topY = DIM.wallPier.topY;
 
 export const HALL_HALF = DIM.hall.width / 2;
-export const STEP_HALF_X = +((DIM.hall.seatsPerRow / 2) * DIM.hall.seatWidth + DIM.hall.stepMargin).toFixed(4); // 7.06
+// Производные величины зала (патч 2): 1-й ряд стоит на партере в полосе rowPitch перед первой ступенью;
+// ширина кресла выводится из замеренного прохода 1,50 м от пика «ёлочки» до торца ступеней (26 кресел в ряду).
+DIM.hall.firstRowGap = +(DIM.hall.firstStepGap - DIM.hall.rowPitch).toFixed(4); // 1.55
+DIM.hall.seatWidth = +((HALL_HALF + DIM.hall.nicheMinDepth - DIM.hall.aisleAtPeak - DIM.hall.stepMargin) / (DIM.hall.seatsPerRow / 2)).toFixed(6); // 0.512308
+DIM.hall.rakeDeg = +((Math.atan(DIM.hall.stepRise / DIM.hall.rowPitch) * 180) / Math.PI).toFixed(2); // 9.46 (для подписей)
+export const STEP_HALF_X = +((DIM.hall.seatsPerRow / 2) * DIM.hall.seatWidth + DIM.hall.stepMargin).toFixed(4); // 6.70
 export const PORTAL_BACK_D = DIM.portal.thickness;
 export const GALLERY_INNER_X = BOX_HALF - DIM.galleries.width; // 7.60 — внутренняя кромка правой боковой галереи
 export const LEFT_GALLERY = {
@@ -245,7 +283,7 @@ export const B2_SHAFT = {
   d0: +(DIM.box.backWallD - DIM.controls.b2Corner.size).toFixed(4), // 8.70
   d1: DIM.box.backWallD, // 9.20
 };
-export const RAKE = Math.tan((DIM.hall.rakeDeg * Math.PI) / 180);
+export const RAKE = DIM.hall.stepRise / DIM.hall.rowPitch;
 
 /** Координата X косой сценической кромки приямка на глубине d (fromD ≤ d ≤ toD). */
 export function pitEdgeX(d) {
@@ -304,11 +342,41 @@ export function forestageHalfWidth(d) {
 }
 
 _initHallGeometry(DIM);
-export { hallFloorY, hallCanopyY };
+export { hallFloorY, hallCanopyY, hallCeilingY };
+
+// Выносные мосты в наклонных нишах потолка: голова прибора — на BRIDGE_HEAD_INSET выше середины проёма наклона
+// (по нормали внутрь ниши), труба — на FIXTURE_HEAD_DROP выше головы (так висит прибор в systems/fixtures.js).
+const BRIDGE_HEAD_INSET = 0.1;
+const FIXTURE_HEAD_DROP = 0.22;
+for (const key of ['bridge1', 'bridge2']) {
+  const br = DIM.hallRig[key];
+  const n = hallCeilingNiche(br.niche);
+  br.d = +(n.midD + n.inD * BRIDGE_HEAD_INSET).toFixed(4);
+  br.y = +(n.midY + n.inY * BRIDGE_HEAD_INSET + FIXTURE_HEAD_DROP).toFixed(4);
+}
+// Фермы дежурного света — вплотную к потолку (верхний пояс на отметке потолка)
+for (const t of DIM.hallRig.dutyTrusses.list) {
+  t.y = +(hallCeilingY(t.d) - DIM.hallRig.dutyTrusses.size / 2).toFixed(4);
+}
 
 /** Глубина d передней кромки ряда i (0..rows-1). */
 export function rowFrontD(i) {
   return -(DIM.forestage.depth + DIM.hall.firstRowGap) - i * DIM.hall.rowPitch;
+}
+
+/** Глубина d задней кромки ступени ряда i: у последнего ряда — передняя стена операторской. */
+export function rowBackD(i) {
+  return i >= DIM.hall.rows - 1 ? -DIM.hall.portalToBoothWall : rowFrontD(i) - DIM.hall.rowPitch;
+}
+
+/** Глубина d оси кресел ряда i. */
+export function rowSeatD(i) {
+  return rowFrontD(i) - DIM.hall.seatSetback;
+}
+
+/** Отметка пола ряда i: 1-й ряд — партер (-0,75), каждый следующий выше на stepRise. */
+export function rowFloorY(i) {
+  return -DIM.forestage.height + i * DIM.hall.stepRise;
 }
 
 /** z в Three.js из глубины d. */

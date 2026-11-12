@@ -203,10 +203,10 @@ function build() {
   GAL_L.forEach(([no, d], i) => list.push({ no, type: galType('GAL_L', i), group: 'GAL_L', mount: { on: null, x: galLX, y: RAIL_Y, d }, aim: { x: -1.5, y: 0, d: d - 0.5 } }));
   GAL_R.forEach(([no, d], i) => list.push({ no, type: galType('GAL_R', i), group: 'GAL_R', mount: { on: null, x: GX_R - 0.55, y: RAIL_Y, d }, aim: { x: 1.5, y: 0, d: d - 0.5 } }));
   GAL_B.forEach(([no, x]) => list.push({ no, type: galType('GAL_B'), group: 'GAL_B', mount: { on: null, x, y: RAIL_Y, d: DIM.box.backWallD - DIM.galleries.width - 0.1 }, aim: { x: x * 0.6, y: 0, d: 4.5 } }));
-  // --- мосты
+  // --- выносные мосты: над потолком в открытых наклонных нишах (труба моста — DIM.hallRig.bridgeN, голова — в проёме)
   const b1 = DIM.hallRig.bridge1, b2 = DIM.hallRig.bridge2;
-  BR1.forEach(([no, type, x]) => list.push({ no, type, group: 'BR1', mount: { on: null, x, y: b1.y - 0.35, d: b1.d }, aim: { x: x * 0.8, y: 0, d: 1.2 } }));
-  BR2.forEach(([no, type, x]) => list.push({ no, type, group: 'BR2', mount: { on: null, x, y: b2.y - 0.35, d: b2.d }, aim: { x: x * 0.8, y: 0, d: 2.6 } }));
+  BR1.forEach(([no, type, x]) => list.push({ no, type, group: 'BR1', mount: { on: null, x, y: b1.y, d: b1.d }, aim: { x: x * 0.8, y: 0, d: 1.2 } }));
+  BR2.forEach(([no, type, x]) => list.push({ no, type, group: 'BR2', mount: { on: null, x, y: b2.y, d: b2.d }, aim: { x: x * 0.8, y: 0, d: 2.6 } }));
   // --- ложи
   for (const [group, { key, items }] of Object.entries(BOXES)) {
     const bx = DIM.hallRig.boxes[key];

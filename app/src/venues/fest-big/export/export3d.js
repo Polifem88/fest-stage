@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { DIM, BOX_HALF, HALL_HALF, B2_SHAFT, RAKE, rowFrontD } from '../config/dimensions.js';
+import { DIM, BOX_HALF, HALL_HALF, B2_SHAFT, rowSeatD, rowFloorY } from '../config/dimensions.js';
 import { HALL_CONTOUR_BY_ID } from '../config/hallGeometry.js';
 import { RIGGING, RIG_BY_ID, RIGHT_FRONT_ORDER, ropeDepth, counterweightX, rightFrontRailX, DUTY_ROWS } from '../config/rigging.js';
 import { FIXTURES, TYPES, PORTABLE, portablePlacement, BAR_DEPTH } from '../config/fixtures.js';
@@ -218,8 +218,8 @@ export function build3DDXF(stage) {
   const H = DIM.hall;
   const SW = H.seatWidth;
   for (let r = 0; r < H.rows; r++) {
-    const yFloor = -DIM.forestage.height + r * H.rowPitch * RAKE;
-    const dSeat = rowFrontD(r) - 0.42;
+    const yFloor = rowFloorY(r);
+    const dSeat = rowSeatD(r);
     const ySeat = yFloor + 0.44;
     const yBack = yFloor + 0.88;
     for (let s = 0; s < H.seatsPerRow; s++) {

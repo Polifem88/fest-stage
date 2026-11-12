@@ -8,15 +8,16 @@
 // =============================================================================
 import {
   DIM, BOX_HALF, HALL_HALF, STEP_HALF_X, GALLERY_INNER_X, LEFT_GALLERY, BACK_GALLERY_FRONT_D, B2_SHAFT,
-  RAKE, rowFrontD, hallFloorY, hallCanopyY, pitEdgeX, gateNiche, doorNiche,
+  rowFrontD, rowBackD, rowSeatD, rowFloorY, hallFloorY, hallCanopyY, hallCeilingY, pitEdgeX, gateNiche, doorNiche,
 } from '../config/dimensions.js';
 import {
-  HALL_CONTOUR_BY_ID, hallSideWallSegments, hallLedCorners, hallOuterXAtD, hallRampY,
+  HALL_CONTOUR_BY_ID, HALL_CEIL_PROFILE, hallSideWallSegments, hallLedCorners, hallOuterXAtD, hallInnerMinXAtD, hallRampY,
+  hallCeilingNiche, hallExitFlatRange,
 } from '../config/hallGeometry.js';
 import { RIGGING, RIG_BY_ID, SPACING, LEFT_RAIL_ORDER, RIGHT_FRONT_ORDER, ropeDepth, counterweightX, rightFrontRailX, DUTY_ROWS } from '../config/rigging.js';
 import { FIXTURES, TYPES, GROUPS, PORTABLE, portablePlacement, BAR_DEPTH } from '../config/fixtures.js';
 import { SPECS } from '../config/fixtures.js';
-import { HALL_CEIL_PROFILE, HALL_BACK_FLOOR_Y } from '../build/architecture.js';
+import { HALL_BACK_FLOOR_Y } from '../build/architecture.js';
 import { DxfWriter } from '../../../export/dxfWriter.js';
 
 /** Основная надпись чертежей этой сцены. */
@@ -365,10 +366,11 @@ export function buildPlanDXF(stage) {
   for (const s of [-1, 1]) {
     // Пунктир проекции нависающего карниза и верхних серых стен X = ±8,00 м
     dxf.addLine(s * HW, 0, s * HW, HALL_BACK_D, { layer: 'AR_HALL', ltype: 'DASHED' });
-    // Линия начала горизонтальной площадки тамбура выхода (+1,16 м)
-    dxf.addLine(s * HW, E1.d, s * E1.x, E1.d, { layer: 'AR_HALL', ltype: 'DASHED' });
+    // Линия начала горизонтального пола «кишки» перед дверью выхода (за 0,70 м до двери, после плавного перехода)
+    const exitFlat = hallExitFlatRange();
+    dxf.addLine(s * hallInnerMinXAtD(exitFlat.flatD), exitFlat.flatD, s * E1.x, exitFlat.flatD, { layer: 'AR_HALL', ltype: 'DASHED' });
 
-    // Реальный нижний контур бежевых стен «ёлочки», раструбов 45°, «кишок» 2,60 м и скосов операторской
+    // Реальный нижний контур бежевых стен «ёлочки», раструбов 45°, «кишок» и скосов операторской
     for (const seg of hallSideWallSegments(s)) {
       const dx = seg.x1 - seg.x0, dd = seg.d1 - seg.d0;
       const L = Math.hypot(dx, dd);
@@ -447,13 +449,13 @@ export function buildPlanDXF(stage) {
       }
     });
 
-    // Стрелки уклона гладких боковых пандусов 9° (между ступенями ±7,06 м и стеной)
+    // Стрелки уклона гладких боковых пандусов (между торцами ступеней и стеной)
     const aisleX = s * ((STEP_HALF_X + HW) * 0.5);
     const arrD0 = -6.4, arrD1 = -15.4;
     dxf.addLine(aisleX, arrD0, aisleX, arrD1, { layer: 'AR_HALL' });
     dxf.addLine(aisleX - SLOPE_ARROW_HEAD * 0.55, arrD1 + SLOPE_ARROW_HEAD, aisleX, arrD1, { layer: 'AR_HALL' });
     dxf.addLine(aisleX + SLOPE_ARROW_HEAD * 0.55, arrD1 + SLOPE_ARROW_HEAD, aisleX, arrD1, { layer: 'AR_HALL' });
-    dxf.addText(aisleX - s * 0.16, (arrD0 + arrD1) * 0.5, `Пандус ${DIM.hall.rakeDeg}°`, {
+    dxf.addText(aisleX - s * 0.16, (arrD0 + arrD1) * 0.5, `Пандус ${fmtM(DIM.hall.rakeDeg)}° (${fmtM(DIM.hall.stepRise)} / ${fmtM(DIM.hall.rowPitch)})`, {
       layer: 'AR_HALL', height: 0.13, rotation: 90, align: 'center', valign: 'middle',
     });
   }
@@ -467,10 +469,10 @@ export function buildPlanDXF(stage) {
     layer: 'AR_HALL', height: 0.22, align: 'center', valign: 'middle',
   });
 
-  // Ряды кресел (15 рядов по 26 мест = 390 мест) и ступени строго в пределах [-STEP_HALF_X, +STEP_HALF_X] (±7,06 м)
+  // Ряды кресел (15 рядов по 26 мест = 390 мест) и ступени строго в пределах [-STEP_HALF_X, +STEP_HALF_X]
   const H = DIM.hall;
   const SW = H.seatWidth;
-  const lastStepBackD = rowFrontD(H.rows - 1) - H.rowPitch;
+  const lastStepBackD = rowBackD(H.rows - 1);
   // Боковые торцы ступенчатого блока у пандусов
   dxf.addLine(-STEP_HALF_X, rowFrontD(1), -STEP_HALF_X, lastStepBackD, { layer: 'AR_HALL' });
   dxf.addLine(STEP_HALF_X, rowFrontD(1), STEP_HALF_X, lastStepBackD, { layer: 'AR_HALL' });
@@ -478,7 +480,7 @@ export function buildPlanDXF(stage) {
 
   for (let r = 0; r < H.rows; r++) {
     const dFront = rowFrontD(r);
-    const dSeat = dFront - 0.42;
+    const dSeat = rowSeatD(r);
     // Линия ступени ряда (1-й ряд стоит в уровень партера -0,75 м — показываем пунктиром границы ряда; со 2-го по 15-й — сплошные ступени)
     dxf.addLine(-STEP_HALF_X, dFront, STEP_HALF_X, dFront, {
       layer: 'AR_HALL',
@@ -495,11 +497,19 @@ export function buildPlanDXF(stage) {
     });
   }
 
-  // Выносные мосты М1 и М2
-  for (const [bName, br] of [['1-й выносной мост (+6,40 м)', DIM.hallRig.bridge1], ['2-й выносной мост (+6,80 м)', DIM.hallRig.bridge2]]) {
-    dxf.addRect(-br.length / 2, br.d - 0.15, br.length / 2, br.d + 0.15, { layer: 'AR_HALL', ltype: 'DASHED' });
-    dxf.addText(-br.length / 2 - 0.2, br.d + 0.22, bName, { layer: 'AR_HALL', height: 0.15, align: 'left', valign: 'bottom' });
+  // Выносные мосты М1 и М2 — над потолком в открытых наклонных нишах (контур проёма ниши пунктиром, труба моста — сплошной)
+  for (const [bName, br] of [['1-й выносной мост', DIM.hallRig.bridge1], ['2-й выносной мост', DIM.hallRig.bridge2]]) {
+    const n = hallCeilingNiche(br.niche);
+    dxf.addRect(-n.halfW, n.dB, n.halfW, n.dA, { layer: 'AR_HALL', ltype: 'DASHED' });
+    dxf.addLine(-br.length / 2, br.d, br.length / 2, br.d, { layer: 'AR_HALL' });
+    dxf.addText(-n.halfW - 0.2, n.dA + 0.12, `${bName} в нише потолка (труба +${fmtM(br.y)} м)`, { layer: 'AR_HALL', height: 0.15, align: 'left', valign: 'bottom' });
   }
+  // Фермы дежурного света зала (вплотную к потолку)
+  const dTr = DIM.hallRig.dutyTrusses;
+  dTr.list.forEach((t, i) => {
+    dxf.addRect(-t.length / 2, t.d - dTr.size / 2, t.length / 2, t.d + dTr.size / 2, { layer: 'AR_HALL', ltype: 'DASHED' });
+    dxf.addText(-t.length / 2 - 0.2, t.d + dTr.size / 2 + 0.07, `Ферма ${i + 1} дежурного света (+${fmtM(t.y + dTr.size / 2)} м)`, { layer: 'AR_HALL', height: 0.15, align: 'left', valign: 'bottom' });
+  });
 
   // Боковые ложи Л1, Л2, П1, П2 и башни прострелов на верхних стенах X = ±8,00 м
   for (const [key, bx] of Object.entries(DIM.hallRig.boxes)) {
@@ -781,10 +791,9 @@ export function buildSectionDXF(stage) {
   dxf.addText(X(gn.d1) - 0.35, 0.14, 'УРОВЕНЬ ПЛАНШЕТА СЦЕНЫ (±0,000)', { layer: '0_AXES', height: 0.16, align: 'right' });
 
   // Вертикальные линии сетки по глубине сцены и тамбуров выхода (каждый 1 м до d = -21)
-  const pocketCeilY = hallCanopyY(E2.d);
   for (let d = Math.floor(E2.d); d <= 9; d++) {
     if (d !== 0) {
-      const gridTopY = d >= 0 ? CEIL : d >= HALL_BACK_D ? DIM.hall.ceilingY : pocketCeilY;
+      const gridTopY = d >= 0 ? CEIL : d >= HALL_BACK_D ? hallCeilingY(d) : hallCanopyY(d);
       dxf.addLine(X(d), -1.2, X(d), gridTopY, { layer: '0_GRID' });
     }
     if (d >= -3 || d % 2 === 0) {
@@ -830,40 +839,44 @@ export function buildSectionDXF(stage) {
     dxf.addPolyline([[X(d0), yTop - FSH / stSteps], [X(d0), yTop], [X(d1), yTop]], { layer: 'AR_SECTION', ltype: 'DASHED' });
   }
 
-  // Пол зрительного зала по оси: партер и 1-й ряд на -0,75 м, ступени 2..15 рядов (9°), далее уклон и площадка +1,16 м у операторской
+  // Пол зрительного зала по оси: партер и 1-й ряд на -0,75 м, ступени 2..15 рядов по stepRise (15-я — до операторской)
   const dRow0 = rowFrontD(0);
   const dRow1 = rowFrontD(1);
-  const lastStepBackD = rowFrontD(H.rows - 1) - H.rowPitch;
   const backY = HALL_BACK_FLOOR_Y;
+  const exitY = hallRampY(E2.d);
   const hallProfilePts = [[X(-FS.depth), -FSH], [X(dRow0), -FSH]];
   for (let r = 0; r < H.rows; r++) {
-    const yRow = hallFloorY(rowFrontD(r) - 0.42, 0);
+    const yRow = rowFloorY(r);
     const d0 = rowFrontD(r);
-    const d1 = d0 - H.rowPitch;
+    const d1 = rowBackD(r);
     hallProfilePts.push([X(d0), yRow], [X(d1), yRow]);
     // Силуэт кресла в разрезе
-    const dSeat = d0 - 0.42;
+    const dSeat = rowSeatD(r);
     dxf.addRect(X(dSeat + 0.18), yRow, X(dSeat - 0.18), yRow + 0.44, { layer: 'AR_GALLERIES' });
     dxf.addLine(X(dSeat - 0.16), yRow + 0.44, X(dSeat - 0.24), yRow + 0.92, { layer: 'AR_GALLERIES' });
     if ((r + 1) % 2 === 1 || r === H.rows - 1) {
       dxf.addText(X(dSeat), yRow - 0.22, `Р${r + 1}`, { layer: 'AR_SECTION', height: 0.14, align: 'center' });
     }
   }
-  hallProfilePts.push([X(E1.d), backY], [X(HALL_BACK_D), backY]);
   dxf.addPolyline(hallProfilePts, { layer: 'AR_SECTION' });
 
-  // Пунктиром: спуск переднего угла зала до -0,85 м у портала и гладкий пандус прохода 9° с тамбуром выхода до d = -20,34 м
+  // Пунктиром: спуск переднего угла зала до -0,85 м у портала и гладкий пандус прохода с плавным горизонтом у выхода
   const frontCornerPts = [[X(0), H.frontCornerFloorY], [X(P1.d), H.frontCornerFloorY]];
   for (let k = 1; k <= 8; k++) {
     const d = P1.d + ((-FS.depth - P1.d) * k) / 8;
     frontCornerPts.push([X(d), hallFloorY(d, hallOuterXAtD(d))]);
   }
   dxf.addPolyline(frontCornerPts, { layer: 'AR_SECTION', ltype: 'DASHED' });
-  dxf.addPolyline(
-    [[X(dRow1), -FSH], [X(E1.d), backY], [X(E2.d), backY]],
-    { layer: 'AR_SECTION', ltype: 'DASHED' },
-  );
-  dxf.addText(X((dRow1 + E1.d) * 0.5), hallRampY((dRow1 + E1.d) * 0.5) - 0.36, `Пандус прохода ${H.rakeDeg}° (пунктир)`, {
+  const exitFlat = hallExitFlatRange();
+  const rampPts = [[X(dRow1), -FSH], [X(exitFlat.blendD), hallRampY(exitFlat.blendD)]];
+  for (let k = 1; k <= 8; k++) {
+    const d = exitFlat.blendD + ((exitFlat.flatD - exitFlat.blendD) * k) / 8;
+    rampPts.push([X(d), hallRampY(d)]);
+  }
+  rampPts.push([X(E2.d), exitY]);
+  dxf.addPolyline(rampPts, { layer: 'AR_SECTION', ltype: 'DASHED' });
+  const rampLabelD = (dRow1 + HALL_BACK_D) * 0.5;
+  dxf.addText(X(rampLabelD), hallRampY(rampLabelD) - 0.36, `Пандус прохода ${fmtM(H.rakeDeg)}° (пунктир)`, {
     layer: 'AR_SECTION', height: 0.13, align: 'center',
   });
 
@@ -903,40 +916,49 @@ export function buildSectionDXF(stage) {
     layer: 'AR_SECTION', height: 0.15, align: 'right',
   });
 
-  // Профиль потолка зрительного зала (серые панели +6,10 -> подъём к +7,50 -> стена операторской)
+  // Профиль потолка зрительного зала: +6,10 у портала, 5 наклонов по 0,6 м и горизонтали по 2,4 м, большой наклон к окнам операторской
   const ceilPts = HALL_CEIL_PROFILE.map(([d, y]) => [X(d), y]);
   dxf.addPolyline(ceilPts, { layer: 'AR_SECTION' });
+  // Открытые наклонные ниши выносных мостов: тёмный объём над потолком (проём наклона — пунктир)
+  for (const bay of H.ceiling.niches) {
+    const n = hallCeilingNiche(bay);
+    dxf.addPolyline(
+      [[X(n.dA), n.yA], [X(n.dA), n.topY], [X(n.backD), n.topY], [X(n.backD), n.yB], [X(n.dB), n.yB]],
+      { layer: 'AR_SECTION' },
+    );
+    dxf.addLine(X(n.dA), n.yA, X(n.dB), n.yB, { layer: 'AR_SECTION', ltype: 'DASHED' });
+  }
 
-  // Плавный профиль нависающего карниза боковых ниш (+1,45 -> +2,00 -> +3,91 м) и потолка выходного тамбура
+  // Плавный профиль нависающего карниза боковых ниш и потолка «кишок» выходов (параллельно пандусу)
   const canopyPts = [];
   const fasciaPts = [];
-  for (let k = 0; k <= 16; k++) {
-    const d = (dRow1 * k) / 16;
+  const CANOPY_SAMPLES = 48;
+  for (let k = 0; k <= CANOPY_SAMPLES; k++) {
+    const d = (E2.d * k) / CANOPY_SAMPLES;
     const cy = hallCanopyY(d);
     canopyPts.push([X(d), cy]);
-    fasciaPts.push([X(d), cy + H.canopyFasciaH]);
+    if (d >= HALL_BACK_D) fasciaPts.push([X(d), cy + H.canopyFasciaH]);
   }
-  canopyPts.push([X(E1.d), pocketCeilY], [X(E2.d), pocketCeilY]);
-  fasciaPts.push([X(E1.d), pocketCeilY + H.canopyFasciaH], [X(HALL_BACK_D), hallCanopyY(HALL_BACK_D) + H.canopyFasciaH]);
+  fasciaPts.push([X(HALL_BACK_D), hallCanopyY(HALL_BACK_D) + H.canopyFasciaH]);
+  const exitCeilY = hallCanopyY(E2.d);
   dxf.addPolyline(canopyPts, { layer: 'AR_GALLERIES' });
   dxf.addPolyline(fasciaPts, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
-  dxf.addLine(X(E2.d), backY, X(E2.d), pocketCeilY, { layer: 'AR_GALLERIES' });
+  dxf.addLine(X(E2.d), exitY, X(E2.d), exitCeilY, { layer: 'AR_GALLERIES' });
   dxf.addText(
     X(-9.0),
     hallCanopyY(-9.0) + 0.24,
-    `Карниз +${fmtM(hallCanopyY(0))}..+${fmtM(hallCanopyY(dRow1))}..+${fmtM(pocketCeilY)} м`,
+    `Карниз +${fmtM(hallCanopyY(0))}..+${fmtM(hallCanopyY(dRow1))}..+${fmtM(exitCeilY)} м`,
     { layer: 'AR_GALLERIES', height: 0.14, align: 'center' },
   );
 
-  // Задняя стена зала (d = -18.0) и будка операторской со световым окном (до E2.d = -20.34 м)
+  // Задняя стена зала (d = -18.0) и будка операторской со световым окном (верх окна — на линии потолка)
   const win = DIM.hallRig.booth;
-  const wy0 = backY + win.windowFromY, wy1 = wy0 + win.windowH;
+  const wy1 = hallCeilingY(HALL_BACK_D), wy0 = wy1 - win.windowH;
   dxf.addLine(X(HALL_BACK_D), backY, X(HALL_BACK_D), wy0, { layer: 'AR_SECTION' });
-  dxf.addLine(X(HALL_BACK_D), wy1, X(HALL_BACK_D), DIM.hall.ceilingY, { layer: 'AR_SECTION' });
   // Стекло окна операторской
   dxf.addRect(X(HALL_BACK_D) - 0.04, wy0, X(HALL_BACK_D) + 0.04, wy1, { layer: 'AR_GALLERIES' });
   // Комната операторской за стеной зала (в пределах E2.d)
-  dxf.addRect(X(HALL_BACK_D), backY + 1.0, X(E2.d), backY + 3.6, { layer: 'AR_SECTION' });
+  dxf.addRect(X(HALL_BACK_D), backY + 1.0, X(E2.d), wy1, { layer: 'AR_SECTION' });
   dxf.addText(X((HALL_BACK_D + E2.d) * 0.5), backY + 2.3, 'Операторская', {
     layer: 'AR_SECTION', height: 0.18, align: 'center', valign: 'middle',
   });
@@ -968,11 +990,18 @@ export function buildSectionDXF(stage) {
     dxf.addLine(X(pit.toD), ly, X(pit.fromD), ly, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
   }
 
-  // Выносные мосты в зале М1 (d=-7.0, Y=6.4) и М2 (d=-12.0, Y=6.8)
-  for (const [lbl, br] of [['Мост 1 (+6,40)', DIM.hallRig.bridge1], ['Мост 2 (+6,80)', DIM.hallRig.bridge2]]) {
-    dxf.addRect(X(br.d + 0.15), br.y - 0.15, X(br.d - 0.15), br.y + 0.15, { layer: 'AR_GALLERIES' });
-    dxf.addText(X(br.d), br.y + 0.32, lbl, { layer: 'AR_GALLERIES', height: 0.16, align: 'center' });
+  // Выносные мосты М1/М2 — трубы с приборами над потолком в нишах; фермы дежурного света — вплотную к потолку
+  for (const [lbl, br] of [['Мост 1', DIM.hallRig.bridge1], ['Мост 2', DIM.hallRig.bridge2]]) {
+    const n = hallCeilingNiche(br.niche);
+    dxf.addCircle(X(br.d), br.y, DIM.pipe.diameter, { layer: 'AR_GALLERIES' });
+    dxf.addText(X(br.d), n.topY + 0.12, `${lbl} (+${fmtM(br.y)})`, { layer: 'AR_GALLERIES', height: 0.16, align: 'center' });
   }
+  const dTrS = DIM.hallRig.dutyTrusses;
+  dTrS.list.forEach((t, i) => {
+    const h2 = dTrS.size / 2;
+    dxf.addRect(X(t.d + h2), t.y - h2, X(t.d - h2), t.y + h2, { layer: 'AR_GALLERIES' });
+    dxf.addText(X(t.d), t.y - h2 - 0.3, `Ферма ДО ${i + 1}`, { layer: 'AR_GALLERIES', height: 0.14, align: 'center' });
+  });
   // Рамы лож Л1/П1 (d=-6.2, Y=4.2) и Л2/П2 (d=-12.5, Y=4.6), прострелы (d=-1.6, Y=2.2..5.2)
   for (const [lbl, bx] of [['Ложа 1', DIM.hallRig.boxes.L1], ['Ложа 2', DIM.hallRig.boxes.L2]]) {
     dxf.addRect(X(bx.d + bx.w / 2), bx.y - bx.h / 2, X(bx.d - bx.w / 2), bx.y + bx.h / 2, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
@@ -987,8 +1016,8 @@ export function buildSectionDXF(stage) {
     layer: 'AR_GALLERIES', height: 0.13, align: 'center', valign: 'middle',
   });
   const edoor = DIM.openings.hallExitDoors;
-  dxf.addLine(X(E2.d), backY, X(E2.d), backY + edoor.height, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
-  dxf.addText(X((HALL_BACK_D + E2.d) * 0.5), backY + 0.45, `Выход ${fmtM(edoor.width)}×${fmtM(edoor.height)} м`, {
+  dxf.addLine(X(E2.d), exitY, X(E2.d), exitY + edoor.height, { layer: 'AR_GALLERIES', ltype: 'DASHED' });
+  dxf.addText(X((HALL_BACK_D + E2.d) * 0.5), exitY + 0.45, `Выход ${fmtM(edoor.width)}×${fmtM(edoor.height)} м`, {
     layer: 'AR_GALLERIES', height: 0.13, align: 'center', valign: 'middle',
   });
 
@@ -1077,11 +1106,12 @@ export function buildSectionDXF(stage) {
   // Отметки по зрительному залу и тамбурам выходов (справа)
   dxf.addElevationMark(elevXRight, H.frontCornerFloorY, `${fmtM(H.frontCornerFloorY, 3)} (Угол у портала)`, { side: 'right' });
   dxf.addElevationMark(elevXRight, -FSH, '-0,750 (Пол зала 1 р.)', { side: 'right', stemH: 0.28 });
-  dxf.addElevationMark(elevXRight, HALL_BACK_FLOOR_Y, `+${fmtM(HALL_BACK_FLOOR_Y, 3)} (Тамбур выхода / Опер.)`, { side: 'right' });
+  dxf.addElevationMark(elevXRight, HALL_BACK_FLOOR_Y, `+${fmtM(HALL_BACK_FLOOR_Y, 3)} (15-й ряд / Опер.)`, { side: 'right' });
+  dxf.addElevationMark(elevXRight, exitY, `+${fmtM(exitY, 3)} (Пол у выходов)`, { side: 'right', stemH: 0.3 });
   dxf.addElevationMark(elevXRight, hallCanopyY(0), `+${fmtM(hallCanopyY(0), 3)} (Карниз у портала)`, { side: 'right', stemH: 0.32 });
-  dxf.addElevationMark(elevXRight, pocketCeilY, `+${fmtM(pocketCeilY, 3)} (Потолок выходов)`, { side: 'right' });
-  dxf.addElevationMark(elevXRight, DIM.decoCeilingY, '+6,100 (Передний скат потолка)', { side: 'right' });
-  dxf.addElevationMark(elevXRight, DIM.hall.ceilingY, '+7,500 (Потолок зала)', { side: 'right' });
+  dxf.addElevationMark(elevXRight, exitCeilY, `+${fmtM(exitCeilY, 3)} (Потолок выходов)`, { side: 'right' });
+  dxf.addElevationMark(elevXRight, hallCeilingY(HALL_BACK_D), `+${fmtM(hallCeilingY(HALL_BACK_D), 3)} (Потолок у операторской)`, { side: 'right', stemH: 0.3 });
+  dxf.addElevationMark(elevXRight, DIM.decoCeilingY, `+${fmtM(DIM.decoCeilingY, 3)} (Потолок зала у портала)`, { side: 'right' });
 
   // Габаритные горизонтальные размеры внизу разреза
   dxf.addLinearDim(X(BACK), -1.8, X(0), -1.8, {

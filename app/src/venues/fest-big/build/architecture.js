@@ -3,11 +3,11 @@
 import * as THREE from 'three';
 import {
   DIM, BOX_HALF, HALL_HALF, STEP_HALF_X, GALLERY_INNER_X, LEFT_GALLERY, BACK_GALLERY_FRONT_D, B2_SHAFT,
-  RAKE, rowFrontD, pitEdgeX, gateNiche, doorNiche, hallFloorY, hallCanopyY,
+  rowFrontD, rowBackD, rowSeatD, rowFloorY, pitEdgeX, gateNiche, doorNiche, hallFloorY, hallCanopyY,
 } from '../config/dimensions.js';
 import {
-  HALL_CONTOUR_BY_ID, HALL_OUTER_BREAKS, hallSideWallSegments, hallLedCorners,
-  hallOuterXAtD, stairBottomX, hallRampY,
+  HALL_CONTOUR_BY_ID, HALL_OUTER_BREAKS, HALL_CEIL_PROFILE, HALL_CEIL_SEGMENTS, hallSideWallSegments, hallLedCorners,
+  hallOuterXAtD, hallInnerMinXAtD, stairBottomX, hallRampY, hallCeilingY, hallCeilingNiche, isCeilingNiche, hallExitFlatRange,
 } from '../config/hallGeometry.js';
 import { getHallMaterials } from './hallMaterials.js';
 import { box, rect, wallWithHoles, cylBetween, P, prism } from '../../../core/geom.js';
@@ -78,7 +78,15 @@ const UPPER_WALL_SEGS = 48;
 const BOOTH_BOX_RECESS = 0.02;
 const BOOTH_BOX_MARGIN_X = 0.5;
 const BOOTH_BOX_Y0 = 1.0;
-const BOOTH_BOX_Y1 = 3.6;
+const FLOOR_STRIP_MAX_STEP_D = 0.25;
+// Визуальные пропорции выносных мостов в нишах потолка и светильников дежурного света на фермах зала
+const NICHE_FLOOR_LIFT = 0.002;
+const NICHE_PIPE_R = 0.024;
+const NICHE_HANGER_R = 0.012;
+const NICHE_HANGER_INSET = 0.3;
+const DUTY_SPOT_R = 0.055;
+const DUTY_SPOT_H = 0.12;
+const DUTY_SPOT_GAP = 0.03;
 const pit = DIM.pit;
 const pier = DIM.wallPier;
 const rack = DIM.rack;
@@ -90,23 +98,10 @@ const sdoor = DIM.openings.sideDoor;
 const FS = DIM.forestage;
 const FSH = FS.height;
 
-// Профиль потолка зала (d, y)
-export const HALL_CEIL_PROFILE = [
-  [0, DIM.decoCeilingY],
-  [-2.9, DIM.decoCeilingY],
-  [DIM.hall.ceilingSlopeTo, DIM.hall.ceilingY],
-  [-DIM.hall.portalToBoothWall, DIM.hall.ceilingY],
-];
-export function hallCeilingY(d) {
-  const p = HALL_CEIL_PROFILE;
-  for (let i = 0; i < p.length - 1; i++) {
-    const [d0, y0] = p[i], [d1, y1] = p[i + 1];
-    if (d <= d0 && d >= d1) return y0 + ((d - d0) / (d1 - d0)) * (y1 - y0);
-  }
-  return DIM.hall.ceilingY;
-}
-const lastRowBackD = rowFrontD(DIM.hall.rows - 1) - DIM.hall.rowPitch;
-export const HALL_BACK_FLOOR_Y = hallFloorY(-DIM.hall.portalToBoothWall, 0);
+// Профиль потолка зала (d, y) и его высота — из параметрического ядра config/hallGeometry.js
+export { HALL_CEIL_PROFILE, hallCeilingY };
+// Пол у операторской = ступень последнего ряда (на ней же отсчитана высота потолка у окон)
+export const HALL_BACK_FLOOR_Y = rowFloorY(DIM.hall.rows - 1);
 
 /** Перила вдоль отрезка (x,d)→(x,d) на высоте пола y (число или [y0, y1] для маршей). gaps: [[t0,t1]] в долях длины. */
 function railing(out, x0, d0, x1, d1, y, { h = DIM.galleries.railH, postStep = 1.5, gaps = [], toe = true, k = 1 } = {}) {
@@ -537,8 +532,6 @@ function buildHall(batch, M) {
   const secondRowD = rowFrontD(1); // -5.70
   const B1 = HALL_CONTOUR_BY_ID.B1;
   const B2 = HALL_CONTOUR_BY_ID.B2;
-  const B3 = HALL_CONTOUR_BY_ID.B3;
-  const E1 = HALL_CONTOUR_BY_ID.E1;
   const E2 = HALL_CONTOUR_BY_ID.E2;
 
   // Цепочка внешних узлов контура на [dBack, dFront] (dFront > dBack) для стороны side ∈ {-1, 1}
@@ -569,37 +562,34 @@ function buildHall(batch, M) {
   floorGeoms.push(hallPlanPoly([...rightParterre, ...leftParterre], () => fy, true));
 
   // 1в. Центральные ступени рядов 2..15 (i = 1..14) на [-STEP_HALF_X, +STEP_HALF_X] + треугольные боковые щёчки
+  //     (15-я ступень доходит до операторской; щёчка — на шаге ряда, дальше пандус прохода сходится со ступенью)
   for (let i = 1; i < H.rows; i++) {
-    const yPrev = fy + (i - 1) * H.rowPitch * RAKE;
-    const yRow = fy + i * H.rowPitch * RAKE;
+    const yPrev = rowFloorY(i - 1);
+    const yRow = rowFloorY(i);
     const dFront = rowFrontD(i);
-    const dBack = dFront - H.rowPitch;
+    const dBack = rowBackD(i);
     floorGeoms.push(
       rect('y', yRow, -STEP_HALF_X, STEP_HALF_X, dBack, dFront, 1),
       rect('d', dFront, -STEP_HALF_X, STEP_HALF_X, yPrev, yRow, 1),
     );
     for (const s of [-1, 1]) {
-      floorGeoms.push(sideWallPoly(s * STEP_HALF_X, [[dFront, yPrev], [dBack, yRow], [dFront, yRow]], s));
+      floorGeoms.push(sideWallPoly(s * STEP_HALF_X, [[dFront, yPrev], [dFront - H.rowPitch, yRow], [dFront, yRow]], s));
     }
   }
 
-  // 1г. Гладкие боковые пандусы 9° (|X| ≥ STEP_HALF_X, d ∈ [lastRowBackD, -5,70]) + общий задний пандус до E1.d
+  // 1г. Гладкие боковые пандусы (|X| ≥ STEP_HALF_X, d ∈ [-18,00; первая ступень]) — плоский уклон
   for (const s of [-1, 1]) {
-    const outer = outerChain(secondRowD, lastRowBackD, s);
-    const inner = [[s * STEP_HALF_X, lastRowBackD], [s * STEP_HALF_X, secondRowD]];
+    const outer = outerChain(secondRowD, backD, s);
+    const inner = [[s * STEP_HALF_X, backD], [s * STEP_HALF_X, secondRowD]];
     floorGeoms.push(hallPlanPoly([...outer, ...inner], (_x, d) => hallRampY(d), true));
   }
-  const rearRampRight = outerChain(lastRowBackD, E1.d, 1);
-  const rearRampLeft = outerChain(lastRowBackD, E1.d, -1).reverse();
-  floorGeoms.push(hallPlanPoly([...rearRampRight, ...rearRampLeft], (_x, d) => hallRampY(d), true));
 
-  // 1д. Горизонтальная площадка перед операторской и в тамбурах «кишок» d ∈ [E2.d, E1.d]
-  const exitLandingPoly = [
-    [-E1.x, E1.d], [E1.x, E1.d], [E2.x, E2.d], [B3.x, B3.d], [B2.x, B2.d], [B1.x, B1.d],
-    [-B1.x, B1.d], [-B2.x, B2.d], [-B3.x, B3.d], [-E2.x, E2.d],
-  ];
-  const exitY = hallRampY(E1.d);
-  floorGeoms.push(hallPlanPoly(exitLandingPoly, () => exitY, true));
+  // 1д. «Кишки» выходов за фронтом операторской d ∈ [E2.d; -18,00]: уклон плавно переходит в горизонт за 0,70 м до дверей
+  const exitRange = hallExitFlatRange();
+  const pocketD = subdivideSortedD([backD, B2.d, exitRange.blendD, exitRange.flatD, E2.d], FLOOR_STRIP_MAX_STEP_D);
+  for (const s of [-1, 1]) {
+    floorGeoms.push(planStrip(s, pocketD, hallInnerMinXAtD, hallOuterXAtD, hallRampY, true));
+  }
 
   batch.add('hall', M.hallFloor, floorGeoms, { tag: 'hallFloor' });
 
@@ -626,21 +616,27 @@ function buildHall(batch, M) {
   batch.add('hall', M.steel, doorHandleGeoms);
 
   // ===========================================================================
-  //  3. ПОДШИВ КАРНИЗА, ФАСКА ±8,00 м И ПОТОЛОК ВЫХОДНЫХ ТАМБУРОВ (hallCanopy)
+  //  3. ПОДШИВ КАРНИЗА, ФАСКА ±8,00 м И ПОТОЛОК «КИШОК» ВЫХОДОВ (hallCanopy, параллельно пандусу)
   // ===========================================================================
   const canopyGeoms = [];
-  const canopySeeds = [0, secondRowD, E1.d, ...HALL_OUTER_BREAKS.filter((p) => p.d >= E1.d).map((p) => p.d)];
+  const canopySeeds = [
+    0, secondRowD, backD, B2.d, exitRange.blendD, exitRange.flatD, E2.d,
+    ...HALL_OUTER_BREAKS.filter((p) => p.d >= E2.d).map((p) => p.d),
+  ];
   const canopyD = subdivideSortedD(canopySeeds, CANOPY_MAX_STEP_D);
+  // до фронта операторской подшив идёт от верхней стены ±8,00 м, за ним — от стен операторской (скос и боковина)
+  const canopyInnerX = (d, behindBooth) => (behindBooth ? hallInnerMinXAtD(d) : HW);
   for (const s of [-1, 1]) {
     for (let i = 0; i < canopyD.length - 1; i++) {
       const dA = canopyD[i], dB = canopyD[i + 1];
+      const behind = dB < backD - 1e-6;
       const yA = hallCanopyY(dA), yB = hallCanopyY(dB);
       const xOutA = s * hallOuterXAtD(dA), xOutB = s * hallOuterXAtD(dB);
-      const xIn = s * HW;
-      canopyGeoms.push(orientedHorizQuad(xIn, yA, dA, xOutA, yA, dA, xOutB, yB, dB, xIn, yB, dB, false));
+      const xInA = s * canopyInnerX(dA, behind), xInB = s * canopyInnerX(dB, behind);
+      canopyGeoms.push(orientedHorizQuad(xInA, yA, dA, xOutA, yA, dA, xOutB, yB, dB, xInB, yB, dB, false));
     }
     // Вертикальная фаска карниза высотой 0,16 м по линии верхних серых стен X = ±8,00 м (от d = 0 до d = -18,00)
-    const fasciaD = [...canopyD, backD].sort((a, b) => b - a);
+    const fasciaD = canopyD.filter((d) => d >= backD - 1e-6);
     for (let i = 0; i < fasciaD.length - 1; i++) {
       const dA = fasciaD[i], dB = fasciaD[i + 1];
       if (dA - dB < 1e-5) continue;
@@ -651,13 +647,6 @@ function buildHall(batch, M) {
         -dA, -dB, 1, [-s, 0],
       ));
     }
-    // Горизонтальный потолок выходного тамбура (+3,9072 м) на d ∈ [E2.d, E1.d]
-    const pocketCeilPoly = [
-      [s * HW, E1.d], [s * E1.x, E1.d], [s * E2.x, E2.d], [s * B3.x, B3.d],
-      [s * B2.x, B2.d], [s * B1.x, B1.d], [s * HW, B1.d],
-    ];
-    const pocketCeilY = hallCanopyY(E1.d);
-    canopyGeoms.push(hallPlanPoly(pocketCeilPoly, () => pocketCeilY, false));
   }
   batch.add('hall', hallCanopy, canopyGeoms, { tag: 'hallCanopy' });
 
@@ -674,13 +663,15 @@ function buildHall(batch, M) {
     upperWallGeoms.push(sideWallPoly(s * HW, [...botPts, ...HALL_CEIL_PROFILE.slice().reverse()], -s));
   }
 
-  // Передняя стена операторской с окном (между -8,00 и +8,00 до потолка 7,50 м + крылья ±8,00..8,25 под потолком тамбура)
+  // Передняя стена операторской: от ступени последнего ряда до потолка (верх окон = низ большого наклона потолка)
+  // + крылья ±8,00..8,25 м под подшивом «кишок»
   const backY = HALL_BACK_FLOOR_Y;
   const win = DIM.hallRig.booth;
-  const wy0 = backY + win.windowFromY, wy1 = wy0 + win.windowH;
+  const ceilBoothY = hallCeilingY(backD);
+  const wy1 = ceilBoothY, wy0 = wy1 - win.windowH;
   const backHoles = [{ a0: -win.windowW / 2, a1: win.windowW / 2, b0: wy0, b1: wy1 }];
   upperWallGeoms.push(
-    ...wallWithHoles('d', backD, -HW, HW, backY, H.ceilingY, 1, backHoles),
+    ...wallWithHoles('d', backD, -HW, HW, backY, ceilBoothY, 1, backHoles),
     rect('d', backD, -B1.x, -HW, backY, hallCanopyY(backD), 1),
     rect('d', backD, HW, B1.x, backY, hallCanopyY(backD), 1),
   );
@@ -690,13 +681,14 @@ function buildHall(batch, M) {
   const boothBackD = E2.d;
   const boothFrontD = backD - BOOTH_BOX_RECESS;
   const boothHalfW = win.windowW / 2 + BOOTH_BOX_MARGIN_X;
+  const boothY0 = backY + BOOTH_BOX_Y0;
   batch.add('hall', M.glass, rect('d', boothFrontD, -win.windowW / 2, win.windowW / 2, wy0, wy1, 1), { shadow: false });
   batch.add('hall', M.booth, [
-    rect('d', boothBackD, -boothHalfW, boothHalfW, backY + BOOTH_BOX_Y0, backY + BOOTH_BOX_Y1, 1),
-    rect('y', backY + BOOTH_BOX_Y0, -boothHalfW, boothHalfW, boothBackD, boothFrontD, 1),
-    rect('y', backY + BOOTH_BOX_Y1, -boothHalfW, boothHalfW, boothBackD, boothFrontD, -1),
-    rect('x', -boothHalfW, boothBackD, boothFrontD, backY + BOOTH_BOX_Y0, backY + BOOTH_BOX_Y1, 1),
-    rect('x', boothHalfW, boothBackD, boothFrontD, backY + BOOTH_BOX_Y0, backY + BOOTH_BOX_Y1, -1),
+    rect('d', boothBackD, -boothHalfW, boothHalfW, boothY0, wy1, 1),
+    rect('y', boothY0, -boothHalfW, boothHalfW, boothBackD, boothFrontD, 1),
+    rect('y', wy1, -boothHalfW, boothHalfW, boothBackD, boothFrontD, -1),
+    rect('x', -boothHalfW, boothBackD, boothFrontD, boothY0, wy1, 1),
+    rect('x', boothHalfW, boothBackD, boothFrontD, boothY0, wy1, -1),
   ]);
   const mull = [];
   for (let x = -win.windowW / 2; x <= win.windowW / 2 + 1e-6; x += win.windowW / 4) {
@@ -705,25 +697,41 @@ function buildHall(batch, M) {
   mull.push(box(-win.windowW / 2, win.windowW / 2, wy0 - 0.05, wy0, backD - 0.1, backD + 0.05));
   batch.add('hall', M.seatFrame, mull);
 
-  // Потолок зала: все секции из серых панелей M.wallPanel с метрической развёрткой вдоль ската
-  const prof = HALL_CEIL_PROFILE;
+  // Потолок зала: серые панели 1,2 × 0,6 м (M.wallPanel), развёртка вдоль поверхности от начала 1-го наклона —
+  // полосы целиком ложатся в наклоны (1 шт.) и горизонтали (4 шт.), обрезаны у портала и на большом наклоне.
+  // В наклонах-нишах мостов центральные nicheWidth открыты в тёмный объём над потолком.
   const ceilGeoms = [];
-  let ceilArc = 0;
-  for (let i = 0; i < prof.length - 1; i++) {
-    const a = prof[i], b = prof[i + 1];
-    const segArc = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    ceilGeoms.push(ceilQuad(a, b, ceilArc, ceilArc + segArc, panelScale));
-    ceilArc += segArc;
+  const nicheGeoms = [];
+  for (const seg of HALL_CEIL_SEGMENTS) {
+    const a = [seg.d0, seg.y0], b = [seg.d1, seg.y1];
+    if (!isCeilingNiche(seg)) {
+      ceilGeoms.push(ceilQuad(a, b, seg.arc0, seg.arc1, panelScale, -HW, HW));
+      continue;
+    }
+    const n = hallCeilingNiche(seg.bay);
+    ceilGeoms.push(
+      ceilQuad(a, b, seg.arc0, seg.arc1, panelScale, -HW, -n.halfW),
+      ceilQuad(a, b, seg.arc0, seg.arc1, panelScale, n.halfW, HW),
+    );
+    buildCeilingNiche(n, nicheGeoms);
   }
   batch.add('hall', M.wallPanel, ceilGeoms, { tag: 'ceiling', shadow: false, uv: false });
+  batch.add('hall', M.blackWall, nicheGeoms, { tag: 'ceiling', shadow: false });
 
-  // --- конструкции для света в зале (мосты, ложи и прострелы на стенах ±8,00 м)
+  // --- конструкции для света в зале: мосты в нишах, фермы дежурного света, ложи и прострелы на стенах ±8,00 м
   const truss = [];
+  // выносные мосты над потолком: труба с приборами в нише и тяжи к верху ниши
   for (const br of [DIM.hallRig.bridge1, DIM.hallRig.bridge2]) {
-    trussBox(truss, -br.length / 2, br.length / 2, br.y, br.d, 0.3);
-    const cy = hallCeilingY(br.d);
-    for (const x of [-br.length / 2 + 0.5, 0, br.length / 2 - 0.5]) truss.push(cylBetween(P(x, br.y + 0.15, br.d), P(x, cy, br.d), 0.012, 4));
+    const n = hallCeilingNiche(br.niche);
+    const hx = br.length / 2;
+    truss.push(cylBetween(P(-hx, br.y, br.d), P(hx, br.y, br.d), NICHE_PIPE_R, 6));
+    for (const x of [-hx + NICHE_HANGER_INSET, 0, hx - NICHE_HANGER_INSET]) {
+      truss.push(cylBetween(P(x, br.y, br.d), P(x, n.topY, br.d), NICHE_HANGER_R, 4));
+    }
   }
+  // фермы дежурного света — вплотную к потолку
+  const dt = DIM.hallRig.dutyTrusses;
+  for (const t of dt.list) trussBox(truss, -t.length / 2, t.length / 2, t.y, t.d, dt.size);
   // ложи — рамы на боковых стенах
   for (const bx of Object.values(DIM.hallRig.boxes)) {
     const wx = bx.side * HW, ix = bx.side * (HW - 0.5);
@@ -749,9 +757,10 @@ function buildHall(batch, M) {
   batch.add('hall', M.truss, truss);
 }
 
-/** Упорядоченный по убыванию список точек d с шагом не крупнее maxStep. */
+/** Упорядоченный по убыванию список точек d с шагом не крупнее maxStep (совпадающие с точностью 0,1 мм затравки сливаются). */
 function subdivideSortedD(seeds, maxStep) {
-  const uniq = [...new Set(seeds.map((v) => +v.toFixed(6)))].sort((a, b) => b - a);
+  const sorted = [...new Set(seeds.map((v) => +v.toFixed(6)))].sort((a, b) => b - a);
+  const uniq = sorted.filter((v, i) => i === 0 || sorted[i - 1] - v > 1e-4);
   const out = [uniq[0]];
   for (let i = 0; i < uniq.length - 1; i++) {
     const a = uniq[i], b = uniq[i + 1];
@@ -784,6 +793,43 @@ function buildCornerFloorGrid(side, dList, nU) {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.computeVertexNormals();
   return g;
+}
+
+/**
+ * Полоса в плане между |x| = innerX(d) и outerX(d) по убывающему списку dList для стороны side,
+ * поднятая на высоту yFn(d), с нормалью вверх (faceUp) или вниз.
+ */
+function planStrip(side, dList, innerX, outerX, yFn, faceUp) {
+  const pos = [];
+  for (let i = 0; i < dList.length - 1; i++) {
+    const d0 = dList[i], d1 = dList[i + 1];
+    const y0 = yFn(d0), y1 = yFn(d1);
+    const p00 = P(side * innerX(d0), y0, d0), p10 = P(side * outerX(d0), y0, d0);
+    const p11 = P(side * outerX(d1), y1, d1), p01 = P(side * innerX(d1), y1, d1);
+    pushTriWithUpNormal(pos, p00, p10, p11, faceUp);
+    pushTriWithUpNormal(pos, p00, p11, p01, faceUp);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
+/**
+ * Тёмный объём открытой наклонной ниши выносного моста над потолком (виден из зала через проём наклона):
+ * передняя стенка над верхней кромкой, верх, задняя стенка за нижней кромкой, боковины и «пол» —
+ * тыльная сторона нижнего участка потолка, видимая сквозь проём.
+ */
+function buildCeilingNiche(n, out) {
+  const x0 = -n.halfW, x1 = n.halfW;
+  out.push(
+    rect('d', n.dA, x0, x1, n.yA, n.topY, -1),
+    rect('y', n.topY, x0, x1, n.backD, n.dA, -1),
+    rect('d', n.backD, x0, x1, n.yB, n.topY, 1),
+    rect('y', n.yB + NICHE_FLOOR_LIFT, x0, x1, n.backD, n.dB, 1),
+  );
+  const sidePts = [[n.dA, n.yA], [n.dA, n.topY], [n.backD, n.topY], [n.backD, n.yB], [n.dB, n.yB]];
+  out.push(sideWallPoly(x0, sidePts, 1), sideWallPoly(x1, sidePts, -1));
 }
 
 function pushTriWithUpNormal(out, a, b, c, faceUp) {
@@ -890,10 +936,13 @@ function buildHallSegmentWithDoor(seg, side, uvScale, wallOut, leafOut, trimOut,
     return;
   }
 
-  const { width, height, leaves, sillY } = seg.door;
+  const { width, height, leaves } = seg.door;
   const u0 = Math.max(0, (L - width) * 0.5);
   const u1 = Math.min(L, (L + width) * 0.5);
-  const doorTop = sillY + height;
+  // порог null — дверь на уклоне пандуса: низ коробки и полотна повторяет пол, верх — на height над верхним краем порога
+  const followFloor = seg.door.sillY === null || seg.door.sillY === undefined;
+  const sillAt = (u) => (followFloor ? hallFloorY(seg.d0 + td * u, seg.x0 + tx * u) : seg.door.sillY);
+  const doorTop = Math.max(sillAt(u0), sillAt(u1)) + height;
 
   emitWallSpan(0, u0);
   emitWallSpan(u1, L);
@@ -906,8 +955,8 @@ function buildHallSegmentWithDoor(seg, side, uvScale, wallOut, leafOut, trimOut,
   const [jx1a, jd1a] = atUD(u1, HALL_DOOR_TRIM_OUT);
   const [jx1b, jd1b] = atUD(u1, -HALL_DOOR_RECESS);
   trimOut.push(
-    orientedWallQuad(jx0a, jd0a, jx0b, jd0b, sillY, doorTop, sillY, doorTop, 0, HALL_DOOR_RECESS, 1, [tx, td]),
-    orientedWallQuad(jx1a, jd1a, jx1b, jd1b, sillY, doorTop, sillY, doorTop, 0, HALL_DOOR_RECESS, 1, [-tx, -td]),
+    orientedWallQuad(jx0a, jd0a, jx0b, jd0b, sillAt(u0), doorTop, sillAt(u0), doorTop, 0, HALL_DOOR_RECESS, 1, [tx, td]),
+    orientedWallQuad(jx1a, jd1a, jx1b, jd1b, sillAt(u1), doorTop, sillAt(u1), doorTop, 0, HALL_DOOR_RECESS, 1, [-tx, -td]),
     orientedHorizQuad(jx0a, doorTop, jd0a, jx1a, doorTop, jd1a, jx1b, doorTop, jd1b, jx0b, doorTop, jd0b, false),
   );
   // Лицевая планка коробки сверху (и по бокам, если вокруг двери остаётся простенок)
@@ -919,12 +968,12 @@ function buildHallSegmentWithDoor(seg, side, uvScale, wallOut, leafOut, trimOut,
   if (u0 - trimU0 > 0.01) {
     const [la, lda] = atUD(trimU0, HALL_DOOR_TRIM_OUT);
     const [lb, ldb] = atUD(u0, HALL_DOOR_TRIM_OUT);
-    trimOut.push(orientedWallQuad(la, lda, lb, ldb, sillY, doorTop, sillY, doorTop, trimU0, u0, 1, [ix, id]));
+    trimOut.push(orientedWallQuad(la, lda, lb, ldb, sillAt(trimU0), doorTop, sillAt(u0), doorTop, trimU0, u0, 1, [ix, id]));
   }
   if (trimU1 - u1 > 0.01) {
     const [ra, rda] = atUD(u1, HALL_DOOR_TRIM_OUT);
     const [rb, rdb] = atUD(trimU1, HALL_DOOR_TRIM_OUT);
-    trimOut.push(orientedWallQuad(ra, rda, rb, rdb, sillY, doorTop, sillY, doorTop, u1, trimU1, 1, [ix, id]));
+    trimOut.push(orientedWallQuad(ra, rda, rb, rdb, sillAt(u1), doorTop, sillAt(trimU1), doorTop, u1, trimU1, 1, [ix, id]));
   }
 
   // Створки двери (в нише -HALL_DOOR_RECESS) и вертикальные стальные ручки
@@ -934,18 +983,19 @@ function buildHallSegmentWithDoor(seg, side, uvScale, wallOut, leafOut, trimOut,
     for (const [la, lb] of [[u0 + halfSeam, uMid - halfSeam], [uMid + halfSeam, u1 - halfSeam]]) {
       const [paX, paD] = atUD(la, -HALL_DOOR_RECESS);
       const [pbX, pbD] = atUD(lb, -HALL_DOOR_RECESS);
-      leafOut.push(orientedWallQuad(paX, paD, pbX, pbD, sillY, doorTop, sillY, doorTop, la, lb, 1, [ix, id]));
+      leafOut.push(orientedWallQuad(paX, paD, pbX, pbD, sillAt(la), doorTop, sillAt(lb), doorTop, la, lb, 1, [ix, id]));
     }
     for (const hu of [uMid - HALL_HANDLE_OFFSET, uMid + HALL_HANDLE_OFFSET]) {
       const [hx, hd] = atUD(hu, -HALL_DOOR_RECESS + HALL_HANDLE_OUT);
-      handleOut.push(cylBetween(P(hx, sillY + HALL_HANDLE_Y0, hd), P(hx, sillY + HALL_HANDLE_Y1, hd), HALL_HANDLE_R, 6));
+      handleOut.push(cylBetween(P(hx, sillAt(hu) + HALL_HANDLE_Y0, hd), P(hx, sillAt(hu) + HALL_HANDLE_Y1, hd), HALL_HANDLE_R, 6));
     }
   } else {
     const [paX, paD] = atUD(u0 + halfSeam, -HALL_DOOR_RECESS);
     const [pbX, pbD] = atUD(u1 - halfSeam, -HALL_DOOR_RECESS);
-    leafOut.push(orientedWallQuad(paX, paD, pbX, pbD, sillY, doorTop, sillY, doorTop, u0, u1, 1, [ix, id]));
-    const [hx, hd] = atUD(u1 - HALL_HANDLE_OFFSET * 1.4, -HALL_DOOR_RECESS + HALL_HANDLE_OUT);
-    handleOut.push(cylBetween(P(hx, sillY + HALL_HANDLE_Y0, hd), P(hx, sillY + HALL_HANDLE_Y1, hd), HALL_HANDLE_R, 6));
+    leafOut.push(orientedWallQuad(paX, paD, pbX, pbD, sillAt(u0 + halfSeam), doorTop, sillAt(u1 - halfSeam), doorTop, u0, u1, 1, [ix, id]));
+    const hu = u1 - HALL_HANDLE_OFFSET * 1.4;
+    const [hx, hd] = atUD(hu, -HALL_DOOR_RECESS + HALL_HANDLE_OUT);
+    handleOut.push(cylBetween(P(hx, sillAt(hu) + HALL_HANDLE_Y0, hd), P(hx, sillAt(hu) + HALL_HANDLE_Y1, hd), HALL_HANDLE_R, 6));
   }
 }
 
@@ -970,14 +1020,14 @@ function sideWallPoly(x, pts, facing) {
   return g;
 }
 
-function ceilQuad([d0, y0], [d1, y1], vArc0, vArc1, uvScale = WALL_PANEL_UV_DEFAULT) {
+function ceilQuad([d0, y0], [d1, y1], vArc0, vArc1, uvScale = WALL_PANEL_UV_DEFAULT, x0 = -HW, x1 = HW) {
   // Так как d0 > d1 (-d0 < -d1), обход (A, B, C) и (A, C, D) сразу даёт нормаль вниз (-Y)
   const g = new THREE.BufferGeometry();
   const v = new Float32Array([
-    -HW, y0, -d0, HW, y0, -d0, HW, y1, -d1,
-    -HW, y0, -d0, HW, y1, -d1, -HW, y1, -d1,
+    x0, y0, -d0, x1, y0, -d0, x1, y1, -d1,
+    x0, y0, -d0, x1, y1, -d1, x0, y1, -d1,
   ]);
-  const u0 = -HW / uvScale, u1 = HW / uvScale;
+  const u0 = x0 / uvScale, u1 = x1 / uvScale;
   const sv0 = vArc0 / uvScale, sv1 = vArc1 / uvScale;
   const uv = new Float32Array([
     u0, sv0, u1, sv0, u1, sv1,
@@ -1045,8 +1095,8 @@ export function buildSeats(M) {
   const m = new THREE.Matrix4();
   let k = 0, e = n;
   for (let r = 0; r < H.rows; r++) {
-    const y = -FSH + r * H.rowPitch * RAKE;
-    const d = rowFrontD(r) - 0.42;
+    const y = rowFloorY(r);
+    const d = rowSeatD(r);
     for (let s = 0; s < H.seatsPerRow; s++) {
       const x = (s - (H.seatsPerRow - 1) / 2) * SW;
       m.makeTranslation(x, y, -d);
@@ -1150,10 +1200,14 @@ export function buildEmitters(M, dutyRows) {
   const bl = new THREE.Mesh(mergeAll(blueLens), M.blueLed);
   bl.userData.emitter = 'duty';
   groups.duty.add(bb, bl);
-  // светильники в потолке зала
+  // светильники в потолке зала: по ряду в каждой горизонтали (по центру полосы панелей houseLampStrip)
   const lamps = [];
   const housePoints = [];
-  for (let d = -7.5; d > -17.5; d -= 2.4) {
+  const lampStrip = DIM.hall.ceiling.houseLampStrip;
+  const stripLen = DIM.hall.ceiling.flatLen / Math.round(DIM.hall.ceiling.flatLen / DIM.hall.ceiling.slopeLen);
+  for (const seg of HALL_CEIL_SEGMENTS) {
+    if (seg.kind !== 'flat') continue;
+    const d = seg.d0 - (lampStrip + 0.5) * stripLen;
     for (let x = -7.2; x <= 7.21; x += 2.4) {
       const y = hallCeilingY(d) - 0.01;
       lamps.push(new THREE.CircleGeometry(0.1, 14).rotateX(Math.PI / 2).translate(x, y, -d));
@@ -1163,6 +1217,25 @@ export function buildEmitters(M, dutyRows) {
   const hl = new THREE.Mesh(mergeAll(lamps), M.houseLamp);
   hl.userData.emitter = 'house';
   groups.house.add(hl);
+
+  // небольшие светильники дежурного света под фермами зала (включаются кнопкой дежурного света)
+  const dt = DIM.hallRig.dutyTrusses;
+  const hallDutyBodies = [], hallDutyLens = [];
+  const hallDutyPoints = [];
+  for (const t of dt.list) {
+    const n = Math.max(1, Math.floor(t.length / dt.lightStep));
+    const yTop = t.y - dt.size / 2 - DUTY_SPOT_GAP;
+    for (let i = 0; i < n; i++) {
+      const x = -((n - 1) * dt.lightStep) / 2 + i * dt.lightStep;
+      hallDutyBodies.push(new THREE.CylinderGeometry(DUTY_SPOT_R, DUTY_SPOT_R, DUTY_SPOT_H, 10).translate(x, yTop - DUTY_SPOT_H / 2, -t.d));
+      hallDutyLens.push(new THREE.CircleGeometry(DUTY_SPOT_R * 0.8, 12).rotateX(Math.PI / 2).translate(x, yTop - DUTY_SPOT_H - 0.002, -t.d));
+    }
+    hallDutyPoints.push(P(0, yTop - DUTY_SPOT_H, t.d));
+  }
+  const hdb = new THREE.Mesh(mergeAll(hallDutyBodies), M.fixtureBody);
+  const hdl = new THREE.Mesh(mergeAll(hallDutyLens), M.dutyBulb);
+  hdl.userData.emitter = 'duty';
+  groups.duty.add(hdb, hdl);
 
   // 8 вертикальных светодиодных полос во внутренних углах «ёлочки» (включаются кнопкой «Зал»)
   const { hallLedStrip } = getHallMaterials(M);
@@ -1184,5 +1257,5 @@ export function buildEmitters(M, dutyRows) {
   groups.house.add(hallLedMesh);
 
   for (const g of Object.values(groups)) g.traverse((o) => { o.castShadow = false; o.receiveShadow = false; });
-  return { groups, dutyPoints, housePoints, blueX: blueX.map((x) => P(x, LOWY - 0.66, BACK - 0.35)) };
+  return { groups, dutyPoints, housePoints, hallDutyPoints, blueX: blueX.map((x) => P(x, LOWY - 0.66, BACK - 0.35)) };
 }
