@@ -44,6 +44,25 @@ describe('Большая сцена · геометрия зрительного
     expect(hallFloorY(-17.95, 0)).toBeCloseTo(1.35, 6);
   });
 
+  it('кресла стоят в 2 см от подступенка следующего ряда; 15-й ряд — на том же шаге от 14-го, а не вплотную к операторской', () => {
+    const H = DIM.hall;
+    expect(H.seatRiserGap).toBe(0.02);
+    expect(H.seatSetback).toBeCloseTo(0.66, 6);
+    expect(H.seatSetbackAssumption).toBeUndefined();
+    const [, frame] = buildSeats(fakeMats());
+    frame.geometry.computeBoundingBox();
+    // задняя кромка опоры (боковины) кресла в локальных координатах (+Z — назад, к следующему ряду)
+    expect(frame.geometry.boundingBox.max.z).toBeCloseTo(H.seatBackReach, 6);
+    const seatD = (r) => rowFrontD(r) - H.seatSetback;
+    for (let r = 0; r < H.rows - 1; r++) {
+      const chairBackD = seatD(r) - H.seatBackReach;
+      expect(chairBackD - rowFrontD(r + 1), `ряд ${r + 1}`).toBeCloseTo(0.02, 6);
+    }
+    for (let r = 1; r < H.rows; r++) expect(seatD(r - 1) - seatD(r)).toBeCloseTo(H.rowPitch, 6);
+    // у 15-го ряда до операторской остаётся заметно больше 2 см
+    expect(seatD(H.rows - 1) - H.seatBackReach - rowBackD(H.rows - 1)).toBeCloseTo(0.22, 6);
+  });
+
   it('потолок: 6,10 у портала, 1,5 м горизонт, 5 × (0,6 наклон −0,2 + 2,4), большой наклон до 3,00 м над 15-м рядом', () => {
     const segs = HALL_CEIL_SEGMENTS;
     expect(segs.map((sg) => sg.kind).join(',')).toBe('front,slope,flat,slope,flat,slope,flat,slope,flat,slope,flat,back');

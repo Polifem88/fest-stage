@@ -1084,9 +1084,9 @@ export function buildSeats(M) {
   const back = new THREE.ExtrudeGeometry(new THREE.Shape(outline.map(([x, y]) => new THREE.Vector2(x, y))), { depth: 0.08, bevelEnabled: false });
   back.translate(0, 0, -0.04).rotateX(0.17).translate(0, 0.4, 0.19);
   fabric.push(back);
-  // боковина (на левой границе места) и подлокотник поверх неё
+  // боковина (на левой границе места) и подлокотник поверх неё; задняя кромка боковины — на seatBackReach за осью
   const sx = -SW / 2;
-  frame.push(cuboid(sx - 0.025, sx + 0.025, 0, 0.62, -0.2, 0.22, ['-y', '+y']));
+  frame.push(cuboid(sx - 0.025, sx + 0.025, 0, 0.62, -0.2, H.seatBackReach, ['-y', '+y']));
   frame.push(cuboid(sx - 0.03, sx + 0.03, 0.62, 0.67, -0.3, 0.16, ['-y']));
   const gF = mergeAll(fabric), gK = mergeAll(frame);
   const n = H.rows * H.seatsPerRow;

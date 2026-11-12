@@ -489,7 +489,7 @@ export function buildPlanDXF(stage) {
     // Контуры кресел в ряду (вынесены на подслой AR_HALL_SEATS для удобства отключения мебели в САПР)
     for (let s = 0; s < H.seatsPerRow; s++) {
       const sx = (s - (H.seatsPerRow - 1) / 2) * SW;
-      dxf.addRect(sx - SW * 0.42, dSeat - 0.22, sx + SW * 0.42, dSeat + 0.18, { layer: 'AR_HALL_SEATS' });
+      dxf.addRect(sx - SW * 0.42, dSeat - H.seatBackReach, sx + SW * 0.42, dSeat + 0.18, { layer: 'AR_HALL_SEATS' });
     }
     const rowY = hallFloorY(dSeat, 0);
     dxf.addText(hallOuterXAtD(dSeat) + 0.35, dSeat, `Р${r + 1} (${rowY >= 0 ? '+' : ''}${fmtM(rowY)})`, {

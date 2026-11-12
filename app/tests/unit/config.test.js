@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { DIM, BOX_HALF, GALLERY_INNER_X, BACK_GALLERY_FRONT_D, LEFT_GALLERY, B2_SHAFT, pitEdgeX, inPit, gateNiche, doorNiche, hallCanopyY } from '../../src/venues/fest-big/config/dimensions.js';
-import { RIGGING, SPACING, DEPTHS, LEFT_RAIL_ORDER, RIG_BY_ID, ropeDepth, DUTY_ROWS, counterweightX, ropeX, rightFrontRailX } from '../../src/venues/fest-big/config/rigging.js';
+import { RIGGING, SPACING, DEPTHS, LEFT_RAIL_ORDER, RIG_BY_ID, ropeDepth, DUTY_ROWS, counterweightX, ropeX, leftRailX, rightFrontRailX } from '../../src/venues/fest-big/config/rigging.js';
 import { FIXTURES, TYPES, GROUPS, INVENTORY, countByType, PORTABLE, portablePlacement, SPECS } from '../../src/venues/fest-big/config/fixtures.js';
 import { buildArchitecture } from '../../src/venues/fest-big/build/architecture.js';
 import { RiggingSystem } from '../../src/venues/fest-big/build/rigging.js';
@@ -77,6 +77,30 @@ describe('Механика', () => {
     const b1 = RIG_BY_ID.B1, b2 = RIG_BY_ID.B2;
     expect(b2.dTo - b2.dFrom).toBeLessThan(b1.dTo - b1.dFrom);
     expect(b2.dTo).toBeLessThan(DIM.box.backWallD - DIM.liftNode.padSize);
+  });
+
+  it('Б1 продлена на 0,20 м за Ш11 (между Ш11 и Ш12), Б2 не доходит ровно 0,10 м до угловой площадки 1,85 × 1,85', () => {
+    const b1 = RIG_BY_ID.B1, b2 = RIG_BY_ID.B2;
+    expect(b1.dFrom).toBe(DEPTHS.Sh2);
+    expect(b1.dTo - DEPTHS.Sh11).toBeCloseTo(0.2, 6);
+    expect(b1.dTo).toBeLessThan(DEPTHS.Sh12);
+    expect(b2.dFrom).toBe(DEPTHS.Sh2);
+    expect(DIM.box.backWallD - DIM.liftNode.padSize - b2.dTo).toBeCloseTo(0.1, 6);
+    expect(b2.dTo).toBeCloseTo(7.25, 6);
+  });
+
+  it('левая стена: сетка-рабица в плоскости перил перед канатами (2,00 … 5,64 м), канаты вплотную к перилам со стороны стены', () => {
+    const railX = leftRailX();
+    expect(railX).toBeCloseTo(-7.88, 6);
+    const LOCK_PIPE_R = 0.03;
+    for (const id of LEFT_RAIL_ORDER) {
+      const r = RIG_BY_ID[id];
+      const rx = ropeX(r);
+      // канат ближе к стене, чем перила, и не заходит в трубу перил, а идёт вплотную (≤ 2 см от её поверхности)
+      expect(rx).toBeLessThan(railX - LOCK_PIPE_R);
+      expect(railX - LOCK_PIPE_R - rx).toBeLessThanOrEqual(0.02);
+      expect(rx).toBeGreaterThan(counterweightX(r) + 0.1);
+    }
   });
 
   it('порядок канатов на левой стене совпадает с уточнённым', () => {
@@ -434,6 +458,26 @@ describe('Угловая шахта Б2, проём вертикальной л�
     expect(guardX.length, 'нижний поручень Б2 на x = 8,00').toBeGreaterThan(0);
     expect(guardD.length, 'нижний поручень Б2 на d = 8,70').toBeGreaterThan(0);
     expect(oldGuard.length, 'старое ограждение Б2 на d = 7,70 убрано').toBe(0);
+  });
+
+  it('сетка-рабица левой стены — в плоскости перил (перед канатами) от 2,00 м до низа настила верхней галереи (5,64)', () => {
+    const { layers } = builtStageStatic();
+    const meshObj = layers.rigging.children.find((o) => o.material?.name === 'mesh');
+    const pos = meshObj.geometry.attributes.position;
+    let minY = Infinity, maxY = -Infinity, n = 0;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      if (x > -7.0) continue;
+      n++;
+      expect(x).toBeCloseTo(leftRailX(), 4);
+      minY = Math.min(minY, pos.getY(i));
+      maxY = Math.max(maxY, pos.getY(i));
+    }
+    expect(n).toBeGreaterThan(0);
+    expect(minY).toBeCloseTo(DIM.controls.meshFromY, 4);
+    expect(maxY).toBeCloseTo(DIM.galleries.upperY - 0.06, 4);
+    // канаты — за сеткой, со стороны стены
+    for (const id of LEFT_RAIL_ORDER) expect(ropeX(RIG_BY_ID[id])).toBeLessThan(leftRailX());
   });
 
   it('проём в перилах верхней галереи у вертикальной лестницы перенесён на x = 6,60…7,30 м (левый край вровень с лестницей)', () => {

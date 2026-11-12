@@ -55,8 +55,11 @@ export const DIM = {
     aisleAtPeak: 1.5, // чистый проход от пика «ёлочки» (|X| = 8,20) до торца ступеней (замер патча 2)
     stepMargin: 0.04, // assumption: кант торца ступени за внешней опорой кресла (ширина кресла выводится из прохода)
     stepMarginAssumption: true,
-    seatSetback: 0.52, // assumption: от передней кромки ступени до оси кресла (спинка ≈ 0,11 м от следующего подступенка)
-    seatSetbackAssumption: true,
+    // кресло стоит почти вплотную к подступенку следующего ряда: зазор seatRiserGap от задней кромки опоры (боковины)
+    // кресла, которая на seatBackReach за осью; 15-й ряд — на том же шаге от 14-го (не вплотную к операторской)
+    seatBackReach: 0.22, // от оси кресла до задней кромки боковины на полу
+    seatRiserGap: 0.02, // уточнение заказчика: «зазор буквально 2 см»
+    seatSetback: 0, // от передней кромки ступени до оси кресла: выводится ниже = rowPitch − seatBackReach − seatRiserGap (0,66)
     frontCornerFloorY: -0.85, // пол у передних косых дверей и вдоль портала в углах зала
     canopyHeightAtPortal: 2.3, // высота низа карниза над полом -0,85 м у портала (+1,45 м)
     canopyHeightMain: 2.75, // высота низа карниза над пандусом начиная со 2-го ряда (+2,00 → +3,91 м)
@@ -191,7 +194,12 @@ export const DIM = {
   // узлы управления противовесами и канатами
   controls: {
     cwInset: 0.14,
-    ropeInset: 0.62,
+    // левая стена: перила-фиксаторы канатов (две трубы Ø60 мм) на railInset от стены; сетка-рабица — в плоскости
+    // перил, перед канатами (со стороны сцены), от meshFromY до низа настила верхней галереи (5,64);
+    // ручные канаты (Ø ≈ 20 мм) — вплотную к перилам со стороны стены: 0,62 − 0,03 − 0,01 = 0,58
+    railInset: 0.62,
+    ropeInset: 0.58,
+    meshFromY: 2.0,
     // правый передний узел (Ш1, С0, З): у выступа стены (x = 8,00), ограждение 0,50 м по X (до x = 7,50), канаты вплотную изнутри перил
     rightFront: { shiftX: 0.5, railWidth: 0.5, ropeGap: 0.32, guideTopY: 5.95, assumption: true },
     // правый задний угловой узел (Б2): шахта, поручни и вырезы 0,50 × 0,50 м в углу сцены (x = 8,00..8,50, d = 8,70..9,20)
@@ -205,7 +213,7 @@ export const DIM = {
   pipe: {
     diameter: 0.05, // 50 мм (в исходном файле опечатка «50 см»)
     length: 13.5,
-    sideLength: null, // у боковых — по факту от Ш2 до Ш11 / Ш9 (см. rigging.js)
+    sideLength: null, // у боковых — по факту: Б1 от Ш2 до Ш11 + 0,20; Б2 от Ш2 до 0,10 перед угловой площадкой (см. rigging.js)
     lightBarDepth: 0.5, // фактическая ширина софита по приборам
     trackWidth: 0.2, // дорога занавеса
     trackLength: 15.0,
@@ -267,6 +275,7 @@ export const HALL_HALF = DIM.hall.width / 2;
 // Производные величины зала (патч 2): 1-й ряд стоит на партере в полосе rowPitch перед первой ступенью;
 // ширина кресла выводится из замеренного прохода 1,50 м от пика «ёлочки» до торца ступеней (26 кресел в ряду).
 DIM.hall.firstRowGap = +(DIM.hall.firstStepGap - DIM.hall.rowPitch).toFixed(4); // 1.55
+DIM.hall.seatSetback = +(DIM.hall.rowPitch - DIM.hall.seatBackReach - DIM.hall.seatRiserGap).toFixed(4); // 0.66
 DIM.hall.seatWidth = +((HALL_HALF + DIM.hall.nicheMinDepth - DIM.hall.aisleAtPeak - DIM.hall.stepMargin) / (DIM.hall.seatsPerRow / 2)).toFixed(6); // 0.512308
 DIM.hall.rakeDeg = +((Math.atan(DIM.hall.stepRise / DIM.hall.rowPitch) * 180) / Math.PI).toFixed(2); // 9.46 (для подписей)
 export const STEP_HALF_X = +((DIM.hall.seatsPerRow / 2) * DIM.hall.seatWidth + DIM.hall.stepMargin).toFixed(4); // 6.70

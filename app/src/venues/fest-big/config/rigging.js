@@ -50,6 +50,9 @@ export function computeDepths() {
 
 const D = computeDepths();
 const B1_GAP = 0.15; // зазор Б1 от внутренней кромки левой галереи (уточнение заказчика)
+const B1_BACK_EXT = 0.2; // Б1 продлена вглубь на 0,20 м за ось Ш11 (уточнение заказчика)
+const B2_PAD_GAP = 0.1; // Б2 сзади не доходит ровно 0,10 м до угловой площадки 1,85 × 1,85 (уточнение заказчика)
+const PAD_FRONT_D = DIM.box.backWallD - DIM.liftNode.padSize; // 7.35 — передняя кромка угловой площадки
 
 /**
  * kind:
@@ -79,8 +82,8 @@ export const RIGGING = [
   { id: 'Sh11', name: 'Ш11', kind: 'batten', d: D.Sh11, min: 1, max: 6.9, rest: 6.9, control: 'left', via: 'direct', lines: 4 },
   { id: 'Sh12', name: 'Ш12', kind: 'batten', d: D.Sh12, min: 1, max: 6.9, rest: 6.9, control: 'left', via: 'direct', lines: 4 },
   // Боковые: вдоль глубины сцены, между концами обычных штанкет (±6,75) и боковыми галереями (-6,95 и +7,60)
-  { id: 'B1', name: 'Б1', kind: 'side', x: +(LEFT_GALLERY.x1 + B1_GAP).toFixed(4), dFrom: D.Sh2, dTo: D.Sh11, min: 1, max: 6.2, rest: 6.2, control: 'left', via: 'direct', lines: 3 },
-  { id: 'B2', name: 'Б2', kind: 'side', x: 7.1, dFrom: D.Sh2, dTo: D.Sh9, min: 1, max: 6.2, rest: 6.2, control: 'right-back-pad', via: 'direct', lines: 3 },
+  { id: 'B1', name: 'Б1', kind: 'side', x: +(LEFT_GALLERY.x1 + B1_GAP).toFixed(4), dFrom: D.Sh2, dTo: +(D.Sh11 + B1_BACK_EXT).toFixed(3), min: 1, max: 6.2, rest: 6.2, control: 'left', via: 'direct', lines: 3 },
+  { id: 'B2', name: 'Б2', kind: 'side', x: 7.1, dFrom: D.Sh2, dTo: +(PAD_FRONT_D - B2_PAD_GAP).toFixed(3), min: 1, max: 6.2, rest: 6.2, control: 'right-back-pad', via: 'direct', lines: 3 },
 ];
 
 export const RIG_BY_ID = Object.fromEntries(RIGGING.map((r) => [r.id, r]));
@@ -123,7 +126,12 @@ export function rightFrontRailX() {
   return +(DIM.wallPier.x0 - DIM.controls.rightFront.railWidth).toFixed(4);
 }
 
-/** Координата X ручного каната управления и фиксатора для подъёма r. */
+/** Координата X перил-фиксаторов канатов на левой стене; в их плоскости — сетка-рабица перед канатами. */
+export function leftRailX() {
+  return +(-BOX_HALF + DIM.controls.railInset).toFixed(4);
+}
+
+/** Координата X ручного каната управления для подъёма r (на левой стене — вплотную к перилам со стороны стены). */
 export function ropeX(r) {
   const c = DIM.controls;
   if (r.control === 'left') return +(-BOX_HALF + c.ropeInset).toFixed(4);
