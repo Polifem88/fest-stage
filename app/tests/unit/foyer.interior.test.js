@@ -1,0 +1,238 @@
+// Фойе (этап 1 — черновик): мебель, LED-экран, оранжевая ткань на лестнице,
+// дежурный свет, точечные источники освещения и оверлеи (размеры и сетка).
+import { describe, it, expect } from 'vitest';
+import * as THREE from 'three';
+import { StaticBatch } from '../../src/core/geom.js';
+import { FOYER, foyerCeilY } from '../../src/venues/fest-foyer/config/dimensions.js';
+import { buildInterior } from '../../src/venues/fest-foyer/build/interior.js';
+import { buildCurtain } from '../../src/venues/fest-foyer/build/curtain.js';
+import { buildEmitters } from '../../src/venues/fest-foyer/build/emitters.js';
+import { ambientLights } from '../../src/venues/fest-foyer/build/ambient.js';
+import { dimList, buildDims, buildGrid } from '../../src/venues/fest-foyer/build/overlays.js';
+
+const fakeM = () => new Proxy({}, { get: (t, p) => (t[p] ||= new THREE.MeshBasicMaterial({ name: String(p) })) });
+const triCount = (group) => {
+  let n = 0;
+  group?.traverse((o) => {
+    if (o.isMesh) n += o.geometry.attributes.position.count / 3;
+  });
+  return n;
+};
+const groupBox = (group) => {
+  const b = new THREE.Box3();
+  group?.traverse((o) => {
+    if (!o.isMesh) return;
+    o.geometry.computeBoundingBox();
+    b.union(o.geometry.boundingBox);
+  });
+  return b;
+};
+const fakeLabels = () => {
+  const made = [];
+  return {
+    made,
+    make(text, opts = {}) {
+      const o = new THREE.Object3D();
+      o.userData.text = text;
+      o.userData.opts = opts;
+      made.push({ text, opts, obj: o });
+      return o;
+    },
+  };
+};
+
+describe('Фойе · интерьер и LED-экран (interior.js)', () => {
+  it('LED-экран в слое walls в габаритах Y ∈ [3,88; 6,77], d ∈ [8,35; 13,57], X у стены +11,56', () => {
+    const batch = new StaticBatch();
+    buildInterior(batch, fakeM(), { mobile: false });
+    const L = batch.build();
+
+    expect(L.walls).toBeTruthy();
+    const mats = new Set(L.walls.children.map((m) => m.material.name));
+    expect(mats.has('booth')).toBe(true);
+    expect(mats.has('steel')).toBe(true);
+
+    const b = groupBox(L.walls);
+    expect(b.min.y).toBeGreaterThanOrEqual(3.88);
+    expect(b.max.y).toBeLessThanOrEqual(6.77);
+    expect(b.max.y).toBeLessThan(FOYER.trusses.atriumY0);
+    // d = -z
+    const dMin = -b.max.z;
+    const dMax = -b.min.z;
+    expect(dMin).toBeGreaterThanOrEqual(8.35);
+    expect(dMax).toBeLessThanOrEqual(13.57);
+    expect(b.max.x).toBeCloseTo(FOYER.screen.x, 3);
+    expect(b.min.x).toBeCloseTo(FOYER.screen.x - FOYER.screen.protrude, 3);
+  });
+
+  it('стойки, диваны и 5 витрин в слое furniture с нужными материалами и без пустых геометрий', () => {
+    const batch = new StaticBatch();
+    buildInterior(batch, fakeM(), { mobile: false });
+    const L = batch.build();
+
+    expect(L.furniture).toBeTruthy();
+    const mats = new Set(L.furniture.children.map((m) => m.material.name));
+    for (const k of ['woodSlats', 'stageEdge', 'booth', 'seatFrame', 'velvetOrange', 'steel', 'glass']) {
+      expect(mats.has(k), `материал ${k}`).toBe(true);
+    }
+    for (const grp of Object.values(L)) {
+      grp.traverse((o) => {
+        if (o.isMesh) expect(o.geometry.attributes.position.count, o.name).toBeGreaterThan(0);
+      });
+    }
+    // Проверяем охват по высоте: от пола 1-го эт. (0) до верха витрин 2-го эт. (3.00 + 2.20 = 5.20)
+    const b = groupBox(L.furniture);
+    expect(b.min.y).toBeCloseTo(0, 3);
+    expect(b.max.y).toBeCloseTo(FOYER.room.y2 + FOYER.furniture.showcases[0].h, 2);
+  });
+
+  it('mobile строит меньше треугольников диванов, чем desktop', () => {
+    const bDesk = new StaticBatch();
+    buildInterior(bDesk, fakeM(), { mobile: false });
+    const bMob = new StaticBatch();
+    buildInterior(bMob, fakeM(), { mobile: true });
+    expect(triCount(bMob.build().furniture)).toBeLessThan(triCount(bDesk.build().furniture));
+  });
+});
+
+describe('Фойе · стационарная ткань на лестнице (curtain.js)', () => {
+  it('вся геометрия строго в слое curtain; оранжевая ткань от Y = 0 до верха ≤ 3,05 и обрывается на 4-й ступени', () => {
+    const batch = new StaticBatch();
+    buildCurtain(batch, fakeM(), { mobile: false });
+    const L = batch.build();
+
+    expect(Object.keys(L)).toEqual(['curtain']);
+    const mats = new Set(L.curtain.children.map((m) => m.material.name));
+    expect(mats.has('velvetOrange')).toBe(true);
+    expect(mats.has('molton')).toBe(true);
+    expect(mats.has('pipe') || mats.has('steel')).toBe(true);
+
+    const bAll = groupBox(L.curtain);
+    expect(bAll.min.y).toBeCloseTo(0, 3);
+    expect(bAll.max.y).toBeLessThanOrEqual(3.05);
+
+    const velvet = L.curtain.children.find((m) => m.material.name === 'velvetOrange');
+    velvet.geometry.computeBoundingBox();
+    const vb = velvet.geometry.boundingBox;
+    expect(vb.min.y).toBeCloseTo(0, 3);
+    expect(vb.max.y).toBeCloseTo(FOYER.curtain.topY, 2);
+    // 4-я ступень снизу: t = (4-1)/13 → x ≈ -0.25, далеко до нижней 1-й ступени x = +0.54
+    expect(vb.max.x).toBeLessThan(0.10);
+    expect(vb.min.x).toBeCloseTo(FOYER.stairs.upper.xTop, 1);
+
+    // Чёрный занавес под верхним маршем (проход 1,15 м)
+    const molton = L.curtain.children.find((m) => m.material.name === 'molton');
+    molton.geometry.computeBoundingBox();
+    const mb = molton.geometry.boundingBox;
+    const u = FOYER.curtain.underStairBlack;
+    expect(mb.min.x).toBeCloseTo(u.x0, 2);
+    expect(mb.max.x).toBeCloseTo(u.x1, 2);
+    expect(mb.min.y).toBeCloseTo(u.y0, 2);
+    expect(mb.max.y).toBeCloseTo(u.y1, 2);
+  });
+
+  it('mobile бюджет треугольников interior + curtain < 25 000 и меньше desktop', () => {
+    const run = (mobile) => {
+      const b = new StaticBatch();
+      const M = fakeM();
+      buildInterior(b, M, { mobile });
+      buildCurtain(b, M, { mobile });
+      const L = b.build();
+      return Object.values(L).reduce((s, g) => s + triCount(g), 0);
+    };
+    const deskTris = run(false);
+    const mobTris = run(true);
+    expect(mobTris).toBeLessThan(25_000);
+    expect(mobTris).toBeLessThan(deskTris);
+  });
+});
+
+describe('Фойе · дежурный свет (emitters.js и ambient.js)', () => {
+  it('buildEmitters: светящиеся меши — прямые потомки groups.duty с emitter="duty", house пуста', () => {
+    const em = buildEmitters(fakeM());
+    const D = FOYER.duty;
+    const expectedCount = D.downlights1f.length + D.downlights2f.length + D.sconces.length + D.pendants.length;
+
+    expect(em.groups.duty).toBeInstanceOf(THREE.Group);
+    expect(em.groups.house).toBeInstanceOf(THREE.Group);
+    expect(em.groups.house.children).toHaveLength(0);
+    expect(em.dutyPoints).toHaveLength(expectedCount);
+
+    const glow = em.groups.duty.children.filter((c) => c.userData.emitter === 'duty');
+    expect(glow.length).toBeGreaterThan(0);
+    for (const m of glow) {
+      expect(m.material.name).toBe('dutyBulb');
+      expect(m.geometry.attributes.position.count).toBeGreaterThan(0);
+    }
+    // Ни одного глубоко вложенного эмиттера
+    let deep = 0;
+    em.groups.duty.traverse((o) => {
+      if (o.userData.emitter && o.parent !== em.groups.duty) deep++;
+    });
+    expect(deep).toBe(0);
+
+    // Несветящиеся корпуса/ободки/подвесы — статика в слое duty
+    const statics = em.groups.duty.children.filter((c) => !c.userData.emitter);
+    expect(statics.length).toBeGreaterThan(0);
+    for (const s of statics) {
+      expect(s.userData.static).toBe(true);
+      expect(s.userData.layer).toBe('duty');
+      expect(s.geometry.attributes.position.count).toBeGreaterThan(0);
+    }
+
+    // Проверка высот потолочных светильников 2-го этажа по foyerCeilY(d)
+    const offset2f = D.downlights1f.length;
+    D.downlights2f.forEach((p, idx) => {
+      const pt = em.dutyPoints[offset2f + idx];
+      expect(pt.y).toBeCloseTo(foyerCeilY(p.d), 1);
+    });
+  });
+
+  it('ambientLights: full даёт 6 источников (1-й и 2-й этажи), lite даёт 2 источника', () => {
+    const em = buildEmitters(fakeM());
+    const full = ambientLights('full', em);
+    const lite = ambientLights('lite', em);
+
+    expect(full.blue).toEqual([]);
+    expect(full.house).toEqual([]);
+    expect(full.duty).toHaveLength(6);
+    expect(full.duty.every((l) => l.isPointLight && l.intensity === 0 && l.userData.base === FOYER.ambient.duty.full)).toBe(true);
+    expect(full.duty.some((l) => l.position.y < FOYER.room.y2)).toBe(true);
+    expect(full.duty.some((l) => l.position.y > FOYER.room.y2)).toBe(true);
+
+    expect(lite.blue).toEqual([]);
+    expect(lite.house).toEqual([]);
+    expect(lite.duty).toHaveLength(2);
+    expect(lite.duty.every((l) => l.isPointLight && l.intensity === 0 && l.userData.base === FOYER.ambient.duty.lite)).toBe(true);
+    expect(lite.duty.some((l) => l.position.y < FOYER.room.y2)).toBe(true);
+    expect(lite.duty.some((l) => l.position.y > FOYER.room.y2)).toBe(true);
+  });
+});
+
+describe('Фойе · оверлеи размеров и сетки (overlays.js)', () => {
+  it('dimList содержит ключевые габариты (23,49; 21,02; 8,34) и высоты (3; 6,37; 7,45; 8,5; 9,2)', () => {
+    const list = dimList();
+    const texts = list.map((d) => d[2]).join(' | ');
+    for (const token of ['23,49', '21,02', '8,34', '3 м', '6,37', '7,45', '8,5', '9,2']) {
+      expect(texts, `размер ${token}`).toContain(token);
+    }
+    const lbl = fakeLabels();
+    const dims = buildDims(lbl);
+    expect(dims.name).toBe('dims');
+    expect(dims.userData.axes.x).toBeTruthy();
+    expect(dims.userData.axes.y).toBeTruthy();
+    expect(dims.userData.axes.d).toBeTruthy();
+  });
+
+  it('buildGrid строит метровую сетку, красные оси, подпись нулевой линии и метки ФВ-1..4', () => {
+    const lbl = fakeLabels();
+    const grid = buildGrid(lbl);
+    expect(grid.name).toBe('grid');
+    expect(grid.userData.xLabels).toBeTruthy();
+    const texts = lbl.made.map((m) => m.text);
+    expect(texts).toContain(FOYER.zeroLineLabel);
+    for (const id of ['ФВ-1', 'ФВ-2', 'ФВ-2М', 'ФВ-3', 'ФВ-4']) {
+      expect(texts.some((t) => t.includes(id)), `метка ${id}`).toBe(true);
+    }
+  });
+});
