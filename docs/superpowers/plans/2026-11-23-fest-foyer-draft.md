@@ -58,7 +58,7 @@
 **Interfaces:**
 - Produces: verified fresh parity baseline of `big`, `chamber`, `roof` before any code edits.
 
-- [ ] **Step 1: Build clean `master` and capture parity baseline**
+- [x] **Step 1: Build clean `master` and capture parity baseline**
 
 Run (PowerShell):
 ```powershell
@@ -69,7 +69,7 @@ node scripts/parity.mjs capture review/modular/baseline/dist-foyer-pre
 ```
 Expected: capture finishes with exit code 0 for `big`, `chamber`, `roof`.
 
-- [ ] **Step 2: Self-verify baseline (mandatory per `AGENTS.md` §4.3)**
+- [x] **Step 2: Self-verify baseline (mandatory per `AGENTS.md` §4.3)**
 
 Run:
 ```powershell
@@ -77,7 +77,7 @@ cd app; node scripts/parity.mjs compare review/modular/baseline/dist-foyer-pre
 ```
 Expected: exit code 0, 100% match across all 3 `ready` venues.
 
-- [ ] **Step 3: Return to branch `foyer`**
+- [x] **Step 3: Return to branch `foyer`**
 
 Run:
 ```powershell
@@ -121,7 +121,7 @@ Expected: on branch `foyer`, clean working tree.
   - `export function foyerCeilY(d)` and `export function foyerTrussY0(d)` — pure piecewise functions returning exact ceiling `Y` and truss bottom `Y` for any `d ∈ [-0.80, 20.22]`.
   - `fest-foyer/config/fixtures.js`: exports `FIXTURES = []`, `TYPES`, `SPECS`, `GROUPS = {}`, `GROUP_SETS = []`, `LIGHT_PLANS = { full: [], lite: [] }` (identical shape to `fest-studio/config/fixtures.js`).
 
-- [ ] **Step 1: Write failing unit tests in `app/tests/unit/foyer.config.test.js`**
+- [x] **Step 1: Write failing unit tests in `app/tests/unit/foyer.config.test.js`**
 
 Test assertions to include:
 - `FOYER.room.dWall2 - FOYER.room.dGlass2` is `21.02` (±0.01) — matches measured `W1`.
@@ -133,25 +133,25 @@ Test assertions to include:
 - Perimeter truss flush check: `FOYER.trusses.perimeter.y0 + FOYER.trusses.size <= FOYER.room.y2` (`2.95 <= 3.00`).
 - Every photo-estimated item (including `FOYER.ceil2.rampAssumption === true`) carries `assumption: true` / `*Assumption: true`.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd app; npx.cmd vitest run tests/unit/foyer.config.test.js`
 Expected: FAIL (module not found).
 
-- [ ] **Step 3: Append the 6 materials to `app/src/core/materials.js`**
+- [x] **Step 3: Append the 6 materials to `app/src/core/materials.js`**
 
 Add helper canvas textures (`tileGridTex`, `perfCeilTex`, `woodSlatsTex`, `grilyatoTex`) and append `tileFloorDark`, `plasterLight`, `ceilPerfGray`, `woodSlats`, `grilyato`, `velvetOrange` strictly at the end of `m = { ... }` in `createMaterials()`, plus `uvScale` entries (`tileFloorDark: 0.597`, `ceilPerfGray: 0.60`, `woodSlats: 0.50`, `grilyato: 0.40`). Keep names completely venue-agnostic.
 
-- [ ] **Step 4: Implement `fest-foyer/config/dimensions.js` and `fest-foyer/config/fixtures.js`**
+- [x] **Step 4: Implement `fest-foyer/config/dimensions.js` and `fest-foyer/config/fixtures.js`**
 
 Write all verified constants from Spec §§1–6 and pure `foyerCeilY(d)` / `foyerTrussY0(d)` helpers.
 
-- [ ] **Step 5: Run unit & boundary tests**
+- [x] **Step 5: Run unit & boundary tests**
 
 Run: `cd app; npx.cmd vitest run tests/unit/foyer.config.test.js tests/unit/boundaries.test.js`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add app/src/core/materials.js app/src/venues/fest-foyer/config/ app/tests/unit/foyer.config.test.js

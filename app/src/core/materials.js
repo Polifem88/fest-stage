@@ -234,6 +234,71 @@ function cassetteGrilleTex() {
   });
 }
 
+// Тёмно-серый матовый керамогранит (1 × 1 плитка на тайл, тонкие швы по краям)
+function tileGridTex(base, grout) {
+  return canvasTex(256, (g, S) => {
+    const r = rng(31);
+    g.fillStyle = base;
+    g.fillRect(0, 0, S, S);
+    for (let i = 0; i < 48; i++) {
+      g.fillStyle = i % 2 ? 'rgba(255,255,255,0.018)' : 'rgba(0,0,0,0.028)';
+      g.fillRect(r() * S, r() * S, 18 + r() * 44, 18 + r() * 44);
+    }
+    g.strokeStyle = grout;
+    g.lineWidth = 3;
+    g.strokeRect(1.5, 1.5, S - 3, S - 3);
+  });
+}
+
+// Светло-серый перфорированный акустический потолок (тайл = 1 плита 0,60 × 0,60 м)
+function perfCeilTex() {
+  return canvasTex(256, (g, S) => {
+    g.fillStyle = '#d4d7dc';
+    g.fillRect(0, 0, S, S);
+    g.fillStyle = 'rgba(72,78,86,0.22)';
+    for (let y = 10; y < S - 8; y += 12) {
+      for (let x = 10; x < S - 8; x += 12) g.fillRect(x, y, 2, 2);
+    }
+    g.strokeStyle = '#9aa0a8';
+    g.lineWidth = 3;
+    g.strokeRect(1.5, 1.5, S - 3, S - 3);
+  });
+}
+
+// Вертикальные деревянные рейки (облицовка стоек и панелей)
+function woodSlatsTex() {
+  return canvasTex(256, (g, S) => {
+    const r = rng(43);
+    g.fillStyle = '#1b1410';
+    g.fillRect(0, 0, S, S);
+    const slats = 8, w = S / slats;
+    for (let i = 0; i < slats; i++) {
+      const shade = (r() - 0.5) * 0.06;
+      const c = new THREE.Color('#a6784c').offsetHSL(0, 0, shade);
+      g.fillStyle = `#${c.getHexString()}`;
+      g.fillRect(i * w + 3, 0, w - 6, S);
+      g.fillStyle = 'rgba(255,235,210,0.08)';
+      g.fillRect(i * w + 3, 0, 2, S);
+      g.fillStyle = 'rgba(55,32,14,0.12)';
+      g.fillRect(i * w + w - 5, 0, 2, S);
+    }
+  });
+}
+
+// Чёрная потолочная решётка грильято (альфа-маска квадратной ячейки)
+function grilyatoTex() {
+  return canvasTex(128, (g, S) => {
+    g.clearRect(0, 0, S, S);
+    g.fillStyle = '#ffffff';
+    const cells = 4, step = S / cells, bar = 4;
+    for (let i = 0; i < cells; i++) {
+      const p = Math.round(i * step);
+      g.fillRect(p, 0, bar, S);
+      g.fillRect(0, p, S, bar);
+    }
+  }, { srgb: false });
+}
+
 export function radialTex() {
   return canvasTex(128, (g, S) => {
     const gr = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
@@ -337,6 +402,18 @@ export function createMaterials() {
     plasticWhite: std({ color: 0xe8eaed, roughness: 0.55, metalness: 0.05 }),
     // решётка кассеты кондиционера
     ventGrille: std({ map: cassetteGrilleTex(), roughness: 0.6, metalness: 0.1 }),
+    // тёмно-серый матовый керамогранит (плитка со швами)
+    tileFloorDark: std({ map: tileGridTex('#41444a', '#26282d'), roughness: 0.78, metalness: 0.05 }),
+    // гладкая светлая (белая/светло-серая) штукатурка внутренних стен и колонн
+    plasterLight: std({ color: 0xe6e8eb, roughness: 0.92, metalness: 0 }),
+    // светло-серый перфорированный акустический потолок 0,60 × 0,60 м
+    ceilPerfGray: std({ map: perfCeilTex(), roughness: 0.9, metalness: 0 }),
+    // вертикальные деревянные рейки (стойки и облицовка)
+    woodSlats: std({ map: woodSlatsTex(), roughness: 0.72, metalness: 0.04 }),
+    // чёрная потолочная решётка грильято (прозрачная ячейка, видна с обеих сторон)
+    grilyato: std({ color: 0x1a1c1f, alphaMap: grilyatoTex(), transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, roughness: 0.65, metalness: 0.3 }),
+    // терракотово-оранжевый бархат (драпировки и мягкая обивка)
+    velvetOrange: std({ color: 0xb85226, roughness: 0.95, metalness: 0, side: THREE.DoubleSide }),
   };
   // масштаб повтора текстур (метров на повтор)
   m.floor.userData.uvScale = 2;
@@ -355,6 +432,10 @@ export function createMaterials() {
   m.walnutWall.userData.uvScale = 1;
   m.walnutCeil.userData.uvScale = 1;
   m.ventGrille.userData.uvScale = 1;
+  m.tileFloorDark.userData.uvScale = 0.597;
+  m.ceilPerfGray.userData.uvScale = 0.60;
+  m.woodSlats.userData.uvScale = 0.50;
+  m.grilyato.userData.uvScale = 0.40;
   for (const [k, v] of Object.entries(m)) v.name = k;
   return m;
 }
