@@ -395,7 +395,7 @@ Inspect EVERY generated shot in `app/review/shots/<round>/<project>/foyer/` via 
 - Verify bent 13+9 staircase alignment, orange curtain from top to 4th step, LED screen clearance under truss, open glass glazing, no floating meshes, no z-fighting, clean blueprint (`+bp`) lines!
 - Fix any visual/camera defects found, re-run `shots` + `npm.cmd run check` + `parity.mjs compare` until clean.
 
-- [ ] **Step 4: STOP POINT — Present Foyer screenshots & assumptions list to user**
+- [x] **Step 4: STOP POINT — Present Foyer screenshots & assumptions list to user**
 
 Show the user key rendered views (`overview`, `atrium1f`, `gallery2f`, `section+bp+dims`, `plan+bp+dims`, `ceiling`) and the list of `assumption: true` items for visual sign-off before release!
 
@@ -407,9 +407,10 @@ Show the user key rendered views (`overview`, `atrium1f`, `gallery2f`, `section+
 - Modify: `AGENTS.md` (update top summary: `Фойе (черновик: ...)`)
 - Modify: `.agents/skills/venue-module-authoring/SKILL.md` (if venue table lists `foyer` status)
 
-- [ ] **Step 1: STOP POINT — Start local preview server for user check**
+- [x] **Step 1: STOP POINT — Start local preview server for user check**
 
 Serve `app/dist/` or `npm.cmd run dev` and let the user inspect `#v=foyer` interactively (desktop + mobile). Apply any tweaks requested, then re-verify `npm.cmd run check` and `parity.mjs compare`.
+*(Решение заказчика 23.11.2026: замечаний много — публикацию в `master` откладываем; ветка `foyer` залита на `origin/foyer` без слияния в `master` для дальнейших правок в следующих диалогах.)*
 
 - [ ] **Step 2: Update project docs (`AGENTS.md`, skills) and commit**
 
