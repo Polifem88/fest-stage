@@ -175,7 +175,7 @@ git commit -m "Фойе (этап 1): материалы и конфигурац
   - `export function buildStairs(batch, M, { mobile = false } = {})` — adds bent grand staircase (`13` angled risers at 28° + trapezoidal mid-landing `Y = 1.75` + `9` straight risers to `Y = 3.00`, stringers/under-slab), `ОГ-2` railings (`0.95 m` height, `Ø50.8` handrail, `Ø38` posts with brass collars `M.brass`, `Ø16` balusters using `balusterStep` on desktop and `balusterStepMobile` on mobile), and 5-step small staircase to booth (`Y = 3.00 → 3.84`). Layer: `'stairs'`.
   - `export function buildWindows(batch, M, { mobile = false } = {})` — adds open panoramic glazing `ВБ6` (`d = 0`), `ВБ3` (`d = −0.80`), vestibule glass `ВБ7/ВБ8`, end-wall slit windows `ОК16*`, aluminium mullions/transoms, and rolled-up blackout blind cassettes at top of bays (Stage 2 anchor). Layer: `'windows'`.
 
-- [ ] **Step 1: Write failing tests in `app/tests/unit/foyer.arch.test.js`**
+- [x] **Step 1: Write failing tests in `app/tests/unit/foyer.arch.test.js`**
 
 Use `fakeM` + `StaticBatch` (same pattern as `tests/unit/roof.test.js`):
 - `buildArchitecture` produces non-empty meshes in tags `'walls'` and `'ceiling'`.
@@ -184,24 +184,24 @@ Use `fakeM` + `StaticBatch` (same pattern as `tests/unit/roof.test.js`):
 - `buildStairs` generates 22 grand risers + 5 small risers, bounding box spans `Y ∈ [0, 4.80]`, and mobile build has significantly fewer triangles than desktop (`mobileTris < desktopTris * 0.65`, `mobileTris < 45_000` for stairs+railings — Review Focus #1).
 - `buildWindows` emits geometry strictly into tag `'windows'` spanning `d ∈ [-0.85, 2.75]` and `Y ∈ [0, 9.20]`.
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run: `cd app; npx.cmd vitest run tests/unit/foyer.arch.test.js`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement `architecture.js`, `stairs.js`, `windows.js`**
+- [x] **Step 3: Implement `architecture.js`, `stairs.js`, `windows.js`**
 
 Key implementation rules:
 - Build the 2F floor slab & 2F ceiling using `THREE.Shape` / `ShapeGeometry` (for the trapezoidal atrium cutout on `Y = 3.00`) or clean non-overlapping quads/triangles with consistent winding; verify downward normal (`ny < 0`) on all ceiling quads/shapes.
 - Build the bent lower staircase flight by placing each of the 13 steps in the local frame of the 28° axis (origin at `(0.54, 9.21)`, width `2.50 m`, tread `0.31 m`, rise `1.75 / 13`), capped by the exact trapezoidal mid-landing (`Y = 1.75`) and 9 orthogonal upper steps (`d = 11.45..13.95`, `X = -3.67 → -6.15`).
 - On `ОГ-2` railings, merge via `StaticBatch` (`tubeBetween` or slender boxes for balusters — using 4-sided prisms or 5-segment tubes on desktop and 4-sided prisms at `balusterStepMobile = 0.28` on mobile keeps triangle count super tight!).
 
-- [ ] **Step 4: Run tests to verify pass**
+- [x] **Step 4: Run tests to verify pass**
 
 Run: `cd app; npx.cmd vitest run tests/unit/foyer.arch.test.js`
 Expected: PASS.
 
-- [ ] **Step 5: Commit in worker workspace**
+- [x] **Step 5: Commit in worker workspace**
 
 ```powershell
 git add app/src/venues/fest-foyer/build/architecture.js app/src/venues/fest-foyer/build/stairs.js app/src/venues/fest-foyer/build/windows.js app/tests/unit/foyer.arch.test.js
@@ -222,7 +222,7 @@ git commit -m "Фойе (этап 1): архитектура, потолки, в
   - `export function angledTrussTubes(p0, p1, T, { mobile = false } = {})` — builds a 4-chord square truss along an arbitrary 3D segment `p0 → p1` (`[x, y0, d]` bottom-center endpoints) using an orthonormal cross-section frame (`side = normalize(dir × up)` and `orthoUp = side × dir`), with zigzag lacing on desktop and 4 chords only on mobile.
   - `export function buildTrusses(batch, M, { mobile = false } = {})` — adds all 5 longitudinal lines (`ФВ-1`, `ФВ-2`, `ФВ-2М`, `ФВ-3`, `ФВ-4`), all 6 transverse lines (window horizontal `8.00` + `1.00 m` vertical step-downs + atrium horizontal `7.00` + gallery sloped `7.00 → 6.00`), 2 floor-standing vertical posts (`3.00 m` at small stairs, `5.00 m` at screen corner + tie-in stub), and L-shaped perimeter truss (`Y = 2.70..2.95`, west orthogonal leg + south canted leg) into tag `'trusses'` with `M.trussAlu`.
 
-- [ ] **Step 1: Write failing tests in `app/tests/unit/foyer.trusses.test.js`**
+- [x] **Step 1: Write failing tests in `app/tests/unit/foyer.trusses.test.js`**
 
 Test assertions:
 - `angledTrussTubes` on a sloped gallery segment `([0.25, 7.00, 14.10] → [0.25, 6.00, 19.55])` returns 4 chords on `mobile: true` and `> 4` tubes (chords + lacing + end frames) on `mobile: false`; bounding box spans `Y ∈ [6.00, 7.25]` and `d ∈ [14.10, 19.55]`.
@@ -231,21 +231,21 @@ Test assertions:
 - **Mobile triangle budget (Review Focus #1):** `mobileTris < 35_000` (4-chord only, 6-sided cylinders).
 - Verify `_template/trusses.js` has zero modifications.
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run: `cd app; npx.cmd vitest run tests/unit/foyer.trusses.test.js`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement `fest-foyer/build/trusses.js`**
+- [x] **Step 3: Implement `fest-foyer/build/trusses.js`**
 
 Use `trussLineTubes` for all axis-aligned horizontal runs (`ФВ-1..4`, window transverse segments, atrium transverse segments, west perimeter leg), `trussPostTubes` for the `6` vertical `1.00 m` drops (`Y = 7.00..8.00`) and `2` vertical floor posts (`3.00 m` and `5.00 m`), and `angledTrussTubes` for the `6` sloped gallery transverse segments (`Y = 7.00 → 6.00`) and the canted south perimeter leg (`Y = 2.70`).
 
-- [ ] **Step 4: Run tests to verify pass**
+- [x] **Step 4: Run tests to verify pass**
 
 Run: `cd app; npx.cmd vitest run tests/unit/foyer.trusses.test.js`
 Expected: PASS.
 
-- [ ] **Step 5: Commit in worker workspace**
+- [x] **Step 5: Commit in worker workspace**
 
 ```powershell
 git add app/src/venues/fest-foyer/build/trusses.js app/tests/unit/foyer.trusses.test.js
@@ -273,7 +273,7 @@ git commit -m "Фойе (этап 1): система алюминиевых фе
   - `export function ambientLights(plan, em)` → `{ duty, blue: [], house: [] }` (`full`: 4–6 PointLights across 1F & 2F; `lite`: 2 PointLights).
   - `export function buildDims(labels)` and `export function buildGrid(labels)` — 2D/3D dimension lines (width `23.49`, depth `21.02`, atrium `8.34`, heights `3.00 / 6.37 / 7.45 / 8.50 / 9.20`) and `1 m` floor grid + `FOYER.zeroLineLabel`.
 
-- [ ] **Step 1: Write failing tests in `app/tests/unit/foyer.interior.test.js`**
+- [x] **Step 1: Write failing tests in `app/tests/unit/foyer.interior.test.js`**
 
 Test assertions:
 - `buildInterior` places LED screen in `'walls'` (`Y ∈ [3.88, 6.77]`, `d ∈ [8.35, 13.57]`) and sofas/counters/showcases in `'furniture'`.
@@ -282,21 +282,21 @@ Test assertions:
 - `ambientLights('full', em).duty.length >= 4` and `ambientLights('lite', em).duty.length <= 3`.
 - Mobile triangle count for interior + curtain `< 25_000`.
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run: `cd app; npx.cmd vitest run tests/unit/foyer.interior.test.js`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement `interior.js`, `curtain.js`, `emitters.js`, `ambient.js`, `overlays.js`**
+- [x] **Step 3: Implement `interior.js`, `curtain.js`, `emitters.js`, `ambient.js`, `overlays.js`**
 
 Follow `fest-studio/build/{emitters,ambient,overlays}.js` idioms closely so `LightingSystem` and `OverlaySystem` integrate seamlessly.
 
-- [ ] **Step 4: Run tests to verify pass**
+- [x] **Step 4: Run tests to verify pass**
 
 Run: `cd app; npx.cmd vitest run tests/unit/foyer.interior.test.js`
 Expected: PASS.
 
-- [ ] **Step 5: Commit in worker workspace**
+- [x] **Step 5: Commit in worker workspace**
 
 ```powershell
 git add app/src/venues/fest-foyer/build/interior.js app/src/venues/fest-foyer/build/curtain.js app/src/venues/fest-foyer/build/emitters.js app/src/venues/fest-foyer/build/ambient.js app/src/venues/fest-foyer/build/overlays.js app/tests/unit/foyer.interior.test.js
@@ -317,24 +317,24 @@ git commit -m "Фойе (этап 1): мебель, LED-экран, оранже
 - Consumes: `buildArchitecture`, `buildStairs`, `buildWindows` (Task 2), `buildTrusses` (Task 3), `buildInterior`, `buildCurtain`, `buildEmitters`, `ambientLights`, `buildDims`, `buildGrid` (Task 4), `FOYER` & `fixtures.js` (Task 1).
 - Produces: default export `VenueModule` in `fest-foyer/index.js` passing `validateVenue()` with 0 errors.
 
-- [ ] **Step 1: Merge `@arch`, `@trusses`, `@interior` branches into `foyer`**
+- [x] **Step 1: Merge `@arch`, `@trusses`, `@interior` branches into `foyer`**
 
 Land all 3 worker branches cleanly (zero conflicts expected because file ownership is strictly disjoint) and kill the 3 authoring workers only after verifying their commits are on `foyer`.
 
-- [ ] **Step 2: Create `app/src/venues/fest-foyer/index.js`**
+- [x] **Step 2: Create `app/src/venues/fest-foyer/index.js`**
 
 Wire all 9 layers in exact locked order (Spec §7), 8 views (`overview`, `atrium1f`, `gallery2f`, `stairs`, `windows2f`, `ceiling`, `plan`, `section`), `caps` (`duty: true`, others `false`), `fixtures` (`list: []`, `rectFloor`), `lightPlans`, `exports: {}`, and `build(ctx)`.
 
-- [ ] **Step 3: Register `foyer` in `catalog.js` and `registry.js`, update `ASSUMPTIONS.md`**
+- [x] **Step 3: Register `foyer` in `catalog.js` and `registry.js`, update `ASSUMPTIONS.md`**
 
 Update `catalog.js:17`, add dynamic loader in `registry.js`, and document every `assumption: true` field in `ASSUMPTIONS.md`.
 
-- [ ] **Step 4: Run all Vitest unit, contract, boundary, and parity-config tests**
+- [x] **Step 4: Run all Vitest unit, contract, boundary, and parity-config tests**
 
 Run: `cd app; npx.cmd vitest run`
 Expected: ALL unit tests PASS (`venues.contract.test.js`, `boundaries.test.js`, `parity-config.test.js`, `foyer.*.test.js`).
 
-- [ ] **Step 5: Commit (+ check 10-commit backup rule!)**
+- [x] **Step 5: Commit (+ check 10-commit backup rule!)**
 
 ```powershell
 git add app/src/venues/fest-foyer/index.js app/src/venues/catalog.js app/src/venues/registry.js ASSUMPTIONS.md
