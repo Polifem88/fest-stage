@@ -188,8 +188,21 @@ export function buildStairs(batch, M, { mobile = false } = {}) {
     const p11 = lerp2(bR, tR, u1);
     treads.push(stepPrism(p00, p01, p11, p10, y0, y1));
   }
-  // Несущая наклонная плита-косоур под нижним маршем
-  bodies.push(...slopedSlab(bL, bR, tL, tR, 0, lowRise, S.landingY - S.slabThick, S.landingY));
+  // Несущая наклонная плита-косоур строго под внутренними углами ступеней нижнего марша
+  const lowUnderL = lerp2(bL, tL, 1 / nLow);
+  const lowUnderR = lerp2(bR, tR, 1 / nLow);
+  bodies.push(
+    ...slopedSlab(
+      lowUnderL,
+      lowUnderR,
+      tL,
+      tR,
+      0,
+      0,
+      S.landingY - lowRise - S.slabThick,
+      S.landingY - lowRise,
+    ),
+  );
 
   // ===========================================================================
   //  2. ПРОМЕЖУТОЧНАЯ ТРАПЕЦИЕВИДНАЯ ПЛОЩАДКА (Y = 1,75) И ЗАКРЫТЫЙ ОБЪЁМ ПОД НЕЙ
@@ -212,17 +225,18 @@ export function buildStairs(batch, M, { mobile = false } = {}) {
     const y1 = S.landingY + (i + 1) * upRise;
     treads.push(box(xb, xa, y0, y1, U.d0, U.d1));
   }
-  // Наклонная плита-подшивка под всем верхним маршем (оставляет проход 1,15 м под верхней частью свободным!)
+  // Наклонная плита-подшивка строго под внутренними углами верхнего марша (оставляет проход 1,15 м свободным!)
+  const upUnderX = U.xBot + stepDx;
   bodies.push(
     ...slopedSlab(
-      [U.xBot, U.d0],
-      [U.xBot, U.d1],
+      [upUnderX, U.d0],
+      [upUnderX, U.d1],
       [U.xTop, U.d0],
       [U.xTop, U.d1],
       S.landingY - S.slabThick,
       S.landingY,
-      R.y2 - S.slabThick,
-      R.y2,
+      R.y2 - upRise - S.slabThick,
+      R.y2 - upRise,
     ),
   );
   // Закрытый подлестничный объём только до границы прохода 1,15 м (x = xBot .. underStairBlack.x1)

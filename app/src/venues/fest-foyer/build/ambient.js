@@ -8,6 +8,7 @@ import { FOYER } from '../config/dimensions.js';
 // Визуальные отступы точечных источников вниз от потолка/ферм, м
 const BELOW_CEIL_1F = 0.38;
 const BELOW_TRUSS_2F = 0.60;
+const EDGE_SPAN = 0.10;
 const QUARTER_SPAN = 0.25;
 
 /**
@@ -25,6 +26,7 @@ export function ambientLights(plan, em) {
 
   const xMid = (R.x0 + R.x1) / 2;
   const xSpan = R.x1 - R.x0;
+  const xEdgeLeft = R.x0 + xSpan * EDGE_SPAN;
   const xLeft = R.x0 + xSpan * QUARTER_SPAN;
   const xRight = R.x1 - xSpan * QUARTER_SPAN;
 
@@ -39,16 +41,16 @@ export function ambientLights(plan, em) {
 
   const positions = plan === 'full'
     ? [
-        P(xLeft, y1f, dWin),   // 1-й этаж: оконная галерея / зона отдыха и стойка B1
-        P(xMid, y1f, dAtr),    // 1-й этаж: атриум и парадная лестница
-        P(xMid, y2fWin, dWin), // 2-й этаж: оконная галерея у витража ВБ3
-        P(xLeft, y2fAtr, dAtr), // 2-й этаж: атриум и верх лестницы / мостик буфета
-        P(xMid, y2fGal, dGal), // 2-й этаж: галерея витрин и коридоров
-        P(xRight, y2fAtr, dAtr), // 2-й этаж: терраса LED-экрана
+        P(xEdgeLeft, y1f, dWin),   // 1-й этаж: оконная галерея / зона отдыха и стойка B1 (подсвечивает −X колонн)
+        P(xMid, y1f, dAtr),        // 1-й этаж: атриум и парадная лестница
+        P(xEdgeLeft, y2fWin, dWin), // 2-й этаж: северная оконная галерея у витража ВБ3
+        P(xRight, y2fWin, dWin),   // 2-й этаж: южная оконная галерея у витража ВБ3
+        P(xMid, y2fGal, dGal),     // 2-й этаж: галерея витрин и коридоров
+        P(xRight, y2fAtr, dAtr),   // 2-й этаж: терраса LED-экрана и атриум
       ]
     : [
-        P(xMid, y1f, (dWin + dAtr) / 2), // 1-й этаж (центр)
-        P(xMid, y2fAtr, dAtr),           // 2-й этаж (центр)
+        P(xEdgeLeft, y1f, dWin), // 1-й этаж (северно-оконный, подсвечивает 1-й эт. и −X грани колонн)
+        P(xRight, y2fAtr, dAtr), // 2-й этаж (южно-атриумный, подсвечивает 2-й эт., лестницу и экран)
       ];
 
   const base = plan === 'full' ? A.full : A.lite;

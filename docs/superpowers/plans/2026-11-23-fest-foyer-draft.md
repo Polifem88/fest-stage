@@ -376,17 +376,17 @@ git commit -m "Фойе (этап 1): подключение в тесты со�
 **Files:**
 - Verify (read-only audit + review screenshots in `app/review/shots/`)
 
-- [ ] **Step 1: Run full `npm.cmd run check` (unit + single-file build + all Playwright E2E/perf/bundle-size/touch-targets)**
+- [x] **Step 1: Run full `npm.cmd run check` (unit + single-file build + all Playwright E2E/perf/bundle-size/touch-targets)**
 
 Run: `cd app; npm.cmd run check`
 Expected: exit code 0; `dist/desktop.html` & `dist/mobile.html` ≤ 1.3 MB, `dist/index.html` ≤ 0.1 MB; mobile `foyer` `calls ≤ 150`, `triangles ≤ 200 000`, `cpuMs < 33.3 ms`.
 
-- [ ] **Step 2: Run parity comparison against Task 0 `master` baseline**
+- [x] **Step 2: Run parity comparison against Task 0 `master` baseline**
 
 Run: `cd app; node scripts/parity.mjs compare`
 Expected: exit code 0, **100% match** for `big`, `chamber`, `roof` (byte-identical DXF/GLB, pixel-identical screenshots).
 
-- [ ] **Step 3: Capture & visually inspect all Foyer shots vs real photos**
+- [x] **Step 3: Capture & visually inspect all Foyer shots vs real photos**
 
 Run: `cd app; $env:VENUE='foyer'; npm.cmd run shots`
 Inspect EVERY generated shot in `app/review/shots/<round>/<project>/foyer/` via `read_file` and compare side-by-side against `data/foyer/Фото/` (`143518`, `143535`, `143654`, `143717`, `172807`, `182003`, `181957`, `143516`):

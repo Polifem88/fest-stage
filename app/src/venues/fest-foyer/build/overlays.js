@@ -25,7 +25,7 @@ export function dimList() {
   return [
     // Горизонтальные габариты
     [[R.x0, FLOOR_Y, R.dGlass1 + OFF], [R.x1, FLOOR_Y, R.dGlass1 + OFF], `Ширина ${fmtM(R.x1 - R.x0)}`],
-    [[R.x0 + OFF, R.y2 + FLOOR_Y, R.dGlass2], [R.x0 + OFF, R.y2 + FLOOR_Y, R.dWall2], `Глубина 2 эт. ${fmtM(R.dWall2 - R.dGlass2)}`, 0.48],
+    [[R.x0 + OFF, FLOOR_Y, R.dGlass2], [R.x0 + OFF, FLOOR_Y, R.dWall2], `Глубина 2 эт. ${fmtM(R.dWall2 - R.dGlass2)}`, 0.34],
     [[AT.westX0 + OFF, R.y2 + FLOOR_Y, AT.westD], [AT.westX0 + OFF, R.y2 + FLOOR_Y, AT.eastD], `Второй свет ${fmtM(AT.eastD - AT.westD)}`],
     // Вертикальные отметки (разнесены по d для чистого чтения на разрезе сбоку)
     [[xH, 0, R.dGlass2 + OFF], [xH, C2.glassY, R.dGlass2 + OFF], `Витраж ВБ3 ${fmtM(C2.glassY)}`, 0.62],
@@ -78,7 +78,7 @@ export function buildGrid(labels) {
     const num = (n) => String(n).replace('-', '−');
     const xStart = Math.ceil(R.x0 / LABEL_STEP) * LABEL_STEP;
     for (let x = xStart; x <= Math.floor(R.x1); x += LABEL_STEP) mk(xl, num(x), x, R.dWall2 + LABEL_OFF);
-    mk(xl, 'м от оси Г', R.x1 + TRUSS_LABEL_X_OFF, R.dWall2 + LABEL_OFF, LABEL_Y, { color: '#444' });
+    mk(xl, 'м от оси Г', (R.x0 + R.x1) / 2 + 3.0, R.dWall2 + LABEL_OFF * 2, LABEL_Y, { color: '#444' });
 
     for (let d = 0; d <= Math.floor(R.dWall2); d += LABEL_STEP) mk(g, num(d), R.x0 - LABEL_OFF, d);
     mk(g, FOYER.zeroLineLabel, R.x0 - LABEL_OFF, R.dWall2 + LABEL_OFF * 2, LABEL_Y, { color: '#444', cx: 0 });

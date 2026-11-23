@@ -30,9 +30,9 @@ const VIEWS = {
   atrium1f: { name: '1-й этаж (у окон)', type: 'persp', pos: [-3.5, 1.75, 2.8], target: [-1.5, 2.2, 11.8] },
   gallery2f: { name: '2-й этаж (галерея)', type: 'persp', pos: [4.2, 4.7, 17.5], target: [-2.5, 4.2, 5.5] },
   stairs: { name: 'С лестницы', type: 'persp', pos: [-5.5, 4.7, 12.7], target: [4.5, 3.8, 7.5] },
-  windows2f: { name: 'Оконная галерея', type: 'persp', pos: [-9.5, 4.7, 1.8], target: [6.0, 5.2, 2.8] },
+  windows2f: { name: 'Оконная галерея', type: 'persp', pos: [-7.6, 4.7, 2.75], target: [6.5, 5.1, 2.75] },
   ceiling: { name: 'Фермы и потолок', type: 'persp', pos: [-1.5, 1.5, 8.2], target: [0.5, 7.6, 6.5] },
-  plan: { name: 'План сверху', type: 'ortho', dir: 'top', center: [-0.18, 0, 9.71], height: 24, width: 26 },
+  plan: { name: 'План сверху', type: 'ortho', dir: 'top', center: [-0.18, 0, 10.2], height: 25.5, width: 27 },
   section: { name: 'Разрез сбоку', type: 'ortho', dir: 'side', center: [0, 4.6, 9.71], height: 11, width: 24 },
 };
 
