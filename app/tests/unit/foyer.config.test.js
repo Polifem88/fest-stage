@@ -45,14 +45,16 @@ describe('Фойе · конфигурация (SSOT)', () => {
     expect(foyerCeilY((14.10 + 20.22) / 2)).toBeCloseTo((7.45 + 6.37) / 2, 4);
   });
 
-  it('профиль низа ферм foyerTrussY0(d): 8,00 | опуск 1,00 | 7,00 → 6,00', () => {
+  it('профиль низа ферм foyerTrussY0(d): 8,00 | опуск 1,00 на 5,98 | 7,00 → 6,00 (ФВ-2 не режет колонны 5,83)', () => {
     expect(foyerTrussY0(0.00)).toBeCloseTo(8.00, 4);
     expect(foyerTrussY0(5.60)).toBeCloseTo(8.00, 4);
-    expect(foyerTrussY0(5.70)).toBeCloseTo(7.00, 4);
+    expect(foyerTrussY0(5.83)).toBeCloseTo(8.00, 4);
+    expect(foyerTrussY0(5.98)).toBeCloseTo(7.00, 4);
     expect(foyerTrussY0(6.00)).toBeCloseTo(7.00, 4);
     expect(foyerTrussY0(14.10)).toBeCloseTo(7.00, 4);
     expect(foyerTrussY0(19.55)).toBeCloseTo(6.00, 4);
     expect(foyerTrussY0((14.10 + 19.55) / 2)).toBeCloseTo(6.50, 4);
+    expect(FOYER.trusses.stepD - FOYER.trusses.size / 2).toBeGreaterThan(FOYER.atrium.westD);
   });
 
   it('LED-экран помещается под фермой 7,00 м, а периметральная ферма заподлицо с плитой 3,00 м', () => {
