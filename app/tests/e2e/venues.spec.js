@@ -28,19 +28,22 @@ test('переключение сцены через список в загол�
   await expect(page.locator('[data-id="l-trusses"]')).toHaveCount(1);
   expect((await canvasStats(page)).std, 'Камерная: кадр не пустой').toBeGreaterThan(4);
 
-  // «скоро» — видна, но не открывается; ответ — строкой внутри списка (тост под модальной шторкой не виден)
+  // все 5 площадок открываются; черновики (Фойе и Студия) отмечены пометкой «черновик»
   await page.locator('.brand-btn').click();
-  for (const id of ['foyer']) await expect(page.locator(`.venue-item[data-venue="${id}"]`)).toHaveAttribute('aria-disabled', 'true');
-  await expect(page.locator('.venue-item[data-venue="studio"]')).not.toHaveAttribute('aria-disabled', 'true');
-  await expect(page.locator('.venue-item[data-venue="studio"]')).toContainText('черновик');
+  for (const id of ['foyer', 'studio']) {
+    await expect(page.locator(`.venue-item[data-venue="${id}"]`)).not.toHaveAttribute('aria-disabled', 'true');
+    await expect(page.locator(`.venue-item[data-venue="${id}"]`)).toContainText('черновик');
+  }
   await expect(page.locator('.venue-item[data-venue="roof"]'), 'Сцена под крышей открывается').not.toHaveAttribute('aria-disabled', 'true');
-  // aria-disabled — кнопка всё же нажимается (показывает пояснение), Playwright без force ждал бы «включения»
-  await page.locator('.venue-item[data-venue="foyer"]').click({ force: true });
-  await expect(page.locator('.venue-note')).toContainText('готовится');
   await page.keyboard.press('Escape');
   expect(await page.evaluate(() => window.__fest.venue())).toBe('chamber');
   // справка и раздел экспорта не содержат пустых пунктов
   if (!info.project.use.isMobile) await expect(page.locator('.help li', { hasText: 'null' })).toHaveCount(0);
+
+  await pickVenue(page, 'foyer');
+  await expect(page.locator('.brand-btn')).toContainText('Фойе');
+  expect(await page.evaluate(() => location.hash)).toMatch(/^#v=foyer&s=/);
+  expect((await canvasStats(page)).std, 'Фойе: кадр не пустой').toBeGreaterThan(4);
 
   await pickVenue(page, 'big');
   await expect(page.locator(`${tabSel(info)}[data-tab="rig"]`)).toHaveCount(1);
@@ -97,17 +100,22 @@ test('нет утечек при переключении (10 циклов)', as
   expectNoErrors(log);
 });
 
-test('ссылки: на сцену, на «скоро», старая v1', async ({ page }, info) => {
+test('ссылки: на сцену, на неизвестную, старая v1', async ({ page }, info) => {
   const url = pageOf(info);
   // прямая ссылка на Камерную
   let log = await openApp(page, `${url}#v=chamber`);
   expect(await page.evaluate(() => window.__fest.venue())).toBe('chamber');
   expectNoErrors(log);
-  // сцена «скоро» — открывается Большая и объясняется почему
+  // прямая ссылка на Фойе (черновик)
   await page.goto('about:blank');
   log = await openApp(page, `${url}#v=foyer`);
+  expect(await page.evaluate(() => window.__fest.venue())).toBe('foyer');
+  expectNoErrors(log);
+  // несуществующая сцена — открывается Большая и объясняется почему
+  await page.goto('about:blank');
+  log = await openApp(page, `${url}#v=nonexistent`);
   expect(await page.evaluate(() => window.__fest.venue())).toBe('big');
-  await expect(page.locator('.toast', { hasText: 'в разработке' })).toHaveCount(1);
+  await expect(page.locator('.toast', { hasText: 'не найдена' })).toHaveCount(1);
   // старая ссылка v1 (до каталога): Ш5 на 2 м, вид «из зала»
   const v1 = await page.evaluate(() => {
     const v = window.__fest.stage.venue;
@@ -260,6 +268,29 @@ test('студия: черновик без приборов', async ({ page }, 
   await expect(page.locator('.panel-light [data-id="haze"]')).toHaveCount(1);
   await expect(page.locator('.panel-layers [data-id="l-lights"]')).toHaveCount(1);
   if (!mobile) await expect(page.locator('.top-search')).toBeVisible();
+  expectNoErrors(log);
+});
+
+test('фойе: черновик без приборов, слой ткани, переключение и GLB', async ({ page }, info) => {
+  const mobile = !!info.project.use.isMobile;
+  const log = await openApp(page, `${pageOf(info)}#v=foyer`);
+  expect(await page.evaluate(() => window.__fest.venue())).toBe('foyer');
+  expect((await canvasStats(page)).std, 'Фойе: кадр не пустой').toBeGreaterThan(4);
+
+  await expect(page.locator('.panel-light [data-id="duty"]')).toHaveCount(1);
+  await expect(page.locator('.panel-light')).toContainText('Развес света — в следующей версии');
+  await expect(page.locator('.panel-light [data-id="stage"]')).toHaveCount(0);
+  await expect(page.locator('.panel-light [data-id="haze"]')).toHaveCount(0);
+  await expect(page.locator('.panel-layers [data-id="l-curtain"]')).toHaveCount(1);
+  await expect(page.locator('.panel-layers [data-id="l-trusses"]')).toHaveCount(1);
+  await expect(page.locator('.panel-layers [data-id="l-lights"]')).toHaveCount(0);
+  if (!mobile) await expect(page.locator('.top-search')).toBeHidden();
+
+  const glbBytes = await page.evaluate(async () => (await window.__fest.exportGLB()).byteLength);
+  expect(glbBytes).toBeGreaterThan(1000);
+
+  await page.evaluate(() => window.__fest.loadVenue('big'));
+  await expect(page.locator('.panel-light [data-id="stage"]')).toHaveCount(1);
   expectNoErrors(log);
 });
 

@@ -353,16 +353,16 @@ If count `% 10 === 0` (watch for **commit #110**!), immediately run `cd app; npm
 - Modify: `app/tests/e2e/shots.spec.js` (line 130: add `'foyer'` to `OTHER_VENUES`)
 - Modify: `app/tests/e2e/perf.spec.js` (line 44: add `'foyer:overview'`, `'foyer:plan'` to `otherCases`)
 
-- [ ] **Step 1: Update `state.test.js` and run Vitest**
+- [x] **Step 1: Update `state.test.js` and run Vitest**
 
 Run: `cd app; npx.cmd vitest run tests/unit/state.test.js`
 Expected: PASS (v2 URL round-trip for `foyer` including `curtain: false` layer toggle and empty `fixturesOn`).
 
-- [ ] **Step 2: Update `venues.spec.js`, `shots.spec.js`, `perf.spec.js`**
+- [x] **Step 2: Update `venues.spec.js`, `shots.spec.js`, `perf.spec.js`**
 
 Ensure `venues.spec.js` verifies `#v=foyer` opens with «черновик» badge, zero console errors, and switches cleanly to/from `big`, `chamber`, `roof`, `studio`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```powershell
 git add app/tests/unit/state.test.js app/tests/e2e/venues.spec.js app/tests/e2e/shots.spec.js app/tests/e2e/perf.spec.js
