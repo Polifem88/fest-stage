@@ -4,7 +4,7 @@
 
 **Goal:** Build and ship the `draft` 3D venue module `fest-foyer` (`#v=foyer`) covering the two-story foyer architecture, bent 13+9 staircase with railings, open panoramic glazing, complete `Q25/31` aluminium truss system, static furniture, stationary orange staircase curtain, and duty lighting, merged into `master` with 100% parity on all 3 `ready` venues.
 
-**Architecture:** Modular venue package under `app/src/venues/fest-foyer/` (`config/` SSOT + 8 focused `build/` modules + `index.js`) registered via `catalog.js` and `registry.js`. Reuses `venues/_template/trusses.js` untouched for orthogonal/vertical trusses and adds a local sloped/canted helper in `fest-foyer/build/trusses.js`; appends 7 new general-purpose materials to the end of `core/materials.js`.
+**Architecture:** Modular venue package under `app/src/venues/fest-foyer/` (`config/` SSOT + 8 focused `build/` modules + `index.js`) registered via `catalog.js` and `registry.js`. Reuses `venues/_template/trusses.js` untouched for orthogonal/vertical trusses and adds a local sloped/canted helper in `fest-foyer/build/trusses.js`; appends 6 new general-purpose materials to the end of `core/materials.js`.
 
 **Tech Stack:** Three.js (r170+), Vite + `vite-plugin-singlefile`, Vitest (unit/contract/boundary tests), Playwright + Chromium (visual shots, E2E, perf, parity), PowerShell on Windows (`npm.cmd`/`npx.cmd`).
 
@@ -29,7 +29,7 @@
 ## Review Focus
 
 1. **Mobile triangle explosion on `ОГ-2` railings & 22.25 m truss grid:** naive dense balusters (`0.10 m` spacing across ~74 m of railings = 700+ cylinders) + full truss lacing would blow past the 200k mobile triangle budget — pin desktop vs mobile triangle budgets in `foyer.test.js` (`mobile < 90 000` triangles for foyer alone) and verify in `perf.spec.js`.
-2. **Ceiling occluding `overview` and `plan` views:** if 2nd-floor ceiling panels are `DoubleSide` or flipped upward, top-down views render a blank grey roof — pin downward-only `FrontSide` normals (`ny < -0.5` on every ceiling triangle) in `foyer.test.js` and visually verify `overview` & `plan` shots.
+2. **Ceiling occluding `overview` and `plan` views:** if 2nd-floor ceiling panels are `DoubleSide` or flipped upward, top-down views render a blank grey roof — pin downward-only `FrontSide` normals (`ny < -0.35` on every ceiling triangle, including the steep `d = 5.10 → 5.58` ramp where `ny ≈ −0.42`) in `foyer.arch.test.js` and visually verify `overview` & `plan` shots.
 3. **Bent staircase geometry & clearance under ceiling/truss:** upper (9 risers) + lower (13 risers, 28°) flights must meet cleanly at `Y = 1.75` and `Y = 3.00`, stay strictly inside the atrium void, and LED screen top (`Y = 6.765`) must stay below the `Y = 7.00` truss — pin exact height/clearance invariants in `foyer.test.js`.
 4. **Empty `fixtures.list` & last `'soon'` venue removed:** `venues.spec.js` previously asserted `foyer` is disabled (`aria-disabled="true"`), and `state.test.js` / `shots.spec.js` / `perf.spec.js` must exercise `foyer` without console errors, empty-geometry `EdgesGeometry` crashes in blueprint mode (`+bp`), or broken `#v=foyer` URL round-trips.
 5. **`fest-roof` and `fest-studio` untouched parity:** `_template/trusses.js` must remain completely unmodified; `core/materials.js` changes are append-only; parity diff on `big`, `chamber`, `roof` must be 0 bytes / 0 pixels.
@@ -99,11 +99,11 @@ Expected: on branch `foyer`, clean working tree.
 **Interfaces:**
 - Consumes: `app/src/library/fixtureTypes.js` (`venueTypes`), `app/src/library/specs.js` (`SPECS`)
 - Produces:
-  - New material keys in `createMaterials()`: `tileFloorDark`, `plasterLight`, `plasterGray`, `ceilPerfGray`, `woodSlats`, `grilyato`, `velvetOrange` (general-purpose names, no venue names).
+  - New material keys in `createMaterials()`: `tileFloorDark`, `plasterLight`, `ceilPerfGray`, `woodSlats`, `grilyato`, `velvetOrange` (6 general-purpose names, no venue names; `plasterLight` is shared by both 1F and 2F inner walls and 2F columns).
   - `export const FOYER` in `fest-foyer/config/dimensions.js` with keys:
     - `room`: `{ x0: -11.93, x1: 11.56, dGlass1: 0, dGlass2: -0.80, dWhite1: 14.13, dWall2: 20.22, y2: 3.00, slabThick: 0.30, tile: 0.597 }`
     - `ceil1`: `{ reception: 2.53, wardrobeSlab: 2.65, wardrobeGrilyato: 2.35, buffet: 2.82 }`
-    - `ceil2`: `{ glassY: 9.20, shelfY: 8.50, shelfFromD: 2.58, stepD: 5.58, atriumY: 7.45, bendD: 14.10, wallY: 6.37 }`
+    - `ceil2`: `{ glassY: 9.20, shelfY: 8.50, shelfFromD: 2.10, rampFromD: 5.10, rampToD: 5.58, rampAssumption: true, atriumY: 7.45, bendD: 14.10, wallY: 6.37 }`
     - `columns`: `{ outer: [...5], inner: [...4], extraB: {...}, pilasterA: {...} }` — exact `[x0, x1, d0, d1]` from Spec §2.2
     - `atrium`: `{ westD: 5.83, westX0: -10.25, westX1: 3.11, eastD: 14.17, eastX0: -6.15, eastX1: 2.55, southEdge: [[3.11, 5.83], [2.55, 14.17]], buffetEdgeD: 11.45, buffetX1: -6.15 }`
     - `stairs`: `{ width: 2.50, tread: 0.31, landingY: 1.75, lower: { risers: 13, angleDeg: 28.0, bottom: [[0.54, 9.21], [1.71, 11.43]], top: [[-2.78, 10.90], [-1.57, 13.18]] }, upper: { risers: 9, xTop: -6.15, xBot: -3.67, d0: 11.45, d1: 13.95 } }`
@@ -127,20 +127,20 @@ Test assertions to include:
 - `FOYER.room.dWall2 - FOYER.room.dGlass2` is `21.02` (±0.01) — matches measured `W1`.
 - `FOYER.atrium.eastD - FOYER.atrium.westD` is `8.34` (±0.01) — matches `A1 = 8.44 − 0.10`.
 - `FOYER.stairs.lower.risers === 13`, `FOYER.stairs.upper.risers === 9`, `landingY === 1.75`, `room.y2 === 3.00`.
-- `foyerCeilY(-0.80) === 9.20`, `foyerCeilY(2.58) === 8.50`, `foyerCeilY(5.50) === 8.50`, `foyerCeilY(6.00) === 7.45`, `foyerCeilY(14.10) === 7.45`, `foyerCeilY(20.22) === 6.37`.
+- `foyerCeilY(-0.80) === 9.20`, `foyerCeilY(2.10) === 8.50`, `foyerCeilY(5.10) === 8.50`, `foyerCeilY(5.34) ≈ 7.975` (midpoint of steep ramp `5.10 → 5.58`), `foyerCeilY(5.58) === 7.45`, `foyerCeilY(14.10) === 7.45`, `foyerCeilY(20.22) === 6.37`.
 - `foyerTrussY0(0.00) === 8.00`, `foyerTrussY0(5.60) === 8.00`, `foyerTrussY0(6.00) === 7.00`, `foyerTrussY0(14.10) === 7.00`, `foyerTrussY0(19.55) === 6.00`.
 - LED screen clearance: `FOYER.screen.y0 + FOYER.screen.h < FOYER.trusses.atriumY0` (`6.765 < 7.00`).
 - Perimeter truss flush check: `FOYER.trusses.perimeter.y0 + FOYER.trusses.size <= FOYER.room.y2` (`2.95 <= 3.00`).
-- Every photo-estimated item carries `assumption: true`.
+- Every photo-estimated item (including `FOYER.ceil2.rampAssumption === true`) carries `assumption: true` / `*Assumption: true`.
 
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd app; npx.cmd vitest run tests/unit/foyer.config.test.js`
 Expected: FAIL (module not found).
 
-- [ ] **Step 3: Append the 7 materials to `app/src/core/materials.js`**
+- [ ] **Step 3: Append the 6 materials to `app/src/core/materials.js`**
 
-Add helper canvas textures (`tileGridTex`, `perfCeilTex`, `woodSlatsTex`, `grilyatoTex`) and append `tileFloorDark`, `plasterLight`, `plasterGray`, `ceilPerfGray`, `woodSlats`, `grilyato`, `velvetOrange` strictly at the end of `m = { ... }` in `createMaterials()`, plus `uvScale` entries (`tileFloorDark: 0.597`, `ceilPerfGray: 0.60`, `woodSlats: 0.50`, `grilyato: 0.40`). Keep names completely venue-agnostic.
+Add helper canvas textures (`tileGridTex`, `perfCeilTex`, `woodSlatsTex`, `grilyatoTex`) and append `tileFloorDark`, `plasterLight`, `ceilPerfGray`, `woodSlats`, `grilyato`, `velvetOrange` strictly at the end of `m = { ... }` in `createMaterials()`, plus `uvScale` entries (`tileFloorDark: 0.597`, `ceilPerfGray: 0.60`, `woodSlats: 0.50`, `grilyato: 0.40`). Keep names completely venue-agnostic.
 
 - [ ] **Step 4: Implement `fest-foyer/config/dimensions.js` and `fest-foyer/config/fixtures.js`**
 
@@ -171,7 +171,7 @@ git commit -m "Фойе (этап 1): материалы и конфигурац
 **Interfaces:**
 - Consumes: `FOYER`, `foyerCeilY` from `../config/dimensions.js`; `box`, `rect`, `wallWithHoles`, `P`, `StaticBatch` from `../../../core/geom.js`; `tubeBetween` from `../../_template/build.js`; `M` keys from Task 1.
 - Produces:
-  - `export function buildArchitecture(batch, M, { mobile = false } = {})` — adds floors 1F/2F (2F slab with exact trapezoidal atrium cutout & 0.30 m fascia edge), walls (brick `И`/`А` with pilasters & `ОК16*` cutouts, white wall 1F, grey wall 2F with corridor openings), both column rows (dark tile 1F, light plaster 2F), single-sided downward-facing ceilings (1F zones + 3-zone 2F ceiling + `1.05 m` vertical step at `d = 5.58`), elevator shaft, vestibule frame, wardrobe shell + grilyato + schematic coat racks, buffet niche + brick pier, Big Stage corridors + doors. Layers: `'walls'`, `'ceiling'`.
+  - `export function buildArchitecture(batch, M, { mobile = false } = {})` — adds floors 1F/2F (2F slab with exact trapezoidal atrium cutout & 0.30 m fascia edge), walls (brick `И`/`А` with pilasters & `ОК16*` cutouts, unified light-plaster inner walls `M.plasterLight` on both 1F and 2F with corridor openings), both column rows (dark tile 1F, `M.plasterLight` 2F), single-sided downward-facing ceilings (1F zones + 3-zone 2F ceiling including the steep `d = 5.10 → 5.58` ramp `Y = 8.50 → 7.45`), elevator shaft, vestibule frame, wardrobe shell + grilyato + schematic coat racks, buffet niche + brick pier, Big Stage corridors + doors. Layers: `'walls'`, `'ceiling'`.
   - `export function buildStairs(batch, M, { mobile = false } = {})` — adds bent grand staircase (`13` angled risers at 28° + trapezoidal mid-landing `Y = 1.75` + `9` straight risers to `Y = 3.00`, stringers/under-slab), `ОГ-2` railings (`0.95 m` height, `Ø50.8` handrail, `Ø38` posts with brass collars `M.brass`, `Ø16` balusters using `balusterStep` on desktop and `balusterStepMobile` on mobile), and 5-step small staircase to booth (`Y = 3.00 → 3.84`). Layer: `'stairs'`.
   - `export function buildWindows(batch, M, { mobile = false } = {})` — adds open panoramic glazing `ВБ6` (`d = 0`), `ВБ3` (`d = −0.80`), vestibule glass `ВБ7/ВБ8`, end-wall slit windows `ОК16*`, aluminium mullions/transoms, and rolled-up blackout blind cassettes at top of bays (Stage 2 anchor). Layer: `'windows'`.
 
@@ -179,7 +179,7 @@ git commit -m "Фойе (этап 1): материалы и конфигурац
 
 Use `fakeM` + `StaticBatch` (same pattern as `tests/unit/roof.test.js`):
 - `buildArchitecture` produces non-empty meshes in tags `'walls'` and `'ceiling'`.
-- **Ceiling normal check (Review Focus #2):** every triangle in tag `'ceiling'` (except the vertical step strip at `d = 5.58`) has downward normal `ny < -0.5` and uses single-sided material (`FrontSide`), so top-down views never get blocked.
+- **Ceiling normal check (Review Focus #2):** every triangle in tag `'ceiling'` (including the steep `d = 5.10 → 5.58` ramp where `ny ≈ −0.42`) has downward normal `ny < -0.35` and uses single-sided material (`FrontSide`), so top-down views never get blocked.
 - **2F atrium void check:** 2nd-floor slab geometry has zero horizontal triangles covering the atrium center `(x = −2, d = 10, y = 3.00)`.
 - `buildStairs` generates 22 grand risers + 5 small risers, bounding box spans `Y ∈ [0, 4.80]`, and mobile build has significantly fewer triangles than desktop (`mobileTris < desktopTris * 0.65`, `mobileTris < 45_000` for stairs+railings — Review Focus #1).
 - `buildWindows` emits geometry strictly into tag `'windows'` spanning `d ∈ [-0.85, 2.75]` and `Y ∈ [0, 9.20]`.
