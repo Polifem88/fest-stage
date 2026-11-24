@@ -1,7 +1,7 @@
 // Фойе (этап 1 — черновик): проверка конфигурации размеров (SSOT), высот потолков и ферм,
 // зазоров экрана/периметральной фермы и маркировки допущений.
 import { describe, it, expect } from 'vitest';
-import { FOYER, foyerCeilY, foyerTrussY0 } from '../../src/venues/fest-foyer/config/dimensions.js';
+import { FOYER, foyerCeilY, foyerTrussY0, foyerEndWallStepD } from '../../src/venues/fest-foyer/config/dimensions.js';
 import { FIXTURES, TYPES, SPECS, GROUPS, GROUP_SETS, LIGHT_PLANS } from '../../src/venues/fest-foyer/config/fixtures.js';
 
 describe('Фойе · конфигурация (SSOT)', () => {
@@ -342,6 +342,53 @@ describe('Фойе · конфигурация (SSOT)', () => {
     // простенок у экрана 14,02 … 20,22 глухой
     const onScreenWall = FOYER.zones.doors.filter((d) => d.wall === 'x1' && d.d1 > FOYER.screen.d1 && d.d0 < FOYER.room.dWall2);
     expect(onScreenWall).toHaveLength(0);
+  });
+
+  it('M8: наклонный уступ торцов — линия d_step(Y): 3,35 на полу 2 эт., 4,10 на потолке, вынос 0,30 м', () => {
+    const S = FOYER.endWallStep;
+    const R = FOYER.room;
+    expect(S).toMatchObject({ outset: 0.30, dAt2fFloor: 3.35, dAt2fCeil: 4.10, xWin0: -12.23, xWin1: 11.86 });
+    expect(S.dAt2fFloor - R.dGlass2).toBeCloseTo(4.15, 6); // замер от стекла ВБ3
+    expect(S.dAt2fCeil - R.dGlass2).toBeCloseTo(4.90, 6);
+    expect(S.xWin0).toBeCloseTo(R.x0 - S.outset, 6);
+    expect(S.xWin1).toBeCloseTo(R.x1 + S.outset, 6);
+    expect(foyerEndWallStepD(R.y2)).toBeCloseTo(3.35, 6);
+    expect(foyerEndWallStepD(FOYER.ceil2.shelfY)).toBeCloseTo(4.10, 6);
+    expect(foyerEndWallStepD(FOYER.ceil2.shelfY)).toBeCloseTo(FOYER.ceil2.rampFromD, 6);
+    expect(foyerEndWallStepD(0)).toBeCloseTo(2.94, 2);
+    expect(foyerEndWallStepD(2.53)).toBeCloseTo(3.29, 2);
+  });
+
+  it('M8: прямоугольные пилястры на осях колонн удалены, остались только выступы в глубине зала', () => {
+    const P = FOYER.columns.pilasters;
+    expect(P.assumption).toBe(true);
+    expect(P.items).toEqual([
+      { wall: 'x0', d0: 11.45, d1: 12.10 },
+      { wall: 'x1', d0: 14.10, d1: 14.65 },
+    ]);
+  });
+
+  it('витражи ВБ6/ВБ3 и окна ОК16* доведены до расширенной оконной зоны торцов', () => {
+    const W = FOYER.windows;
+    for (const k of ['vb6', 'vb3']) {
+      expect(W[k].x0).toBe(-12.18);
+      expect(W[k].x1).toBe(11.81);
+    }
+    expect(W.ok16.find((o) => o.wall === 'x0').x).toBe(FOYER.endWallStep.xWin0);
+    expect(W.ok16.find((o) => o.wall === 'x1').x).toBe(FOYER.endWallStep.xWin1);
+    // ОК16* целиком в оконной зоне при любой высоте
+    for (const o of W.ok16) expect(o.d1).toBeLessThan(foyerEndWallStepD(o.y0));
+  });
+
+  it('M9: витраж ВБ3 — рёбра 0,25 м, подоконная полка 0,95 м, ригели со шторами 2,05 м и под потолком (0,12 × 0,05)', () => {
+    const V = FOYER.windows.vb3;
+    expect(V.ribDepth).toBe(0.25);
+    expect(V.d + V.ribDepth).toBeCloseTo(-0.55, 6);
+    expect(V.sill).toEqual({ y0: 3.90, y1: 3.95, depth: 0.12 });
+    expect(V.sill.y1 - FOYER.room.y2).toBeCloseTo(0.95, 6); // верх полки — 0,95 м над полом 2-го эт.
+    expect(V.rails).toEqual([{ y0: 5.05, y1: 5.10, depth: 0.12 }, { y0: 9.15, y1: 9.20, depth: 0.12 }]);
+    expect(V.rails[0].y0 - FOYER.room.y2).toBeCloseTo(2.05, 6);
+    expect(V.rails[1].y1).toBe(V.y1);
   });
 
   it('все оценочные по фото элементы помечены флагом assumption', () => {

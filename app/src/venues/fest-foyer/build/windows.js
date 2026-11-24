@@ -1,9 +1,10 @@
 // Витражи и окна Фойе театра «ФЭСТ» (Этап 1 — открытые витражи, слой windows):
 //  • ВБ6 (фасадный витраж 1-го этажа, d = 0,00, две входные двустворчатые двери);
-//  • ВБ3 (консольный панорамный витраж 2-го этажа, d = −0,80, Y = 3,00..9,20);
+//  • ВБ3 (консольный панорамный витраж 2-го этажа, d = −0,80, Y = 3,00..9,20): рёбра-импосты 0,25 м,
+//    подоконная полка 0,95 м и два ригеля со шторами (2,05 м и под потолком), M9;
 //  • ВБ7 / ВБ8 (стеклянные перегородки и двери тамбура главного входа);
-//  • ОК16*-И / ОК16*-А (узкие вертикальные окна в кирпичных торцевых стенах);
-//  • свёрнутые короба рулонных блэкаут-штор наверху ВБ6 и ВБ3 (задел под Этап 2).
+//  • ОК16*-И / ОК16*-А (узкие вертикальные окна в расширенных оконных частях кирпичных торцов);
+//  • свёрнутые кассеты рулонных блэкаут-штор ВБ6 и ВБ3 (задел под Этап 2).
 // Все габариты — из config/dimensions.js (FOYER); здесь только пропорции профилей рам.
 import { box, rect } from '../../../core/geom.js';
 import { FOYER } from '../config/dimensions.js';
@@ -48,18 +49,30 @@ function buildFacadeBay(cfg, frames, glass, blinds, { mobile = false } = {}) {
     box(x1 - PERIM_W, x1, y0, y1, d - MULLION_D / 2, d + MULLION_D / 2),
   );
 
-  // Регулярные вертикальные импосты (не пересекают дверные проёмы)
+  // Регулярные вертикальные импосты (не пересекают дверные проёмы); у ВБ3 — рёбра глубиной ribDepth
+  // от стекла внутрь галереи (M9)
   const insideDoor = (x) => doors.some(([a, b]) => x > a + 0.12 && x < b - 0.12);
   const cols = Math.max(2, Math.round((x1 - x0) / mullionStep));
+  const bayXs = [x0 + PERIM_W];
   for (let i = 1; i < cols; i++) {
     const x = x0 + ((x1 - x0) * i) / cols;
     if (insideDoor(x)) continue;
-    frames.push(mullionD(x, d, y0 + PERIM_W, y1 - PERIM_W));
+    bayXs.push(x);
+    if (cfg.ribDepth) {
+      frames.push(box(x - MULLION_W / 2, x + MULLION_W / 2, y0 + PERIM_W, y1 - PERIM_W, d, d + cfg.ribDepth));
+    } else {
+      frames.push(mullionD(x, d, y0 + PERIM_W, y1 - PERIM_W));
+    }
   }
+  bayXs.push(x1 - PERIM_W);
 
   // Горизонтальные ригели
   for (const ty of transoms) {
     frames.push(transomD(x0 + PERIM_W, x1 - PERIM_W, d, ty));
+  }
+  // Подоконная полка и ригели со шторами (профиль depth × (y1 − y0) от стекла внутрь, M9)
+  for (const p of [cfg.sill, ...(cfg.rails || [])].filter(Boolean)) {
+    frames.push(box(x0 + PERIM_W, x1 - PERIM_W, p.y0, p.y1, d, d + p.depth));
   }
 
   // Двустворчатые стеклянные входные двери в составе витража (для ВБ6)
@@ -79,9 +92,18 @@ function buildFacadeBay(cfg, frames, glass, blinds, { mobile = false } = {}) {
   // Полупрозрачное стекло (видно с улицы и из фойе)
   glass.push(...glassPair('d', d, x0 + PERIM_W, x1 - PERIM_W, y0 + PERIM_W, y1 - PERIM_W));
 
-  // Свёрнутый короб блэкаут-шторы наверху проёма (задел под Этап 2)
+  // Свёрнутые кассеты блэкаут-штор (задел под Этап 2): у ВБ3 — под каждым ригелем со шторой
+  // по пролётам между рёбрами, у ВБ6 — один короб наверху проёма
   const bd0 = d + BLIND_GAP_D;
-  blinds.push(box(x0 + PERIM_W, x1 - PERIM_W, y1 - blindBoxH, y1, bd0, bd0 + blindBoxD));
+  if (cfg.rails) {
+    for (const r of cfg.rails) {
+      for (let i = 0; i < bayXs.length - 1; i++) {
+        blinds.push(box(bayXs[i] + MULLION_W / 2, bayXs[i + 1] - MULLION_W / 2, r.y0 - blindBoxH, r.y0, bd0, bd0 + blindBoxD));
+      }
+    }
+  } else {
+    blinds.push(box(x0 + PERIM_W, x1 - PERIM_W, y1 - blindBoxH, y1, bd0, bd0 + blindBoxD));
+  }
 }
 
 export function buildWindows(batch, M, { mobile = false } = {}) {

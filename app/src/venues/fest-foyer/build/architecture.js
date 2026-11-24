@@ -10,7 +10,7 @@
 // Все габариты — строго из config/dimensions.js (FOYER, foyerCeilY); здесь лишь визуальные пропорции деталей.
 import * as THREE from 'three';
 import { box, rect, wallWithHoles, P } from '../../../core/geom.js';
-import { FOYER, foyerCeilY } from '../config/dimensions.js';
+import { FOYER, foyerCeilY, foyerEndWallStepD } from '../config/dimensions.js';
 
 // Визуальные константы деталей (не влияют на габариты помещения)
 const DOOR_FRAME_W = 0.06;      // ширина коробки двери
@@ -99,11 +99,51 @@ function columnWithCeilTop(x0, x1, y0, d0, d1, { skipLeft = false, skipRight = f
   return parts;
 }
 
-/** Торцевая кирпичная стена (x = at) с точным верхним контуром foyerCeilY(d) и проёмом окна ОК16*. */
-function brickEndWall(at, facing, okWin) {
+/**
+ * Выпуклый многоугольник в вертикальной плоскости x = at по точкам [d, y] (веер треугольников),
+ * лицом в сторону facing (+1 → +X, −1 → −X). Совпадающие соседние точки отбрасываются.
+ */
+function polyX(at, facing, pts) {
+  const p = [];
+  for (const q of pts) {
+    const last = p[p.length - 1];
+    if (!last || Math.abs(last[0] - q[0]) > 1e-6 || Math.abs(last[1] - q[1]) > 1e-6) p.push(q);
+  }
+  if (p.length > 2 && Math.abs(p[0][0] - p[p.length - 1][0]) < 1e-6 && Math.abs(p[0][1] - p[p.length - 1][1]) < 1e-6) p.pop();
+  const out = [];
+  for (let i = 1; i < p.length - 1; i++) {
+    const a = P(at, p[0][1], p[0][0]);
+    const b = P(at, p[i][1], p[i][0]);
+    const c = P(at, p[i + 1][1], p[i + 1][0]);
+    const nx = new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a)).x;
+    if (Math.abs(nx) < 1e-9) continue;
+    out.push(nx * facing > 0 ? tri(a, b, c) : tri(a, c, b));
+  }
+  return out;
+}
+
+/** Односторонний треугольник с явной нормалью (p0→p1 × p0→p2). */
+function tri(p0, p1, p2) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
+    p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z,
+  ]), 3));
+  const n = new THREE.Vector3().subVectors(p1, p0).cross(new THREE.Vector3().subVectors(p2, p0)).normalize();
+  g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array([n.x, n.y, n.z, n.x, n.y, n.z, n.x, n.y, n.z]), 3));
+  return g;
+}
+
+/**
+ * Кирпичный торец с наклонным уступом M8: основная плоскость x = at (за линией уступа d ≥ d_step(Y))
+ * и расширенная наружу плоскость x = atWin (оконная зона d < d_step(Y), с проёмом окна ОК16*).
+ * Верхний контур обеих плоскостей точно повторяет foyerCeilY(d).
+ */
+function brickEndWall(at, atWin, facing, okWin) {
   const R = FOYER.room;
   const C1 = FOYER.ceil1;
   const C2 = FOYER.ceil2;
+  const yStep = (d) => FOYER.room.y2 + ((d - foyerEndWallStepD(R.y2)) * (C2.shelfY - R.y2))
+    / (foyerEndWallStepD(C2.shelfY) - foyerEndWallStepD(R.y2));
   const cutSet = new Set([
     R.dGlass2,
     R.dGlass1,
@@ -115,17 +155,11 @@ function brickEndWall(at, facing, okWin) {
     C2.bendD,
     R.dWhite1,
     R.dWall2,
+    foyerEndWallStepD(0),            // линия уступа на полу 1-го этажа
+    foyerEndWallStepD(C2.shelfY),    // ... и под потолком 2-го этажа (= rampFromD)
   ]);
   const ds = [...cutSet].sort((a, b) => a - b);
   const parts = [];
-
-  const emitStrip = (da, db, yBotA, yBotB, yTopA, yTopB) => {
-    if (facing > 0) {
-      parts.push(quad(P(at, yBotA, da), P(at, yBotB, db), P(at, yTopB, db), P(at, yTopA, da)));
-    } else {
-      parts.push(quad(P(at, yBotA, da), P(at, yTopA, da), P(at, yTopB, db), P(at, yBotB, db)));
-    }
-  };
 
   for (let i = 0; i < ds.length - 1; i++) {
     const da = ds[i], db = ds[i + 1];
@@ -135,17 +169,35 @@ function brickEndWall(at, facing, okWin) {
     if (mid < R.dGlass1) yBot = C1.cantileverSoffit;
     else if (mid < R.dWhite1) yBot = 0;
     else yBot = R.y2;
-    const yTopA = foyerCeilY(da);
-    const yTopB = foyerCeilY(db);
-
+    const topA = foyerCeilY(da);
+    const topB = foyerCeilY(db);
+    const clamp = (y, lo, hi) => Math.min(hi, Math.max(lo, y));
+    // Основная плоскость: от yBot до min(потолок, линия уступа)
+    const mA = clamp(yStep(da), yBot, topA);
+    const mB = clamp(yStep(db), yBot, topB);
+    parts.push(...polyX(at, facing, [[da, yBot], [db, yBot], [db, mB], [da, mA]]));
+    // Оконная плоскость (наружу на 0,30 м): от max(yBot, линия уступа) до потолка, с проёмом ОК16*
+    const wA = clamp(yStep(da), yBot, topA);
+    const wB = clamp(yStep(db), yBot, topB);
     if (mid > okWin.d0 && mid < okWin.d1) {
-      if (okWin.y0 > yBot + 1e-4) emitStrip(da, db, yBot, yBot, okWin.y0, okWin.y0);
-      if (Math.min(yTopA, yTopB) > okWin.y1 + 1e-4) emitStrip(da, db, okWin.y1, okWin.y1, yTopA, yTopB);
+      parts.push(...polyX(atWin, facing, [[da, wA], [db, wB], [db, okWin.y0], [da, okWin.y0]]));
+      parts.push(...polyX(atWin, facing, [[da, okWin.y1], [db, okWin.y1], [db, topB], [da, topA]]));
     } else {
-      emitStrip(da, db, yBot, yBot, yTopA, yTopB);
+      parts.push(...polyX(atWin, facing, [[da, wA], [db, wB], [db, topB], [da, topA]]));
     }
   }
   return parts;
+}
+
+/**
+ * Наклонная ступенька уступа шириной 0,30 м (между x = xLo и xHi) вдоль линии d_step(Y)
+ * от пола 1-го этажа до потолка 8,50; лицом к фасаду (−d) и немного вверх.
+ */
+function endWallStepFace(xLo, xHi) {
+  const y1 = FOYER.ceil2.shelfY;
+  const d0 = foyerEndWallStepD(0);
+  const d1 = foyerEndWallStepD(y1);
+  return quad(P(xLo, 0, d0), P(xHi, 0, d0), P(xHi, y1, d1), P(xLo, y1, d1));
 }
 
 /** Отрезок [a, b] за вычетом интервалов obstacles = [[o0, o1], ...]. */
@@ -193,21 +245,33 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
   const C2 = FOYER.ceil2;
   const A = FOYER.atrium;
   const Z = FOYER.zones;
+  const ES = FOYER.endWallStep;
   const ySlabBot = R.y2 - R.slabThick;
+  const dStep0 = foyerEndWallStepD(0);           // уступ торцов на полу 1-го этажа
+  const dStepC1 = foyerEndWallStepD(C1.reception); // ... на потолке 1-го этажа
+  const dStep2 = foyerEndWallStepD(R.y2);        // ... на полу 2-го этажа
 
   // ===========================================================================
   //  1. ПОЛЫ 1-ГО И 2-ГО ЭТАЖЕЙ (керамогранит 0,597 × 0,597 м)
   // ===========================================================================
-  // Единый простой 12-вершинный контур пола 2-го этажа без вырожденного отверстия у X = −11,93
+  // Единый простой контур пола 2-го этажа без вырожденного отверстия у X = −11,93;
+  // в оконной зоне (d < d_step(3,00) = 3,35) пол доведён до расширенных торцов ±0,30 м
   const floor2Poly = [
-    [R.x0, R.dGlass2],
-    [R.x1, R.dGlass2],
+    [ES.xWin0, R.dGlass2],
+    [ES.xWin1, R.dGlass2],
+    [ES.xWin1, dStep2],
+    [R.x1, dStep2],
     [R.x1, R.dWall2],
     [R.x0, R.dWall2],
     ...[...A.cutout].reverse(),
+    [R.x0, dStep2],
+    [ES.xWin0, dStep2],
   ];
   const floors = [
     rect('y', 0, R.x0, R.x1, R.dGlass1, R.dWhite1, 1),
+    // пол 1-го этажа в расширенной оконной зоне торцов (d < d_step(0))
+    rect('y', 0, ES.xWin0, R.x0, R.dGlass1, dStep0, 1),
+    rect('y', 0, R.x1, ES.xWin1, R.dGlass1, dStep0, 1),
     // пол коридора прохода за белой стеной и правого коридора у дивана
     rect('y', 0, Z.passage.x0, Z.passage.x1, R.dWhite1, Z.passage.d1, 1),
     rect('y', 0, Z.sideCorridor.x0, Z.sideCorridor.x1, Z.sideCorridor.d0, Z.sideCorridor.d1, 1),
@@ -227,11 +291,12 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
     fascia.push(quad(P(ax, ySlabBot, ad), P(ax, R.y2, ad), P(bx, R.y2, bd), P(bx, ySlabBot, bd)));
   }
   // Внешний торец консольной плиты у витража ВБ3 (d = −0,80) и подшивка консоли снизу (Y = 2,70)
+  // — по всей ширине оконной зоны до расширенных торцов
   fascia.push(
-    rect('d', R.dGlass2, R.x0, R.x1, ySlabBot, R.y2, -1),
-    rect('y', C1.cantileverSoffit, R.x0, R.x1, R.dGlass2, R.dGlass1, -1),
+    rect('d', R.dGlass2, ES.xWin0, ES.xWin1, ySlabBot, R.y2, -1),
+    rect('y', C1.cantileverSoffit, ES.xWin0, ES.xWin1, R.dGlass2, R.dGlass1, -1),
     // Вертикальные окантовки, закрывающие стык потолков 1-го этажа с низом плиты 2,70
-    rect('d', R.dGlass1, R.x0, R.x1, C1.reception, C1.cantileverSoffit, -1),
+    rect('d', R.dGlass1, ES.xWin0, ES.xWin1, C1.reception, C1.cantileverSoffit, -1),
     rect('d', A.westD, Z.elevator.x1, A.westX1, C1.reception, ySlabBot, 1),
     quad(
       P(A.southEdge[0][0], C1.wardrobeSlab, A.southEdge[0][1]),
@@ -243,14 +308,17 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
   batch.add('walls', M.plasterLight, fascia, { tag: 'slabFascia' });
 
   // ===========================================================================
-  //  3. КИРПИЧНЫЕ ТОРЦЕВЫЕ СТЕНЫ (X = −11,93 и X = +11,56), ПИЛЯСТРЫ И СТОЛБ БУФЕТА
+  //  3. КИРПИЧНЫЕ ТОРЦЕВЫЕ СТЕНЫ С НАКЛОННЫМ УСТУПОМ M8, ПИЛЯСТРЫ И СТОЛБ БУФЕТА
+  //     (основные плоскости X = −11,93 / +11,56, оконная зона X = −12,23 / +11,86)
   // ===========================================================================
   const okX0 = FOYER.windows.ok16.find((w) => w.wall === 'x0');
   const okX1 = FOYER.windows.ok16.find((w) => w.wall === 'x1');
   const brickGeoms = [
-    ...brickEndWall(R.x0, 1, okX0),
-    ...brickEndWall(R.x1, -1, okX1),
+    ...brickEndWall(R.x0, ES.xWin0, 1, okX0),
+    ...brickEndWall(R.x1, ES.xWin1, -1, okX1),
   ];
+  // Серые наклонные ступеньки уступа 0,30 м (182004.jpg, frame_051)
+  const stepFaces = [endWallStepFace(ES.xWin0, R.x0), endWallStepFace(R.x1, ES.xWin1)];
 
   // Кирпичные пилястры вдоль торцевых стен (без скрытой тыльной грани на самой стене)
   const pDepth = FOYER.columns.pilasters.depth;
@@ -539,7 +607,7 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
     box(vDoorX1, vDoorX1 + vf, 0, V.h - vf, V.d1 - vf, V.d1),
   );
 
-  batch.add('walls', M.steelGray, [...elevFrame, ...fireBoxGeoms], { tag: 'framesGray' });
+  batch.add('walls', M.steelGray, [...elevFrame, ...fireBoxGeoms, ...stepFaces], { tag: 'framesGray' });
   batch.add('walls', M.steel, steelFrames, { tag: 'steelDetails' });
   batch.add('walls', M.glass, glassPanels, { tag: 'archGlass', shadow: false });
   batch.add('walls', M.booth, boothRecesses, { tag: 'recesses', shadow: false });
@@ -548,9 +616,10 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
   //  7. ПОТОЛКИ 1-ГО И 2-ГО ЭТАЖЕЙ (слой ceiling, ТОЛЬКО FrontSide, ny < -0.35!)
   // ===========================================================================
   const ceilings = [
-    // 2-й этаж: 5 последовательных полос профиля foyerCeilY(d) от ВБ3 (−0,80) до стены витрин (20,22)
-    slopedCeilStrip(R.x0, R.x1, R.dGlass2, C2.glassY, C2.shelfFromD, C2.shelfY),
-    slopedCeilStrip(R.x0, R.x1, C2.shelfFromD, C2.shelfY, C2.rampFromD, C2.shelfY),
+    // 2-й этаж: 5 последовательных полос профиля foyerCeilY(d) от ВБ3 (−0,80) до стены витрин (20,22);
+    // две первые (до rampFromD = d_step(8,50)) — по всей ширине расширенной оконной зоны торцов
+    slopedCeilStrip(ES.xWin0, ES.xWin1, R.dGlass2, C2.glassY, C2.shelfFromD, C2.shelfY),
+    slopedCeilStrip(ES.xWin0, ES.xWin1, C2.shelfFromD, C2.shelfY, C2.rampFromD, C2.shelfY),
     slopedCeilStrip(R.x0, R.x1, C2.rampFromD, C2.shelfY, C2.rampToD, C2.atriumY),
     slopedCeilStrip(R.x0, R.x1, C2.rampToD, C2.atriumY, C2.bendD, C2.atriumY),
     slopedCeilStrip(R.x0, R.x1, C2.bendD, C2.atriumY, R.dWall2, C2.wallY),
@@ -561,6 +630,9 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
     // 1-й этаж: оконная галерея и тамбур (Y = 2,53), аккуратно обходя шахту подъёмника МГН и атриум
     rect('y', C1.reception, R.x0, R.x1, R.dGlass1, Z.elevator.d0, -1),
     rect('y', C1.reception, Z.elevator.x1, R.x1, Z.elevator.d0, A.westD, -1),
+    // ... и в расширенной оконной зоне торцов (d < d_step(2,53))
+    rect('y', C1.reception, ES.xWin0, R.x0, R.dGlass1, dStepC1, -1),
+    rect('y', C1.reception, R.x1, ES.xWin1, R.dGlass1, dStepC1, -1),
 
     // 1-й этаж: перекрытие над гардеробом (трапеция под южным балконом, Y = 2,65)
     horizontalShape(

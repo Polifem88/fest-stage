@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { StaticBatch } from '../../src/core/geom.js';
-import { FOYER, foyerCeilY } from '../../src/venues/fest-foyer/config/dimensions.js';
+import { FOYER, foyerCeilY, foyerEndWallStepD } from '../../src/venues/fest-foyer/config/dimensions.js';
 import { buildArchitecture } from '../../src/venues/fest-foyer/build/architecture.js';
 import { buildStairs } from '../../src/venues/fest-foyer/build/stairs.js';
 import { buildWindows } from '../../src/venues/fest-foyer/build/windows.js';
@@ -319,6 +319,87 @@ describe('Фойе · архитектура и потолки (buildArchitectur
     expect(ceil, 'потолок правого коридора').toBe(true);
   });
 
+  it('F1: кирпичные торцы — основная плоскость за линией уступа, расширенная (±0,30) — в оконной зоне', () => {
+    const L = build();
+    const R = FOYER.room;
+    const S = FOYER.endWallStep;
+    const planes = { [R.x0]: [], [S.xWin0]: [], [R.x1]: [], [S.xWin1]: [] };
+    L.walls.traverse((o) => {
+      if (!o.isMesh || o.material.name !== 'brickRed') return;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i += 3) {
+        const xs = [pos.getX(i), pos.getX(i + 1), pos.getX(i + 2)];
+        if (Math.max(...xs) - Math.min(...xs) > 1e-4) continue; // только плоскости x = const
+        for (const k of Object.keys(planes)) {
+          if (Math.abs(xs[0] - Number(k)) < 1e-4) {
+            planes[k].push({
+              y: (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3,
+              d: -(pos.getZ(i) + pos.getZ(i + 1) + pos.getZ(i + 2)) / 3,
+            });
+          }
+        }
+      }
+    });
+    for (const k of [S.xWin0, S.xWin1]) {
+      expect(planes[k].length, `оконная плоскость X = ${k}`).toBeGreaterThan(0);
+      for (const c of planes[k]) expect(c.d, `X = ${k}: (${c.d}; ${c.y})`).toBeLessThanOrEqual(foyerEndWallStepD(c.y) + 1e-3);
+    }
+    for (const k of [R.x0, R.x1]) {
+      const main = planes[k].filter((c) => c.d < R.dWall2); // без стен коридоров
+      expect(main.length, `основная плоскость X = ${k}`).toBeGreaterThan(0);
+      for (const c of main) expect(c.d, `X = ${k}: (${c.d}; ${c.y})`).toBeGreaterThanOrEqual(foyerEndWallStepD(c.y) - 1e-3);
+    }
+  });
+
+  it('F1: наклонная ступенька уступа 0,30 м (steelGray) от пола до потолка 8,50 вдоль d_step(Y)', () => {
+    const L = build();
+    const R = FOYER.room;
+    const S = FOYER.endWallStep;
+    let found0 = 0;
+    let found1 = 0;
+    L.walls.traverse((o) => {
+      if (!o.isMesh || o.material.name !== 'steelGray') return;
+      const pos = o.geometry.attributes.position;
+      const nor = o.geometry.attributes.normal;
+      for (let i = 0; i < pos.count; i += 3) {
+        const pts = [0, 1, 2].map((k) => ({ x: pos.getX(i + k), y: pos.getY(i + k), d: -pos.getZ(i + k) }));
+        const onLine = pts.every((p) => Math.abs(p.d - foyerEndWallStepD(p.y)) < 1e-3);
+        if (!onLine || nor.getZ(i) <= 0.5) continue; // лицом к фасаду (−d)
+        const ys = pts.map((p) => p.y);
+        if (pts.every((p) => p.x >= S.xWin0 - 1e-4 && p.x <= R.x0 + 1e-4)) found0 += Math.max(...ys) > 8.49 && Math.min(...ys) < 0.01 ? 1 : 0.5;
+        if (pts.every((p) => p.x >= R.x1 - 1e-4 && p.x <= S.xWin1 + 1e-4)) found1 += Math.max(...ys) > 8.49 && Math.min(...ys) < 0.01 ? 1 : 0.5;
+      }
+    });
+    expect(found0, 'уступ торца И').toBeGreaterThanOrEqual(1);
+    expect(found1, 'уступ торца А').toBeGreaterThanOrEqual(1);
+  });
+
+  it('F1: полы и потолки доведены до расширенных торцов в оконной зоне без щелей', () => {
+    const L = build();
+    const S = FOYER.endWallStep;
+    const hits = (grp, mat, y, px, pd) => {
+      let n = 0;
+      grp.traverse((o) => {
+        if (!o.isMesh || o.material.name !== mat) return;
+        const pos = o.geometry.attributes.position;
+        for (let i = 0; i < pos.count; i += 3) {
+          if ([0, 1, 2].some((k) => Math.abs(pos.getY(i + k) - y) > 0.01)) continue;
+          if (pointInTri2D(px, pd, pos.getX(i), -pos.getZ(i), pos.getX(i + 1), -pos.getZ(i + 1), pos.getX(i + 2), -pos.getZ(i + 2))) n++;
+        }
+      });
+      return n;
+    };
+    const xs = [S.xWin0 + 0.1, S.xWin1 - 0.1];
+    for (const x of xs) {
+      expect(hits(L.walls, 'tileFloorDark', 0, x, 1.0), `пол 1 эт. X = ${x}`).toBeGreaterThan(0);
+      expect(hits(L.walls, 'tileFloorDark', 0, x, 3.2), `за уступом 1 эт. X = ${x}`).toBe(0);
+      expect(hits(L.walls, 'tileFloorDark', FOYER.room.y2, x, 2.0), `пол 2 эт. X = ${x}`).toBeGreaterThan(0);
+      expect(hits(L.walls, 'tileFloorDark', FOYER.room.y2, x, 3.6), `за уступом 2 эт. X = ${x}`).toBe(0);
+      expect(hits(L.ceiling, 'ceilPerfGray', FOYER.ceil1.reception, x, 1.0), `потолок 1 эт. X = ${x}`).toBeGreaterThan(0);
+      expect(hits(L.ceiling, 'ceilPerfGray', FOYER.ceil2.shelfY, x, 3.0), `потолок 2 эт. X = ${x}`).toBeGreaterThan(0);
+    }
+  });
+
   it('колонны, пилястры и стены не выходят выше линии потолка foyerCeilY(d)', () => {
     const L = build();
     let worst = -Infinity;
@@ -560,8 +641,37 @@ describe('Фойе · панорамные витражи, тамбур и то�
     expect(b.max.y).toBeCloseTo(FOYER.windows.vb3.y1, 2);
     expect(minD).toBeGreaterThanOrEqual(-0.85);
     expect(maxD).toBeLessThanOrEqual(2.75);
-    expect(b.min.x).toBeLessThanOrEqual(FOYER.room.x0 + 0.05);
-    expect(b.max.x).toBeGreaterThanOrEqual(FOYER.room.x1 - 0.05);
+    // окна ОК16* стоят в плоскостях расширенных торцов (±0,30 м)
+    expect(b.min.x).toBeCloseTo(FOYER.endWallStep.xWin0, 3);
+    expect(b.max.x).toBeCloseTo(FOYER.endWallStep.xWin1, 3);
+  });
+
+  it('M9: ВБ3 — рёбра до d = −0,55, подоконная полка 3,90..3,95 и ригели 5,05..5,10 / 9,15..9,20 глубиной 0,12', () => {
+    const L = build(false);
+    const V = FOYER.windows.vb3;
+    const verts = [];
+    L.windows.traverse((o) => {
+      if (!o.isMesh || o.material.name !== 'steel') return;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) verts.push({ x: pos.getX(i), y: pos.getY(i), d: -pos.getZ(i) });
+    });
+    const has = (y, d) => verts.some((v) => Math.abs(v.y - y) < 1e-3 && Math.abs(v.d - d) < 1e-3 && v.x > V.x0 && v.x < V.x1);
+    // рёбра-импосты: глубина 0,25 от стекла внутрь галереи на всю высоту витража
+    const ribEnd = verts.filter((v) => Math.abs(v.d - (V.d + V.ribDepth)) < 1e-3 && v.y > V.y0 && v.y < V.y1);
+    expect(ribEnd.length, 'торцы рёбер на d = −0,55').toBeGreaterThan(20);
+    expect(verts.every((v) => v.d <= V.d + V.ribDepth + 1e-3 || v.d > 0 - 0.1)).toBe(true);
+    for (const p of [V.sill, ...V.rails]) {
+      expect(has(p.y0, V.d + p.depth), `низ ${p.y0}`).toBe(true);
+      expect(has(p.y1, V.d + p.depth), `верх ${p.y1}`).toBe(true);
+    }
+    // кассеты рулонных штор под нижним и верхним ригелем (steelGray)
+    const blinds = [];
+    L.windows.traverse((o) => {
+      if (!o.isMesh || o.material.name !== 'steelGray') return;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) blinds.push(pos.getY(i));
+    });
+    for (const r of V.rails) expect(blinds.some((y) => Math.abs(y - r.y0) < 1e-3), `кассета у ${r.y0}`).toBe(true);
   });
 
   it('все три построителя совместимы с EdgesGeometry (режим чертежа +bp без пустых мешей)', () => {
