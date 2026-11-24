@@ -42,7 +42,7 @@ const fakeLabels = () => {
 };
 
 describe('Фойе · интерьер и LED-экран (interior.js)', () => {
-  it('LED-экран в слое walls в габаритах Y ∈ [3,88; 6,77], d ∈ [8,35; 13,57], X у стены +11,56', () => {
+  it('LED-экран в слое walls в габаритах Y ∈ [3,88; 6,77], d ∈ [8,85; 14,07], X у стены +11,56', () => {
     const batch = new StaticBatch();
     buildInterior(batch, fakeM(), { mobile: false });
     const L = batch.build();
@@ -59,8 +59,10 @@ describe('Фойе · интерьер и LED-экран (interior.js)', () => {
     // d = -z
     const dMin = -b.max.z;
     const dMax = -b.min.z;
-    expect(dMin).toBeGreaterThanOrEqual(8.35);
-    expect(dMax).toBeLessThanOrEqual(13.57);
+    expect(dMin).toBeGreaterThanOrEqual(8.85);
+    expect(dMin).toBeLessThanOrEqual(8.95);
+    expect(dMax).toBeLessThanOrEqual(14.07);
+    expect(dMax).toBeGreaterThanOrEqual(13.97);
     expect(b.max.x).toBeCloseTo(FOYER.screen.x, 3);
     expect(b.min.x).toBeCloseTo(FOYER.screen.x - FOYER.screen.protrude, 3);
   });

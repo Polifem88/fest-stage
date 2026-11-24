@@ -110,12 +110,13 @@ describe('Фойе · архитектура и потолки (buildArchitectur
         const midY = (va.y + vb.y + vc.y) / 3;
         if (midD > FOYER.ceil2.rampFromD && midD < FOYER.ceil2.rampToD && midY > FOYER.ceil2.atriumY) {
           rampTris++;
-          expect(n.y).toBeCloseTo(-0.4158, 2);
+          // наклонная подшивка 4,10 → 5,03 (8,50 → 7,45) по разрезу 1-1 ТХ3: ny = −0,93 / √(0,93² + 1,05²)
+          expect(n.y).toBeCloseTo(-0.6630, 3);
         }
       }
     });
     expect(totalTris).toBeGreaterThan(10);
-    expect(rampTris, 'крутой скат d = 5,10→5,58 присутствует в ceiling').toBeGreaterThanOrEqual(2);
+    expect(rampTris, 'наклонная подшивка d = 4,10→5,03 присутствует в ceiling').toBeGreaterThanOrEqual(2);
   });
 
   it('перекрытие 2-го этажа (Y = 3,00) имеет точный трапециевидный вырез второго света и не перекрывает центр атриума', () => {
