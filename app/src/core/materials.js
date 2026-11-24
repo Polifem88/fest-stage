@@ -414,6 +414,8 @@ export function createMaterials() {
     grilyato: std({ color: 0x1a1c1f, alphaMap: grilyatoTex(), transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, roughness: 0.65, metalness: 0.3 }),
     // терракотово-оранжевый бархат (драпировки и мягкая обивка)
     velvetOrange: std({ color: 0xb85226, roughness: 0.95, metalness: 0, side: THREE.DoubleSide }),
+    // тёплая светло-кремовая штукатурка (внутренние стены гардероба)
+    plasterCream: std({ color: 0xd8d0be, roughness: 0.88, metalness: 0 }),
   };
   // масштаб повтора текстур (метров на повтор)
   m.floor.userData.uvScale = 2;

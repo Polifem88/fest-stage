@@ -95,6 +95,40 @@ describe('Фойе · интерьер и LED-экран (interior.js)', () => {
     buildInterior(bMob, fakeM(), { mobile: true });
     expect(triCount(bMob.build().furniture)).toBeLessThan(triCount(bDesk.build().furniture));
   });
+
+  it('C1/C3: Г-стойки B1 (h 1,20) и гардероба (h 0,90) построены по плечам и не заходят в колонны', () => {
+    const batch = new StaticBatch();
+    buildInterior(batch, fakeM(), { mobile: false });
+    const L = batch.build();
+    const C = FOYER.columns;
+    const cols = [...C.outer, ...C.inner, C.extraB];
+    const EPS = 0.025; // свес столешницы 0,02 м допустим
+    let bad = 0;
+    const tops = [];
+    L.furniture.traverse((o) => {
+      if (!o.isMesh) return;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i += 3) {
+        const x = (pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2)) / 3;
+        const y = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
+        const d = -(pos.getZ(i) + pos.getZ(i + 1) + pos.getZ(i + 2)) / 3;
+        if (y < FOYER.room.y2 && cols.some((c) => x > c.x0 + EPS && x < c.x1 - EPS && d > c.d0 + EPS && d < c.d1 - EPS)) bad++;
+        if (o.material.name === 'stageEdge') tops.push({ x, y, d });
+      }
+    });
+    expect(bad, 'мебель внутри колонн').toBe(0);
+    const W = FOYER.zones.wardrobe;
+    const B = FOYER.furniture.receptionB1;
+    const near = (y, h) => Math.abs(y - h) < 0.04;
+    // столешница гардероба h = 0,90 над обоими плечами
+    expect(tops.some((t) => near(t.y, W.armD.h) && t.x > W.armD.x0 && t.x < W.armD.x1 && t.d > W.armD.d0 && t.d < W.armD.d1)).toBe(true);
+    expect(tops.some((t) => near(t.y, W.armX.h) && t.x > 9.6 && t.x < 11 && t.d > W.armX.d0 && t.d < W.armX.d1)).toBe(true);
+    // столешница B1 h = 1,20 над длинным и коротким плечом, перед колонной К1*-3 — пусто
+    const [long, short] = B.arms;
+    expect(tops.some((t) => near(t.y, B.h) && t.x > -1.5 && t.x < -0.5 && t.d > long.d0 && t.d < long.d1)).toBe(true);
+    expect(tops.some((t) => near(t.y, B.h) && t.x > short.x0 && t.x < short.x1 && t.d > 1.0 && t.d < 1.6)).toBe(true);
+    expect(tops.some((t) => near(t.y, B.h) && t.x > -2.0 && t.x < -0.5 && t.d > 1.0 && t.d < 1.8)).toBe(false);
+  });
 });
 
 describe('Фойе · стационарная ткань на лестнице (curtain.js)', () => {
@@ -187,14 +221,17 @@ describe('Фойе · дежурный свет (emitters.js и ambient.js)', ()
     });
   });
 
-  it('ambientLights: full даёт 6 источников (1-й и 2-й этажи), lite даёт 2 источника', () => {
+  it('ambientLights: full даёт 7 источников (+ юг 1-го этажа у гардероба, C5), lite даёт 2 источника', () => {
     const em = buildEmitters(fakeM());
     const full = ambientLights('full', em);
     const lite = ambientLights('lite', em);
 
     expect(full.blue).toEqual([]);
     expect(full.house).toEqual([]);
-    expect(full.duty).toHaveLength(6);
+    expect(full.duty).toHaveLength(7);
+    const s = FOYER.ambient.duty.south1f;
+    expect(s).toEqual({ x: 8.20, d: 2.80 });
+    expect(full.duty.some((l) => Math.abs(l.position.x - s.x) < 1e-6 && Math.abs(-l.position.z - s.d) < 1e-6 && l.position.y < FOYER.ceil1.reception)).toBe(true);
     expect(full.duty.every((l) => l.isPointLight && l.intensity === 0 && l.userData.base === FOYER.ambient.duty.full)).toBe(true);
     expect(full.duty.some((l) => l.position.y < FOYER.room.y2)).toBe(true);
     expect(full.duty.some((l) => l.position.y > FOYER.room.y2)).toBe(true);

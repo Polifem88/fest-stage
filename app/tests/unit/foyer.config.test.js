@@ -147,6 +147,70 @@ describe('Фойе · конфигурация (SSOT)', () => {
     expect(T.perimeter.y0 + T.size).toBeLessThanOrEqual(FOYER.room.y2);
   });
 
+  it('колонна К1-4 по вектору АР P33 прижата +X-гранью к оси В: X 5,46..6,01, d 4,90..5,83', () => {
+    const k14 = FOYER.columns.inner.find((c) => c.id === 'К1-4');
+    expect(k14).toEqual({ id: 'К1-4', cx: 5.735, x0: 5.46, x1: 6.01, d0: 4.90, d1: 5.83 });
+    expect(FOYER.columns.inner.map((c) => c.id)).toEqual(['К1-1', 'К1-2', 'К1-3', 'К1-4']);
+    expect(FOYER.columns.inner.find((c) => c.id === 'К1-3')).toMatchObject({ cx: 0, x0: -0.275, x1: 0.275 });
+  });
+
+  it('гардероб (M1): контур пом. 2, двусторонняя Г-стойка 5,25 + 5,55 м сходится во внутреннем углу К1-4', () => {
+    const W = FOYER.zones.wardrobe;
+    const k14 = FOYER.columns.inner.find((c) => c.id === 'К1-4');
+    expect(W).toMatchObject({ x0: 6.01, x1: 11.56, d0: 5.83, d1: 13.11 });
+    expect(W.x1).toBe(FOYER.room.x1);
+    expect(W.assumption).toBeUndefined(); // габариты стоек — замер M1
+    expect(W.rackAssumption).toBe(true);  // схематичные вешалки — допущение
+    expect(W.armD).toEqual({ x0: 5.56, x1: 6.01, d0: 5.83, d1: 11.08, h: 0.90 });
+    expect(W.armX).toEqual({ x0: 6.01, x1: 11.56, d0: 5.38, d1: 5.83, h: 0.90 });
+    expect(W.armD.d1 - W.armD.d0).toBeCloseTo(5.25, 6);
+    expect(W.armX.x1 - W.armX.x0).toBeCloseTo(5.55, 6);
+    expect(W.armD.x1 - W.armD.x0).toBeCloseTo(0.45, 6);
+    expect(W.armX.d1 - W.armX.d0).toBeCloseTo(0.45, 6);
+    // угол стыка (6,01; 5,83) = внутренний угол колонны К1-4
+    expect([W.armD.x1, W.armD.d0]).toEqual([k14.x1, k14.d1]);
+    expect([W.armX.x0, W.armX.d1]).toEqual([k14.x1, k14.d1]);
+    // плечо по X проходит вплотную за задней гранью колонны К1-Б
+    expect(W.armX.d0).toBe(FOYER.columns.extraB.d1);
+    // вешалки развёрнуты вдоль d и стоят внутри контура гардероба
+    expect(W.rackRowsX).toEqual([7.25, 8.65, 10.05]);
+    expect(W).toMatchObject({ rackD0: 6.35, rackD1: 12.30, rackH: 2.05 });
+    for (const x of W.rackRowsX) expect(x > W.x0 && x < W.x1).toBe(true);
+    expect(W.rackD0).toBeGreaterThan(W.armX.d1);
+    expect(W.rackD1).toBeLessThan(W.d1);
+  });
+
+  it('стойка администратора B1 (M4): буква «Г», плечо 0,60 м, длинное плечо 3,00 м вдоль витража, вылет 1,825 м', () => {
+    const B = FOYER.furniture.receptionB1;
+    expect(B.h).toBe(1.20);
+    const [long, short] = B.arms;
+    expect(long).toEqual({ x0: -3.00, x1: 0.00, d0: 2.04, d1: 2.64 });
+    expect(short).toEqual({ x0: -3.00, x1: -2.40, d0: 0.815, d1: 2.04 });
+    expect(long.x1 - long.x0).toBeCloseTo(3.00, 6);
+    expect(long.d1 - long.d0).toBeCloseTo(0.60, 6);
+    expect(short.x1 - short.x0).toBeCloseTo(0.60, 6);
+    expect(long.d1 - short.d0).toBeCloseTo(1.825, 6);
+    expect(short.d0).toBeCloseTo(0.815, 6); // отступ от ВБ6
+  });
+
+  it('стойки B1, B2 и гардероба нигде не заходят в колонны', () => {
+    const C = FOYER.columns;
+    const cols = [...C.outer, ...C.inner, C.extraB];
+    const W = FOYER.zones.wardrobe;
+    const F = FOYER.furniture;
+    const counters = [...F.receptionB1.arms, F.buffetB2, W.armD, W.armX];
+    const overlap = (a, b) => a.x0 < b.x1 - 1e-6 && a.x1 > b.x0 + 1e-6 && a.d0 < b.d1 - 1e-6 && a.d1 > b.d0 + 1e-6;
+    for (const k of counters) {
+      for (const c of cols) expect(overlap(k, c), `${JSON.stringify(k)} × ${c.id}`).toBe(false);
+    }
+  });
+
+  it('белая стена d = 14,13 доходит до X = 5,56; правый коридор у дивана (M7 — допущение)', () => {
+    expect(FOYER.room.whiteX1).toBe(5.56);
+    expect(FOYER.zones.sideCorridor).toEqual({ x0: 4.55, x1: 5.56, d0: 14.13, d1: 15.80, h: 2.45, assumption: true });
+    expect(FOYER.zones.sideCorridor.x1).toBe(FOYER.zones.wardrobe.armD.x0);
+  });
+
   it('проход 1,15 м под лестницей (M7 — допущение): коридор за белой стеной, без старой чёрной шторы на d = 13,75', () => {
     const P = FOYER.zones.passage;
     expect(P).toEqual({ x0: -5.94, x1: -4.79, d0: 11.45, d1: 16.00, h: 2.45, assumption: true });

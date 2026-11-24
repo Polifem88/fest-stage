@@ -168,15 +168,12 @@ export function buildInterior(batch, M, { mobile = false } = {}) {
 
   const geoms = { kick: [], slats: [], top: [], seat: [], velvet: [], steel: [], glass: [] };
 
-  addCounter(geoms, F.receptionB1);
+  // Г-стойка администратора B1 (два плеча толщиной 0,60 м)
+  for (const arm of F.receptionB1.arms) addCounter(geoms, { ...arm, h: F.receptionB1.h });
   addCounter(geoms, F.buffetB2);
-  addCounter(geoms, {
-    x0: W.counterX0,
-    x1: W.counterX1,
-    d0: W.counterD0,
-    d1: W.counterD1,
-    h: W.counterH,
-  });
+  // Двусторонняя Г-стойка гардероба (плечи вдоль d и вдоль X, h = 0,90)
+  addCounter(geoms, W.armD);
+  addCounter(geoms, W.armX);
 
   for (const s of F.sofas1f) addSofa(geoms, s, ribStep);
   for (const s of F.sofas2f) addSofa(geoms, s, ribStep);

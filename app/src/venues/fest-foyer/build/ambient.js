@@ -47,6 +47,7 @@ export function ambientLights(plan, em) {
         P(xRight, y2fWin, dWin),   // 2-й этаж: южная оконная галерея у витража ВБ3
         P(xMid, y2fGal, dGal),     // 2-й этаж: галерея витрин и коридоров
         P(xRight, y2fAtr, dAtr),   // 2-й этаж: терраса LED-экрана и атриум
+        P(A.south1f.x, y1f, A.south1f.d), // 1-й этаж: южная зона отдыха у гардероба (C5)
       ]
     : [
         P(xEdgeLeft, y1f, dWin), // 1-й этаж (северно-оконный, подсвечивает 1-й эт. и −X грани колонн)

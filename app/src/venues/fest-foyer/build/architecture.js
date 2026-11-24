@@ -28,7 +28,6 @@ const RACK_POST_STEP = 1.80;    // шаг вертикальных стоек в
 const RACK_MID_RATIO = 0.52;    // относительная высота нижней штанги вешалки
 const SERVICE_RECESS = 0.12;    // глубина ниши служебного проёма буфета
 const CURTAIN_ROD_H = 0.04;     // высота карниза в проёме служебного входа буфета
-const SCONCE_WALL_MARGIN = 0.30;// запас светлой стены за крайним настенным бра перед тёмным гардеробом
 const GLASS_SPLIT = 0.004;      // разнесение двусторонней пары плоскостей стекла
 const MOLTON_PLEAT = 0.24;      // шаг складок чёрной шторы в торце прохода
 const MOLTON_AMP = 0.035;       // глубина складок шторы
@@ -149,6 +148,21 @@ function brickEndWall(at, facing, okWin) {
   return parts;
 }
 
+/** Отрезок [a, b] за вычетом интервалов obstacles = [[o0, o1], ...]. */
+function subtractSpans1D(a, b, obstacles) {
+  let spans = [[a, b]];
+  for (const [o0, o1] of obstacles) {
+    spans = spans.flatMap(([s0, s1]) => {
+      if (o1 <= s0 || o0 >= s1) return [[s0, s1]];
+      const out = [];
+      if (o0 > s0 + 1e-4) out.push([s0, o0]);
+      if (o1 < s1 - 1e-4) out.push([o1, s1]);
+      return out;
+    });
+  }
+  return spans;
+}
+
 /** Двусторонняя пара плоскостей стекла вдоль X (нормали ±X) или вдоль d (нормали ±d). */
 function glassPair(axis, at, a0, a1, b0, b1) {
   return [
@@ -194,8 +208,9 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
   ];
   const floors = [
     rect('y', 0, R.x0, R.x1, R.dGlass1, R.dWhite1, 1),
-    // пол коридора прохода за белой стеной
+    // пол коридора прохода за белой стеной и правого коридора у дивана
     rect('y', 0, Z.passage.x0, Z.passage.x1, R.dWhite1, Z.passage.d1, 1),
+    rect('y', 0, Z.sideCorridor.x0, Z.sideCorridor.x1, Z.sideCorridor.d0, Z.sideCorridor.d1, 1),
     horizontalShape(floor2Poly, R.y2, 1),
     ...Z.corridors.map((c) => rect('y', c.y0, c.x0, c.x1, c.d0, c.d1, 1)),
   ];
@@ -268,18 +283,26 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
   //  4. ВНУТРЕННИЕ СТЕНЫ 1-ГО И 2-ГО ЭТАЖЕЙ (единая светлая штукатурка) + КОРИДОРЫ
   // ===========================================================================
   const plasterWalls = [];
-  const whiteWallX1 = Math.max(
-    FOYER.furniture.sofas1f[0].x1,
-    ...FOYER.duty.sconces.map((s) => s.x),
-  ) + SCONCE_WALL_MARGIN;
+  const creamWalls = [];
 
-  // 1-й этаж: светлая оштукатуренная стена за лестницей, диваном и 4 бра — с проёмом прохода 1,15 м
+  // 1-й этаж: светлая оштукатуренная стена за лестницей, диваном и 4 бра (X = −6,15 … 5,56)
+  // с проёмами прохода 1,15 м под лестницей и правого коридора у дивана
   const PS = Z.passage;
-  plasterWalls.push(...wallWithHoles('d', R.dWhite1, Z.buffet.x1, whiteWallX1, 0, R.y2, -1, [
+  const SC = Z.sideCorridor;
+  plasterWalls.push(...wallWithHoles('d', R.dWhite1, Z.buffet.x1, R.whiteX1, 0, R.y2, -1, [
     { a0: PS.x0, a1: PS.x1, b0: 0, b1: PS.h },
+    { a0: SC.x0, a1: SC.x1, b0: 0, b1: SC.h },
   ]));
   // Коридор прохода за белой стеной: правая стенка — штукатурка (левая — кирпич, см. brickGeoms)
   plasterWalls.push(rect('x', PS.x1, R.dWhite1, PS.d1, 0, PS.h, -1));
+  // Правый коридор у дивана: светлые стенки и торец (143643.jpg)
+  plasterWalls.push(
+    rect('x', SC.x0, SC.d0, SC.d1, 0, SC.h, 1),
+    rect('x', SC.x1, SC.d0, SC.d1, 0, SC.h, -1),
+    rect('d', SC.d1, SC.x0, SC.x1, 0, SC.h, -1),
+  );
+  // Линия X = 5,56 со стороны открытой полосы под балконом: светлая грань от конца стойки гардероба до белой стены
+  plasterWalls.push(rect('x', Z.wardrobe.sideX, Z.wardrobe.armD.d1, R.dWhite1, 0, C1.wardrobeSlab, -1));
 
   // 2-й этаж: стена витрин (d = 20,22) с двумя проёмами коридоров и проёмом двери малой лестницы
   const SS = FOYER.smallStairs;
@@ -416,26 +439,44 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
     rect('y', sd.h, sd.x0, sd.x1, sd.d, sd.d + SERVICE_RECESS, -1),
   );
 
-  // --- Гардероб: тёмная глубина, чёрная решётка грильято Y = 2,35 и схематичные рамы вешалок ---
+  // --- Гардероб (M1): кремовые стены внутри, чёрная решётка грильято Y = 2,35 строго внутри контура,
+  //     короба противопожарных штор над обоими плечами стойки и схематичные рамы вешалок вдоль d ---
   const W = Z.wardrobe;
-  batch.add('walls', M.blackWall, rect('d', R.dWhite1, whiteWallX1, R.x1, 0, C1.wardrobeSlab, -1), { tag: 'wardrobeBack' });
+  creamWalls.push(
+    rect('d', W.d1, W.sideX, W.x1, 0, C1.wardrobeSlab, -1),            // задняя стена d = 13,11
+    rect('x', W.sideX, W.armD.d1, W.d1, 0, C1.wardrobeSlab, 1),        // боковая X = 5,56 за концом стойки
+    rect('x', W.liningX, W.d0, W.d1, 0, C1.wardrobeGrilyato, -1),      // обшивка кирпичного торца
+  );
+  batch.add('walls', M.plasterCream, creamWalls, { tag: 'wardrobeCream' });
   batch.add('walls', M.grilyato, rect('y', C1.wardrobeGrilyato, W.x0, W.x1, W.d0, W.d1, -1), {
     tag: 'wardrobeGrilyato',
     shadow: false,
   });
 
+  // Короба противопожарных штор (разрываются на колоннах, через которые проходили бы)
+  const allColsFire = [...FOYER.columns.outer, ...FOYER.columns.inner, FOYER.columns.extraB];
+  const fireBoxGeoms = [];
+  for (const fb of W.fireBoxes) {
+    const hits = allColsFire
+      .filter((c) => c.d0 < fb.d1 && c.d1 > fb.d0 && c.x0 < fb.x1 && c.x1 > fb.x0)
+      .map((c) => [c.x0, c.x1]);
+    for (const [xa, xb] of subtractSpans1D(fb.x0, fb.x1, hits)) {
+      fireBoxGeoms.push(box(xa, xb, C1.wardrobeGrilyato, C1.wardrobeSlab, fb.d0, fb.d1));
+    }
+  }
+
   const rackHalf = RACK_BAR / 2;
   const rackMidY = W.rackH * RACK_MID_RATIO;
-  const rackPostCount = Math.max(2, Math.round((W.rackX1 - W.rackX0) / RACK_POST_STEP) + 1);
-  for (const rd of W.rackRows) {
-    // Верхняя и средняя штанги вешалки
+  const rackPostCount = Math.max(2, Math.round((W.rackD1 - W.rackD0) / RACK_POST_STEP) + 1);
+  for (const rx of W.rackRowsX) {
+    // Верхняя и средняя штанги вешалки (вдоль d)
     steelFrames.push(
-      box(W.rackX0, W.rackX1, W.rackH - RACK_BAR, W.rackH, rd - rackHalf, rd + rackHalf),
-      box(W.rackX0, W.rackX1, rackMidY - rackHalf, rackMidY + rackHalf, rd - rackHalf, rd + rackHalf),
+      box(rx - rackHalf, rx + rackHalf, W.rackH - RACK_BAR, W.rackH, W.rackD0, W.rackD1),
+      box(rx - rackHalf, rx + rackHalf, rackMidY - rackHalf, rackMidY + rackHalf, W.rackD0, W.rackD1),
     );
     // Вертикальные опорные стойки ряда
     for (let i = 0; i < rackPostCount; i++) {
-      const rx = W.rackX0 + ((W.rackX1 - W.rackX0) * i) / (rackPostCount - 1);
+      const rd = W.rackD0 + rackHalf + ((W.rackD1 - W.rackD0 - RACK_BAR) * i) / (rackPostCount - 1);
       steelFrames.push(box(rx - rackHalf, rx + rackHalf, 0, W.rackH, rd - rackHalf, rd + rackHalf));
     }
   }
@@ -497,7 +538,7 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
     box(vDoorX1, vDoorX1 + vf, 0, V.h - vf, V.d1 - vf, V.d1),
   );
 
-  batch.add('walls', M.steelGray, elevFrame, { tag: 'framesGray' });
+  batch.add('walls', M.steelGray, [...elevFrame, ...fireBoxGeoms], { tag: 'framesGray' });
   batch.add('walls', M.steel, steelFrames, { tag: 'steelDetails' });
   batch.add('walls', M.glass, glassPanels, { tag: 'archGlass', shadow: false });
   batch.add('walls', M.booth, boothRecesses, { tag: 'recesses', shadow: false });
@@ -535,8 +576,9 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
     // 1-й этаж: потолок под мостиком буфета (Y = 2,82)
     rect('y', C1.buffet, B.x0, B.x1, B.d0, B.d1, -1),
 
-    // 1-й этаж: потолок коридора прохода за белой стеной (Y = 2,45)
+    // 1-й этаж: потолок коридора прохода за белой стеной и правого коридора у дивана (Y = 2,45)
     rect('y', Z.passage.h, Z.passage.x0, Z.passage.x1, R.dWhite1, Z.passage.d1, -1),
+    rect('y', Z.sideCorridor.h, Z.sideCorridor.x0, Z.sideCorridor.x1, Z.sideCorridor.d0, Z.sideCorridor.d1, -1),
   ];
 
   batch.add('ceiling', M.ceilPerfGray, ceilings, { tag: 'ceiling', shadow: false });

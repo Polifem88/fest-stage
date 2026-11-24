@@ -210,6 +210,115 @@ describe('Фойе · архитектура и потолки (buildArchitectur
     }
   });
 
+  it('C1: гардероб — грильято строго внутри контура, кремовые стены, короба противопожарных штор, без чёрной стены', () => {
+    const L = build();
+    const W = FOYER.zones.wardrobe;
+    const C1 = FOYER.ceil1;
+    const mats = new Set(L.walls.children.map((m) => m.material.name));
+    expect(mats.has('blackWall'), 'старая чёрная стена гардероба').toBe(false);
+    expect(mats.has('plasterCream')).toBe(true);
+
+    const meshBox = (name) => {
+      const b = new THREE.Box3();
+      L.walls.traverse((o) => {
+        if (o.isMesh && o.material.name === name) {
+          o.geometry.computeBoundingBox();
+          b.union(o.geometry.boundingBox);
+        }
+      });
+      return b;
+    };
+    const g = meshBox('grilyato');
+    expect(g.min.x).toBeCloseTo(W.x0, 3);
+    expect(g.max.x).toBeCloseTo(W.x1, 3);
+    expect(-g.max.z).toBeCloseTo(W.d0, 3);
+    expect(-g.min.z).toBeCloseTo(W.d1, 3);
+    expect(g.min.y).toBeCloseTo(C1.wardrobeGrilyato, 3);
+
+    const cream = meshBox('plasterCream');
+    expect(cream.min.x).toBeCloseTo(W.armD.x0, 2);
+    expect(cream.max.x).toBeLessThanOrEqual(W.x1 + 1e-4);
+    expect(cream.max.x).toBeGreaterThanOrEqual(W.x1 - 0.02);
+    expect(-cream.min.z).toBeCloseTo(W.d1, 2);
+    expect(-cream.max.z).toBeCloseTo(W.d0, 2);
+
+    // Короба противопожарных штор Y = 2,35..2,65 (steelGray) над обоими плечами стойки
+    const fire = [];
+    L.walls.traverse((o) => {
+      if (!o.isMesh || o.material.name !== 'steelGray') return;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i += 3) {
+        const y = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
+        if (y > C1.wardrobeGrilyato - 0.01 && y < C1.wardrobeSlab + 0.01) {
+          fire.push({ x: (pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2)) / 3, d: -(pos.getZ(i) + pos.getZ(i + 1) + pos.getZ(i + 2)) / 3 });
+        }
+      }
+    });
+    expect(fire.some((c) => c.x < W.x0 && c.d > W.armD.d0 && c.d < W.armD.d1), 'короб над плечом по d').toBe(true);
+    expect(fire.some((c) => c.x > W.x0 && c.d < W.armX.d0), 'короб над плечом по X').toBe(true);
+    // короб не проходит сквозь колонну К1-Б
+    const kb = FOYER.columns.extraB;
+    expect(fire.some((c) => c.x > kb.x0 + 0.01 && c.x < kb.x1 - 0.01 && c.d > kb.d0 && c.d < kb.d1)).toBe(false);
+  });
+
+  it('C1: рамы вешалок развёрнуты вдоль d и стоят внутри гардероба', () => {
+    const L = build();
+    const W = FOYER.zones.wardrobe;
+    const tops = [];
+    L.walls.traverse((o) => {
+      if (!o.isMesh || o.material.name !== 'steel') return;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        if (Math.abs(pos.getY(i) - W.rackH) < 1e-3) tops.push({ x: pos.getX(i), d: -pos.getZ(i) });
+      }
+    });
+    for (const rx of W.rackRowsX) {
+      const row = tops.filter((p) => Math.abs(p.x - rx) < 0.05);
+      expect(row.length, `ряд X = ${rx}`).toBeGreaterThan(0);
+      expect(Math.min(...row.map((p) => p.d))).toBeCloseTo(W.rackD0, 2);
+      expect(Math.max(...row.map((p) => p.d))).toBeCloseTo(W.rackD1, 2);
+    }
+  });
+
+  it('C4: белая стена d = 14,13 от X = −6,15 до 5,56 с проёмом правого коридора; коридор со светлыми стенками и потолком 2,45', () => {
+    const L = build();
+    const R = FOYER.room;
+    const SC = FOYER.zones.sideCorridor;
+    let maxX = -Infinity;
+    const inHole = [];
+    const sideWalls = [];
+    L.walls.traverse((o) => {
+      if (!o.isMesh || o.material.name !== 'plasterLight') return;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i += 3) {
+        const x = (pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2)) / 3;
+        const y = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
+        const d = -(pos.getZ(i) + pos.getZ(i + 1) + pos.getZ(i + 2)) / 3;
+        if (Math.abs(d - R.dWhite1) < 0.005) {
+          maxX = Math.max(maxX, pos.getX(i), pos.getX(i + 1), pos.getX(i + 2));
+          if (x > SC.x0 + 0.02 && x < SC.x1 - 0.02 && y < SC.h - 0.02) inHole.push({ x, y });
+        }
+        if (d > SC.d0 + 0.01 && d < SC.d1 - 0.01 && (Math.abs(x - SC.x0) < 0.005 || Math.abs(x - SC.x1) < 0.005)) sideWalls.push(x);
+      }
+    });
+    expect(maxX).toBeCloseTo(R.whiteX1, 3);
+    expect(inHole).toHaveLength(0);
+    expect(sideWalls.some((x) => Math.abs(x - SC.x0) < 0.005)).toBe(true);
+    expect(sideWalls.some((x) => Math.abs(x - SC.x1) < 0.005)).toBe(true);
+    let ceil = false;
+    L.ceiling.traverse((o) => {
+      if (!o.isMesh) return;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i += 3) {
+        const x = (pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2)) / 3;
+        const y = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
+        const d = -(pos.getZ(i) + pos.getZ(i + 1) + pos.getZ(i + 2)) / 3;
+        if (Math.abs(y - SC.h) < 0.005 && x > SC.x0 && x < SC.x1 && d > SC.d0 && d < SC.d1) ceil = true;
+      }
+    });
+    expect(ceil, 'потолок правого коридора').toBe(true);
+  });
+
   it('колонны, пилястры и стены не выходят выше линии потолка foyerCeilY(d)', () => {
     const L = build();
     let worst = -Infinity;
