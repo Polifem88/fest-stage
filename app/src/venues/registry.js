@@ -12,6 +12,7 @@ const LOADERS = {
   big: () => import('./fest-big/index.js'),
   chamber: () => import('./fest-chamber/index.js'),
   roof: () => import('./fest-roof/index.js'),
+  foyer: () => import('./fest-foyer/index.js'),
   studio: () => import('./fest-studio/index.js'),
 };
 
