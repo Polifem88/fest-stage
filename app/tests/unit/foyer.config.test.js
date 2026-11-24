@@ -398,6 +398,14 @@ describe('Фойе · конфигурация (SSOT)', () => {
     expect(FOYER.columns.pilasters.assumption).toBe(true);
     expect(FOYER.furniture.showcases.every((s) => s.assumption === true)).toBe(true);
     expect(FOYER.duty.assumption).toBe(true);
+    // реестр оставшихся допущений после замеров 24.11 (ASSUMPTIONS.md §1.5)
+    expect(FOYER.zones.passage.assumption).toBe(true);        // M7
+    expect(FOYER.zones.sideCorridor.assumption).toBe(true);   // M7
+    expect(FOYER.stairs.underStorage.assumption).toBe(true);
+    expect(FOYER.zones.wardrobe.rackAssumption).toBe(true);
+    expect(FOYER.trusses.posts.find((p) => p.id === 'С-2').assumption).toBe(true);
+    expect(FOYER.zones.corridors.every((c) => c.assumption === true)).toBe(true);
+    expect(FOYER.zones.doors.filter((d) => d.assumption).map((d) => d.id)).toEqual(['ДВ5*', 'ДВ1Б**', 'ДВ1**']); // M10
   });
 
   it('каркас приборов пуст (черновик Этапа 1)', () => {

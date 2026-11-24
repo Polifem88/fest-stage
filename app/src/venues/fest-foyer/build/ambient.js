@@ -1,6 +1,7 @@
 // Точечные источники дежурного света Фойе для LightingSystem.
 // Размещаются ниже потолка 1-го этажа и ниже плоскости ферм 2-го этажа,
-// чтобы конструкции не перекрывали свет дежурки.
+// чтобы конструкции не перекрывали свет дежурки. В режиме full — 7 источников
+// (включая южную зону отдыха 1-го этажа у гардероба, ambient.duty.south1f), в lite — 2.
 import * as THREE from 'three';
 import { P } from '../../../core/geom.js';
 import { FOYER } from '../config/dimensions.js';
@@ -27,7 +28,6 @@ export function ambientLights(plan, em) {
   const xMid = (R.x0 + R.x1) / 2;
   const xSpan = R.x1 - R.x0;
   const xEdgeLeft = R.x0 + xSpan * EDGE_SPAN;
-  const xLeft = R.x0 + xSpan * QUARTER_SPAN;
   const xRight = R.x1 - xSpan * QUARTER_SPAN;
 
   const dWin = (R.dGlass1 + AT.westD) / 2;
