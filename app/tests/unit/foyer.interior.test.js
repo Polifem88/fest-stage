@@ -67,6 +67,32 @@ describe('Фойе · интерьер и LED-экран (interior.js)', () => {
     expect(b.min.x).toBeCloseTo(FOYER.screen.x - FOYER.screen.protrude, 3);
   });
 
+  it('M3: сиденье дивана ровно 0,45 м, спинка 1,10 м; 12 рёбер по 0,10 м на модуль (4 на mobile)', () => {
+    const run = (mobile) => {
+      const b = new StaticBatch();
+      buildInterior(b, fakeM(), { mobile });
+      return b.build().furniture;
+    };
+    const desk = run(false);
+    const seat = desk.children.find((m) => m.material.name === 'seatFrame');
+    const velvet = desk.children.find((m) => m.material.name === 'velvetOrange');
+    seat.geometry.computeBoundingBox();
+    velvet.geometry.computeBoundingBox();
+    const y2 = FOYER.room.y2;
+    expect(seat.geometry.boundingBox.max.y).toBeCloseTo(y2 + 0.45, 4);
+    expect(velvet.geometry.boundingBox.max.y).toBeCloseTo(y2 + 1.10, 4);
+    // ни одна точка сиденья 1-го этажа не выше 0,45, спинки — не выше 1,10
+    const ys = (m) => { const p = m.geometry.attributes.position; const out = []; for (let i = 0; i < p.count; i++) out.push(p.getY(i)); return out; };
+    expect(Math.max(...ys(seat).filter((y) => y < y2))).toBeCloseTo(0.45, 4);
+    expect(Math.max(...ys(velvet).filter((y) => y < y2))).toBeCloseTo(1.10, 4);
+    // velvet: 1 стенка спинки + рёбра; box = 12 треугольников
+    const n = FOYER.furniture.sofas1f.length + FOYER.furniture.sofas2f.length;
+    const tris = (m) => m.geometry.attributes.position.count / 3;
+    expect(tris(velvet)).toBe(n * (1 + 12) * 12);
+    const mobVelvet = run(true).children.find((m) => m.material.name === 'velvetOrange');
+    expect(tris(mobVelvet)).toBe(n * (1 + 4) * 12);
+  });
+
   it('стойки, диваны и 5 витрин в слое furniture с нужными материалами и без пустых геометрий', () => {
     const batch = new StaticBatch();
     buildInterior(batch, fakeM(), { mobile: false });

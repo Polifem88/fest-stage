@@ -233,13 +233,122 @@ describe('Фойе · конфигурация (SSOT)', () => {
     expect(U.back).toEqual([S.landing[3], S.landing[2]]);
   });
 
+  it('малая лестница (D1): площадка с дверью на +X-конце у стойки С-1, 5 ступеней поднимаются от x0', () => {
+    const SS = FOYER.smallStairs;
+    expect(SS).toMatchObject({ x0: -8.10, x1: -5.12, d0: 18.93, d1: 20.22, y0: 3.00, y1: 3.84, risers: 5, landingW: 1.30, doorW: 0.90, doorH: 2.05, assumption: true });
+    const c1 = FOYER.trusses.posts.find((p) => p.id === 'С-1');
+    const c1x0 = c1.x - FOYER.trusses.size / 2;
+    expect(c1x0).toBeCloseTo(-5.055, 6);
+    expect(c1x0 - SS.x1).toBeCloseTo(0.065, 6); // 6,5 см до стойки С-1
+  });
+
+  describe('диваны — единый модуль 1,20 × 0,70 (M2, M3)', () => {
+    const F = FOYER.furniture;
+    const all = () => [...F.sofas1f, ...F.sofas2f];
+    const len = (s) => (s.facing === '+d' || s.facing === '-d' ? s.x1 - s.x0 : s.d1 - s.d0);
+    const dep = (s) => (s.facing === '+d' || s.facing === '-d' ? s.d1 - s.d0 : s.x1 - s.x0);
+    const overlap = (a, b) => a.x0 < b.x1 - 1e-6 && a.x1 > b.x0 + 1e-6 && a.d0 < b.d1 - 1e-6 && a.d1 > b.d0 + 1e-6;
+
+    it('модуль задан в конфиге и все 33 дивана строго 1,20 × 0,70', () => {
+      expect(F.sofaModule).toEqual({ len: 1.20, depth: 0.70 });
+      expect(F.sofas1f).toHaveLength(10);
+      expect(F.sofas2f).toHaveLength(23);
+      for (const s of all()) {
+        expect(len(s), JSON.stringify(s)).toBeCloseTo(1.20, 6);
+        expect(dep(s), JSON.stringify(s)).toBeCloseTo(0.70, 6);
+      }
+      expect(F.sofas1f.every((s) => s.y0 === 0)).toBe(true);
+      expect(F.sofas2f.every((s) => s.y0 === FOYER.room.y2)).toBe(true);
+    });
+
+    it('1-й этаж (M2): 3 у белой стены, 4 вдоль ВБ6 в углу А, 3 вдоль кирпичного торца А', () => {
+      const wall = F.sofas1f.filter((s) => s.d1 === FOYER.room.dWhite1);
+      expect(wall).toHaveLength(3);
+      expect(Math.min(...wall.map((s) => s.x0))).toBeCloseTo(0.80, 6);
+      expect(Math.max(...wall.map((s) => s.x1))).toBeCloseTo(4.40, 6);
+      expect(wall.every((s) => s.facing === '-d' && s.assumption === true)).toBe(true);
+
+      const glass = F.sofas1f.filter((s) => s.facing === '+d');
+      expect(glass).toHaveLength(4);
+      expect(Math.min(...glass.map((s) => s.x0))).toBeCloseTo(6.96, 6);
+      expect(Math.max(...glass.map((s) => s.x1))).toBeCloseTo(11.76, 6);
+      expect(glass.every((s) => s.d0 === 0.02 && s.d1 === 0.72 && !s.assumption)).toBe(true);
+
+      const brick = F.sofas1f.filter((s) => s.facing === '-x');
+      expect(brick).toHaveLength(3);
+      expect(brick.every((s) => s.x0 === 10.86 && s.x1 === FOYER.room.x1 && !s.assumption)).toBe(true);
+      expect(Math.min(...brick.map((s) => s.d0))).toBeCloseTo(1.18, 6);
+      expect(Math.max(...brick.map((s) => s.d1))).toBeCloseTo(4.78, 6);
+    });
+
+    it('2-й этаж (M3): пары «спина к спине» вдоль d у колонн К1*, по одному у торцов, 5 у стены витрин', () => {
+      const win = F.sofas2f.filter((s) => s.d0 === 0.18 && s.d1 === 1.38);
+      expect(win).toHaveLength(12);
+      for (const c of FOYER.columns.outer) {
+        expect(win.some((s) => s.x0 === +(c.cx - 0.70).toFixed(3) && s.x1 === c.cx && s.facing === '-x'), `${c.id} −x`).toBe(true);
+        expect(win.some((s) => s.x0 === c.cx && s.x1 === +(c.cx + 0.70).toFixed(3) && s.facing === '+x'), `${c.id} +x`).toBe(true);
+      }
+      expect(win.some((s) => s.x0 === -12.23 && s.facing === '+x')).toBe(true);
+      expect(win.some((s) => s.x1 === 11.86 && s.facing === '-x')).toBe(true);
+
+      const atr = F.sofas2f.filter((s) => s.d0 === 1.78 && s.d1 === 2.98);
+      expect(atr).toHaveLength(6);
+      expect([...new Set(atr.map((s) => s.facing === '-x' ? s.x1 : s.x0))].sort((a, b) => a - b)).toEqual([-5.98, 0, 6.00]);
+      expect(atr.concat(win).every((s) => !s.assumption)).toBe(true);
+
+      const sc = F.sofas2f.filter((s) => s.d0 === 19.48 && s.d1 === 20.18);
+      expect(sc).toHaveLength(5);
+      expect(sc.every((s) => s.facing === '-d' && s.assumption === true)).toBe(true);
+      expect(F.showcases.map((v) => v.x)).toEqual([-4.20, -2.07, 0.06, 2.19, 6.85]);
+      // двойной диван 2,40 м между В-4 и В-5
+      expect(sc.filter((s) => s.x0 >= 3.25 - 1e-6 && s.x1 <= 5.65 + 1e-6)).toHaveLength(2);
+    });
+
+    it('диваны не пересекаются друг с другом, с колоннами, стойками, витринами, опорами ферм и витражами', () => {
+      const C = FOYER.columns;
+      const T = FOYER.trusses;
+      const W = FOYER.zones.wardrobe;
+      const h = T.size / 2;
+      const cols = [...C.outer, ...C.inner, C.extraB];
+      const posts = T.posts.map((p) => ({ id: p.id, x0: p.x - h, x1: p.x + h, d0: p.d - h, d1: p.d + h }));
+      const cases = F.showcases.map((v) => ({ id: v.id, x0: v.x - v.w / 2, x1: v.x + v.w / 2, d0: v.d1 - v.depth, d1: v.d1 }));
+      const counters = [...F.receptionB1.arms, F.buffetB2, W.armD, W.armX];
+      const list = all();
+      list.forEach((a, i) => {
+        list.forEach((b, j) => { if (j > i && a.y0 === b.y0) expect(overlap(a, b), `${i}×${j}`).toBe(false); });
+        for (const c of cols) expect(overlap(a, c), `${JSON.stringify(a)} × ${c.id}`).toBe(false);
+        if (a.y0 > 0) {
+          for (const p of posts) expect(overlap(a, p), `${JSON.stringify(a)} × ${p.id}`).toBe(false);
+          for (const v of cases) expect(overlap(a, v), `${JSON.stringify(a)} × ${v.id}`).toBe(false);
+          expect(a.d0).toBeGreaterThanOrEqual(FOYER.room.dGlass2 + 0.25); // за рёбрами ВБ3
+        } else {
+          for (const k of counters) expect(overlap(a, k), `${JSON.stringify(a)} × стойка`).toBe(false);
+          expect(a.d0).toBeGreaterThan(FOYER.room.dGlass1); // перед стеклом ВБ6
+        }
+        expect(a.x0).toBeGreaterThanOrEqual(-12.23 - 1e-6);
+        expect(a.x1).toBeLessThanOrEqual(11.86 + 1e-6);
+      });
+    });
+  });
+
+  it('двери 2-го этажа (D3): ДВ5* внутри южного коридора, привязки ДВ5* / ДВ1Б** / ДВ1** — допущение (M10)', () => {
+    const doors = Object.fromEntries(FOYER.zones.doors.map((d) => [d.id, d]));
+    const south = FOYER.zones.corridors.find((c) => c.id === 'south');
+    expect(doors['ДВ5*']).toMatchObject({ wall: 'x1', d0: 20.80, d1: 21.70, assumption: true });
+    expect(doors['ДВ5*'].d0).toBeGreaterThan(south.d0);
+    expect(doors['ДВ5*'].d1).toBeLessThan(south.d1);
+    expect(doors['ДВ1Б**'].assumption).toBe(true);
+    expect(doors['ДВ1**'].assumption).toBe(true);
+    // простенок у экрана 14,02 … 20,22 глухой
+    const onScreenWall = FOYER.zones.doors.filter((d) => d.wall === 'x1' && d.d1 > FOYER.screen.d1 && d.d0 < FOYER.room.dWall2);
+    expect(onScreenWall).toHaveLength(0);
+  });
+
   it('все оценочные по фото элементы помечены флагом assumption', () => {
     expect(FOYER.ceil2.rampAssumption).toBe(true);
     expect(FOYER.smallStairs.assumption).toBe(true);
     expect(FOYER.zones.elevator.assumption).toBe(true);
     expect(FOYER.columns.pilasters.assumption).toBe(true);
-    expect(FOYER.furniture.sofas1f.every((s) => s.assumption === true)).toBe(true);
-    expect(FOYER.furniture.sofas2f.every((s) => s.assumption === true)).toBe(true);
     expect(FOYER.furniture.showcases.every((s) => s.assumption === true)).toBe(true);
     expect(FOYER.duty.assumption).toBe(true);
   });

@@ -12,14 +12,16 @@ const COUNTER_KICK_INSET = 0.04;
 const COUNTER_TOP_H = 0.06;
 const COUNTER_TOP_OVERHANG = 0.02;
 
-const SOFA_PLINTH_H = 0.24;
+// Единый модуль дивана M3: цоколь 0,22 + подушка 0,23 = сиденье 0,45; спинка до 1,10 от пола;
+// 12 рёбер по 0,10 м на модуль 1,20 м (4 ребра на mobile — экономия треугольников)
+const SOFA_PLINTH_H = 0.22;
 const SOFA_PLINTH_INSET = 0.03;
-const SOFA_SEAT_H = 0.18;
-const SOFA_BACK_H = 0.44;
+const SOFA_SEAT_H = 0.23;
+const SOFA_BACK_H = 0.65;
 const SOFA_BACK_T = 0.18;
 const SOFA_BACK_SPINE_RATIO = 0.35;
-const SOFA_RIB_STEP = 0.22;
-const SOFA_RIB_STEP_MOBILE = 0.45;
+const SOFA_RIB_STEP = 0.10;
+const SOFA_RIB_STEP_MOBILE = 0.30;
 const SOFA_RIB_GAP = 0.015;
 
 const CASE_PLINTH_H = 0.35;

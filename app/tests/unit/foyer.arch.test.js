@@ -473,6 +473,60 @@ describe('Фойе · ломаная лестница, малая лестниц
     expect(lowRail, 'нижняя горизонтальная связка').toHaveLength(0);
   });
 
+  it('D1: малая лестница — площадка у x1 (у стойки С-1), ступени растут от x0, корпус тёмный', () => {
+    const L = build(false);
+    const SS = FOYER.smallStairs;
+    const landX0 = SS.x1 - SS.landingW;
+    const treadTops = [];
+    let lightBody = 0;
+    let darkBody = 0;
+    L.stairs.traverse((o) => {
+      if (!o.isMesh) return;
+      const pos = o.geometry.attributes.position;
+      const nor = o.geometry.attributes.normal;
+      for (let i = 0; i < pos.count; i += 3) {
+        const x = (pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2)) / 3;
+        const y = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
+        const d = -(pos.getZ(i) + pos.getZ(i + 1) + pos.getZ(i + 2)) / 3;
+        if (d < SS.d0 || d > SS.d1 || x < SS.x0 || x > SS.x1 || y < SS.y0 || y > SS.y1 + 0.01) continue;
+        if (o.material.name === 'tileFloorDark' && nor.getY(i) > 0.9) treadTops.push({ x, y });
+        if (o.material.name === 'plasterLight') lightBody++;
+        if (o.material.name === 'steelGray') darkBody++;
+      }
+    });
+    expect(lightBody, 'белый цоколь малой лестницы').toBe(0);
+    expect(darkBody).toBeGreaterThan(0);
+    // площадка на +X-конце
+    const land = treadTops.filter((t) => Math.abs(t.y - SS.y1) < 1e-3 && t.x > landX0);
+    expect(land.length).toBeGreaterThan(0);
+    // ступени ниже площадки растут с ростом X
+    const steps = treadTops.filter((t) => t.y < SS.y1 - 1e-3).sort((a, b) => a.x - b.x);
+    expect(steps.length).toBeGreaterThan(0);
+    for (let i = 1; i < steps.length; i++) expect(steps[i].y).toBeGreaterThanOrEqual(steps[i - 1].y - 1e-6);
+    expect(Math.max(...steps.map((t) => t.x))).toBeLessThan(landX0);
+  });
+
+  it('D1: дверь операторской на стене витрин стоит над площадкой малой лестницы (у x1)', () => {
+    const batch = new StaticBatch();
+    buildArchitecture(batch, fakeM(), { mobile: false });
+    const L = batch.build();
+    const SS = FOYER.smallStairs;
+    const landX0 = SS.x1 - SS.landingW;
+    let found = false;
+    L.walls.traverse((o) => {
+      if (!o.isMesh || o.material.name !== 'door') return;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const d = -pos.getZ(i);
+        if (Math.abs(d - (FOYER.room.dWall2 - 0.025)) < 0.01 && Math.abs(pos.getY(i) - SS.y1) < 1e-3) {
+          if (pos.getX(i) > landX0 - 1e-3 && pos.getX(i) < SS.x1 + 1e-3) found = true;
+          else expect(pos.getX(i), 'дверь вне площадки').toBeGreaterThan(landX0);
+        }
+      }
+    });
+    expect(found).toBe(true);
+  });
+
   it('Review Focus #1: mobile-сборка лестницы и перил экономична (mobile < desktop * 0.65 и mobile < 45 000 tris)', () => {
     const desktopTris = triCount(build(false).stairs);
     const mobileTris = triCount(build(true).stairs);

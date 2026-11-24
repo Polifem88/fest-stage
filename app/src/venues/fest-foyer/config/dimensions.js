@@ -31,6 +31,32 @@ const colBox = (id, cx, w, d0, d1) => ({
   d1,
 });
 
+// --- Единый модуль оранжевого дивана (M3): 1,20 × 0,70 м ---
+const SOFA_MODULE = { len: 1.20, depth: 0.70 };
+const r3 = (v) => +v.toFixed(3);
+
+/**
+ * Ряд стандартных модулей дивана 1,20 × 0,70 м.
+ * along 'x' — модули встык вдоль X (спинка у d0 при facing '+d', у d1 при '-d'),
+ * along 'd' — вдоль d (спинка у x0 при facing '+x', у x1 при '-x'); (x0, d0) — начальный угол ряда.
+ */
+function sofaRow({ x0, d0, n = 1, along, facing, y0 = 0, assumption = false }) {
+  const { len, depth } = SOFA_MODULE;
+  return Array.from({ length: n }, (_, i) => {
+    const m = along === 'x'
+      ? { x0: r3(x0 + i * len), x1: r3(x0 + (i + 1) * len), d0: r3(d0), d1: r3(d0 + depth) }
+      : { x0: r3(x0), x1: r3(x0 + depth), d0: r3(d0 + i * len), d1: r3(d0 + (i + 1) * len) };
+    return { ...m, y0, facing, ...(assumption ? { assumption: true } : {}) };
+  });
+}
+
+// --- 5 стеклянных витрин 2-го этажа (центры по X, шаг под 1,20-м диваны) ---
+const SHOWCASE_XS = [-4.20, -2.07, 0.06, 2.19, 6.85];
+const SHOWCASE_W = 0.85;
+/** X начала одиночного дивана, отцентрованного в промежутке между витринами i и i + 1. */
+const sofaInGapX0 = (i) => (SHOWCASE_XS[i] + SHOWCASE_XS[i + 1]) / 2 - SOFA_MODULE.len / 2;
+const Y2 = 3.00;
+
 export const FOYER = {
   zeroLineLabel: 'd = 0 — внутреннее стекло витража 1-го этажа (ВБ6)',
 
@@ -176,9 +202,11 @@ export const FOYER = {
   },
 
   // --- Малая 5-ступенчатая лестница 2-го этажа (к операторской Большого зала) ---
+  //  Площадка с дверью операторской — на +X-конце (x1 − landingW … x1, в 6,5 см от стойки С-1),
+  //  5 ступеней поднимаются от x0 к площадке (кадр 030, 143611.jpg).
   smallStairs: {
-    x0: -7.90,
-    x1: -4.92,
+    x0: -8.10,
+    x1: -5.12,
     d0: 18.93,
     d1: 20.22,
     y0: 3.00,
@@ -259,12 +287,12 @@ export const FOYER = {
       { id: 'north', label: 'Места 1–13', x0: -11.93, x1: -9.33, d0: 20.22, d1: 23.50, y0: 3.00, h: 3.10, doorW: 1.75, doorH: 2.15 },
       { id: 'south', label: 'Места 14–26', x0: 8.96, x1: 11.56, d0: 20.22, d1: 23.50, y0: 3.00, h: 3.10, doorW: 1.75, doorH: 2.15 },
     ],
-    // Двери на кирпичных стенах 2-го этажа
+    // Двери на кирпичных стенах 2-го этажа (ДВ5* — в южном коридоре, 144251.jpg; привязки ДВ5*/ДВ1Б**/ДВ1** — M10)
     doors: [
       { id: 'ДВ5Б*', wall: 'x1', d0: 6.65, d1: 8.30, y0: 3.00, h: 2.15, porthole: true, gray: true }, // M5: 9,10 м от ВБ3
-      { id: 'ДВ5*', wall: 'x1', d0: 15.60, d1: 16.60, y0: 3.00, h: 2.15, porthole: false, gray: false },
-      { id: 'ДВ1Б**', wall: 'x0', d0: 11.60, d1: 12.50, y0: 3.00, h: 2.15, porthole: true, gray: true },
-      { id: 'ДВ1**', wall: 'x0', d0: 13.40, d1: 14.30, y0: 3.00, h: 2.15, porthole: false, gray: true },
+      { id: 'ДВ5*', wall: 'x1', d0: 20.80, d1: 21.70, y0: 3.00, h: 2.15, porthole: false, gray: false, assumption: true },
+      { id: 'ДВ1Б**', wall: 'x0', d0: 11.60, d1: 12.50, y0: 3.00, h: 2.15, porthole: true, gray: true, assumption: true },
+      { id: 'ДВ1**', wall: 'x0', d0: 13.40, d1: 14.30, y0: 3.00, h: 2.15, porthole: false, gray: true, assumption: true },
     ],
   },
 
@@ -362,37 +390,44 @@ export const FOYER = {
     },
     // Стойка буфета B2 (3,96 × 0,65 × 1,20 м; внешний край в 2,17 м от стены d = 14,13)
     buffetB2: { x0: -10.40, x1: -6.44, d0: 11.96, d1: 12.61, h: 1.20 },
-    // Оранжевые ребристые диваны (положение оценено по фото → assumption: true)
+    // Оранжевые ребристые диваны — единый модуль 1,20 × 0,70 м (M3: сиденье 0,45, спинка 1,10)
+    sofaModule: SOFA_MODULE,
     sofas1f: [
-      // Длинная скамья вдоль белой стены с бра под лестницей (фото 143643)
-      { x0: 0.80, x1: 4.20, d0: 13.30, d1: 14.08, y0: 0.00, facing: '-d', assumption: true },
-      // Две угловые скамьи в зоне отдыха слева от входа (фото 181830)
-      { x0: -8.30, x1: -6.40, d0: 0.45, d1: 1.15, y0: 0.00, facing: '+d', assumption: true },
-      { x0: -8.30, x1: -7.55, d0: 1.20, d1: 3.10, y0: 0.00, facing: '+x', assumption: true },
+      // 3 модуля вдоль белой стены с бра под лестницей (143643.jpg; привязка по X — допущение M7)
+      ...sofaRow({ x0: 0.80, d0: 13.43, n: 3, along: 'x', facing: '-d', assumption: true }),
+      // M2: 4 модуля вплотную к витражу ВБ6 в зоне отдыха угла торца А (20261124_M2_диваны_витраж_1эт.jpg)
+      ...sofaRow({ x0: 6.96, d0: 0.02, n: 4, along: 'x', facing: '+d' }),
+      // M2: 3 модуля вдоль кирпичного торца А до косяка противопожарной шторы (20261124_M2_диваны_торец_1эт.jpg)
+      ...sofaRow({ x0: 10.86, d0: 1.18, n: 3, along: 'd', facing: '-x' }),
     ],
     sofas2f: [
-      // 4 секции вдоль стены витрин 2-го этажа (фото 143425)
-      { x0: -3.90, x1: -2.15, d0: 19.45, d1: 20.18, y0: 3.00, facing: '-d', assumption: true },
-      { x0: -1.05, x1: 0.70, d0: 19.45, d1: 20.18, y0: 3.00, facing: '-d', assumption: true },
-      { x0: 1.80, x1: 3.55, d0: 19.45, d1: 20.18, y0: 3.00, facing: '-d', assumption: true },
-      { x0: 4.65, x1: 6.40, d0: 19.45, d1: 20.18, y0: 3.00, facing: '-d', assumption: true },
-      // Пары спинкой к спинке и вдоль окон в оконной галерее 2-го этажа (фото 143347, 143359)
-      { x0: -4.80, x1: -1.60, d0: 2.30, d1: 3.00, y0: 3.00, facing: '-d', assumption: true },
-      { x0: -4.80, x1: -1.60, d0: 3.02, d1: 3.72, y0: 3.00, facing: '+d', assumption: true },
-      { x0: 1.40, x1: 4.60, d0: 2.30, d1: 3.00, y0: 3.00, facing: '-d', assumption: true },
-      { x0: 1.40, x1: 4.60, d0: 3.02, d1: 3.72, y0: 3.00, facing: '+d', assumption: true },
-      { x0: -8.30, x1: -6.50, d0: -0.35, d1: 0.35, y0: 3.00, facing: '+d', assumption: true },
-      { x0: 6.60, x1: 8.40, d0: -0.35, d1: 0.35, y0: 3.00, facing: '+d', assumption: true },
+      // M3: оконная галерея — пары «спина к спине» вдоль d у всех 5 колонн К1* со стороны окна
+      // (20261124_M3_кабинка_2эт.jpg, кадры 036–043, 182108.jpg)
+      ...OUTER_COL_XS.flatMap((cx) => [
+        ...sofaRow({ x0: cx - SOFA_MODULE.depth, d0: 0.18, along: 'd', facing: '-x', y0: Y2 }),
+        ...sofaRow({ x0: cx, d0: 0.18, along: 'd', facing: '+x', y0: Y2 }),
+      ]),
+      // ... и у 3 средних колонн К1*-2..4 со стороны атриума (у К1*-1 и К1*-5 — проход к лифту и двери)
+      ...OUTER_COL_XS.slice(1, 4).flatMap((cx) => [
+        ...sofaRow({ x0: cx - SOFA_MODULE.depth, d0: 1.78, along: 'd', facing: '-x', y0: Y2 }),
+        ...sofaRow({ x0: cx, d0: 1.78, along: 'd', facing: '+x', y0: Y2 }),
+      ]),
+      // ... и по одному модулю у расширенных кирпичных торцов, лицом к колонне
+      ...sofaRow({ x0: -12.23, d0: 0.18, along: 'd', facing: '+x', y0: Y2 }),
+      ...sofaRow({ x0: 11.16, d0: 0.18, along: 'd', facing: '-x', y0: Y2 }),
+      // Стена витрин (кадры 031–033, 143425.jpg): по 1 модулю между В-1…В-4 и 2 модуля между В-4 и В-5
+      ...[0, 1, 2].flatMap((i) => sofaRow({ x0: sofaInGapX0(i), d0: 19.48, along: 'x', facing: '-d', y0: Y2, assumption: true })),
+      ...sofaRow({ x0: 3.25, d0: 19.48, n: 2, along: 'x', facing: '-d', y0: Y2, assumption: true }),
     ],
-    // 5 стеклянных витрин 2-го этажа вдоль стены d = 20,22 (фото 143425)
-    showcases: [-4.45, -1.60, 1.25, 4.10, 7.60].map((x, i) => ({
+    // 5 стеклянных витрин 2-го этажа вдоль стены d = 20,22 (фото 143425; точный X — допущение)
+    showcases: SHOWCASE_XS.map((x, i) => ({
       id: `В-${i + 1}`,
       x,
-      w: 0.85,
+      w: SHOWCASE_W,
       depth: 0.46,
       h: 2.20,
       d1: 20.18,
-      y0: 3.00,
+      y0: Y2,
       assumption: true,
     })),
   },

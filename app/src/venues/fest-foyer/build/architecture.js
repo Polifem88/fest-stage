@@ -305,8 +305,9 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
   plasterWalls.push(rect('x', Z.wardrobe.sideX, Z.wardrobe.armD.d1, R.dWhite1, 0, C1.wardrobeSlab, -1));
 
   // 2-й этаж: стена витрин (d = 20,22) с двумя проёмами коридоров и проёмом двери малой лестницы
+  // (дверь операторской — над площадкой на +X-конце малой лестницы)
   const SS = FOYER.smallStairs;
-  const smallDoorX0 = SS.x0 + (SS.landingW - SS.doorW) / 2;
+  const smallDoorX0 = SS.x1 - SS.landingW + (SS.landingW - SS.doorW) / 2;
   const smallDoorX1 = smallDoorX0 + SS.doorW;
   const wall2Holes = [
     ...Z.corridors.map((c) => ({ a0: c.x0, a1: c.x1, b0: c.y0, b1: c.y0 + c.h })),

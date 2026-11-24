@@ -366,35 +366,38 @@ export function buildStairs(batch, M, { mobile = false } = {}) {
 
   // ===========================================================================
   //  5. МАЛАЯ 5-СТУПЕНЧАТАЯ ЛЕСТНИЦА 2-ГО ЭТАЖА (Y = 3,00 → 3,84) И ОГРАЖДЕНИЕ
+  //     площадка с дверью операторской — на +X-конце (у стойки С-1), ступени растут от x0
   // ===========================================================================
-  const landX1 = SS.x0 + SS.landingW;
+  const smallBodies = [];
+  const landX0 = SS.x1 - SS.landingW;
   // Площадка у двери операторской
-  treads.push(box(SS.x0, landX1, SS.y1 - TREAD_CAP, SS.y1, SS.d0, SS.d1));
-  bodies.push(box(SS.x0, landX1, SS.y0, SS.y1 - TREAD_CAP, SS.d0, SS.d1));
+  treads.push(box(landX0, SS.x1, SS.y1 - TREAD_CAP, SS.y1, SS.d0, SS.d1));
+  smallBodies.push(box(landX0, SS.x1, SS.y0, SS.y1 - TREAD_CAP, SS.d0, SS.d1));
 
-  // 5 ступеней от x1 (−4,92) вверх к площадке (landX1 = −6,60)
+  // 5 ступеней от x0 (−8,10) вверх к площадке (landX0 = −6,42)
   const smRise = (SS.y1 - SS.y0) / SS.risers;
-  const smTread = (SS.x1 - landX1) / SS.risers;
+  const smTread = (landX0 - SS.x0) / SS.risers;
   for (let i = 0; i < SS.risers; i++) {
-    const xa = SS.x1 - i * smTread;
-    const xb = SS.x1 - (i + 1) * smTread;
+    const xa = SS.x0 + i * smTread;
+    const xb = SS.x0 + (i + 1) * smTread;
     const yTop = SS.y0 + (i + 1) * smRise;
     const yBot = SS.y0 + i * smRise;
-    treads.push(box(xb, xa, yBot, yTop, SS.d0, SS.d1));
-    if (i > 0) bodies.push(box(xb, xa, SS.y0, yBot, SS.d0, SS.d1));
+    treads.push(box(xa, xb, yBot, yTop, SS.d0, SS.d1));
+    if (i > 0) smallBodies.push(box(xa, xb, SS.y0, yBot, SS.d0, SS.d1));
   }
 
   // Чёрное ограждение малой лестницы (высота 0,95 м, без латунных стаканов)
   const smRailD = SS.d0 + RAIL_EDGE_INSET;
-  addRailingRun([SS.x0 + RAIL_EDGE_INSET, SS.y1, SS.d1], [SS.x0 + RAIL_EDGE_INSET, SS.y1, smRailD], steel, brass, {
+  const smRailX1 = SS.x1 - RAIL_EDGE_INSET;
+  addRailingRun([smRailX1, SS.y1, SS.d1], [smRailX1, SS.y1, smRailD], steel, brass, {
     mobile,
     withBrass: false,
   });
-  addRailingRun([SS.x0 + RAIL_EDGE_INSET, SS.y1, smRailD], [landX1, SS.y1, smRailD], steel, brass, {
+  addRailingRun([smRailX1, SS.y1, smRailD], [landX0, SS.y1, smRailD], steel, brass, {
     mobile,
     withBrass: false,
   });
-  addRailingRun([landX1, SS.y1, smRailD], [SS.x1, SS.y0, smRailD], steel, brass, {
+  addRailingRun([landX0, SS.y1, smRailD], [SS.x0, SS.y0, smRailD], steel, brass, {
     mobile,
     withBrass: false,
   });
@@ -403,6 +406,7 @@ export function buildStairs(batch, M, { mobile = false } = {}) {
   batch.add('stairs', M.tileFloorDark, treads, { tag: 'stairTreads' });
   batch.add('stairs', M.plasterLight, bodies, { tag: 'stairStructure' });
   batch.add('stairs', M.booth, bodiesDark, { tag: 'stairBodies' });
+  batch.add('stairs', M.steelGray, smallBodies, { tag: 'smallStairBodies' });
   batch.add('stairs', M.molton, molton, { tag: 'underStorage', shadow: false });
   batch.add('stairs', M.steel, steel, { tag: 'railings' });
   batch.add('stairs', M.brass, brass, { tag: 'railingCollars' });
