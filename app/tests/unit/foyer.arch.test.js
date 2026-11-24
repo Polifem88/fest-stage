@@ -168,6 +168,48 @@ describe('Фойе · архитектура и потолки (buildArchitectur
     expect(floorHits(-9, 15), 'мостик буфета 2 эт.').toBeGreaterThan(0);
   });
 
+  it('B2: проход 1,15 м уходит коридором сквозь проём в белой стене d = 14,13 (кирпич / штукатурка / потолок 2,45 / молтон)', () => {
+    const L = build();
+    const P = FOYER.zones.passage;
+    const R = FOYER.room;
+    const tris = (grp, mat) => {
+      const out = [];
+      grp.traverse((o) => {
+        if (!o.isMesh || o.material.name !== mat) return;
+        const pos = o.geometry.attributes.position;
+        for (let i = 0; i < pos.count; i += 3) {
+          out.push({
+            x: (pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2)) / 3,
+            y: (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3,
+            d: -(pos.getZ(i) + pos.getZ(i + 1) + pos.getZ(i + 2)) / 3,
+          });
+        }
+      });
+      return out;
+    };
+    // Белая стена d = 14,13 не перекрывает проём прохода ниже 2,45
+    const inHole = tris(L.walls, 'plasterLight').filter((c) =>
+      Math.abs(c.d - R.dWhite1) < 0.02 && c.x > P.x0 + 0.02 && c.x < P.x1 - 0.02 && c.y < P.h - 0.02);
+    expect(inHole, 'белая стена в проёме прохода').toHaveLength(0);
+    // ... но есть над проёмом
+    expect(tris(L.walls, 'plasterLight').some((c) => Math.abs(c.d - R.dWhite1) < 0.02 && c.x > P.x0 && c.x < P.x1 && c.y > P.h)).toBe(true);
+    // Левая стенка коридора — кирпич на X = x0, правая — штукатурка на X = x1 (d = 14,13 … 16,00)
+    const inCorr = (c) => c.d > R.dWhite1 && c.d < P.d1;
+    expect(tris(L.walls, 'brickRed').some((c) => Math.abs(c.x - P.x0) < 0.01 && inCorr(c))).toBe(true);
+    expect(tris(L.walls, 'plasterLight').some((c) => Math.abs(c.x - P.x1) < 0.01 && inCorr(c))).toBe(true);
+    // Потолок коридора на 2,45 в слое ceiling
+    expect(tris(L.ceiling, 'ceilPerfGray').some((c) => Math.abs(c.y - P.h) < 0.01 && inCorr(c) && c.x > P.x0 && c.x < P.x1)).toBe(true);
+    // Чёрная штора в торце d = 16,00
+    const molton = tris(L.walls, 'molton');
+    expect(molton.length).toBeGreaterThan(0);
+    for (const c of molton) {
+      expect(Math.abs(c.d - P.d1)).toBeLessThan(0.06);
+      expect(c.x).toBeGreaterThanOrEqual(P.x0 - 0.01);
+      expect(c.x).toBeLessThanOrEqual(P.x1 + 0.01);
+      expect(c.y).toBeLessThanOrEqual(P.h);
+    }
+  });
+
   it('колонны, пилястры и стены не выходят выше линии потолка foyerCeilY(d)', () => {
     const L = build();
     let worst = -Infinity;
@@ -233,7 +275,7 @@ describe('Фойе · ломаная лестница, малая лестниц
 
   it('под верхним маршем остаётся открытый проход 1,15 м за кирпичным столбом буфета', () => {
     const L = build(false);
-    const p = FOYER.curtain.underStairBlack;
+    const p = FOYER.zones.passage;
     let blocking = 0;
     L.stairs.traverse((o) => {
       if (!o.isMesh) return;
@@ -249,6 +291,77 @@ describe('Фойе · ломаная лестница, малая лестниц
       }
     });
     expect(blocking).toBe(0);
+  });
+
+  /** Центры треугольников слоя stairs с заданным материалом. */
+  const triCenters = (L, matName) => {
+    const out = [];
+    L.stairs.traverse((o) => {
+      if (!o.isMesh || (matName && o.material.name !== matName)) return;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i += 3) {
+        out.push({
+          x: (pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2)) / 3,
+          y: (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3,
+          d: -(pos.getZ(i) + pos.getZ(i + 1) + pos.getZ(i + 2)) / 3,
+          mat: o.material.name,
+        });
+      }
+    });
+    return out;
+  };
+
+  it('B1: под площадкой и верхним маршем нет сплошных светлых тел — только тонкая подшивка и молтон кладовой', () => {
+    const L = build(false);
+    const S = FOYER.stairs;
+    // Внутренний объём под площадкой (Y 0,2 … 1,2) и под верхним маршем у площадки — пуст, кроме молтона
+    const inside = triCenters(L).filter((c) =>
+      c.mat !== 'molton' && c.y > 0.2 && c.y < 1.2 && c.x > -4.60 && c.x < -2.0 && c.d > 11.7 && c.d < 13.6);
+    expect(inside, 'тела в кладовой').toHaveLength(0);
+    // Тонкая светлая подшивка под площадкой: низ на landingY − TREAD_CAP − slabThick
+    const ySoffit = S.landingY - 0.05 - S.slabThick;
+    const soffit = triCenters(L, 'plasterLight').filter((c) =>
+      Math.abs(c.y - ySoffit) < 0.01 && c.x > -3.6 && c.x < -2.0 && c.d > 11.6 && c.d < 13.4);
+    expect(soffit.length, 'подшивка площадки').toBeGreaterThan(0);
+  });
+
+  it('B1: молтон кладовой — по правой границе прохода X = −4,79 и по задней кромке площадки, от пола до подшивки', () => {
+    const L = build(false);
+    const U = FOYER.stairs.underStorage;
+    const molton = triCenters(L, 'molton');
+    expect(molton.length).toBeGreaterThan(0);
+    const side = molton.filter((c) => Math.abs(c.x - U.side[0][0]) < 0.06);
+    expect(side.length, 'молтон по X = −4,79').toBeGreaterThan(0);
+    for (const c of side) {
+      expect(c.d).toBeGreaterThanOrEqual(U.side[0][1] - 0.01);
+      expect(c.d).toBeLessThanOrEqual(U.side[1][1] + 0.01);
+    }
+    const [[bx0, bd0], [bx1, bd1]] = U.back;
+    const back = molton.filter((c) => c.x > bx0 + 0.1 && c.x < bx1 - 0.1);
+    expect(back.length, 'молтон по задней кромке площадки').toBeGreaterThan(0);
+    for (const c of back) {
+      const t = (c.x - bx0) / (bx1 - bx0);
+      expect(Math.abs(c.d - (bd0 + (bd1 - bd0) * t))).toBeLessThan(0.06);
+      expect(c.y).toBeLessThan(FOYER.stairs.landingY - 0.05 - FOYER.stairs.slabThick);
+    }
+    let maxY = -Infinity;
+    L.stairs.traverse((o) => {
+      if (!o.isMesh || o.material.name !== 'molton') return;
+      o.geometry.computeBoundingBox();
+      maxY = Math.max(maxY, o.geometry.boundingBox.max.y);
+      expect(o.geometry.boundingBox.min.y).toBeCloseTo(0, 3);
+    });
+    expect(maxY).toBeLessThan(FOYER.room.y2 - 0.3);
+  });
+
+  it('B3: ступени — тёмный корпус (booth) + накладка проступи (tileFloorDark); у перил нет нижней связки', () => {
+    const L = build(false);
+    const mats = new Set(L.stairs.children.map((m) => m.material.name));
+    expect(mats.has('booth')).toBe(true);
+    // Нижняя связка балясин была на 0,08 м над полом 2-го этажа вдоль западной кромки атриума
+    const lowRail = triCenters(L, 'steel').filter((c) =>
+      c.y > FOYER.room.y2 + 0.04 && c.y < FOYER.room.y2 + 0.12 && c.d > 5.5 && c.d < 5.8 && c.x > -9 && c.x < 2);
+    expect(lowRail, 'нижняя горизонтальная связка').toHaveLength(0);
   });
 
   it('Review Focus #1: mobile-сборка лестницы и перил экономична (mobile < desktop * 0.65 и mobile < 45 000 tris)', () => {

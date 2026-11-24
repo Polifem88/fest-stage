@@ -1,5 +1,6 @@
-// Стационарная оранжевая бархатная ткань на ломаной лестнице (от верха до 4-й ступени снизу)
-// и чёрный занавес под верхним маршем (проход 1,15 м за буфетом).
+// Стационарная оранжевая бархатная ткань на ломаной лестнице: труба Ø32 от верха марша,
+// полотно — от правой границы прохода 1,15 м (zones.passage.x1) до 4-й ступени снизу.
+// Чёрный молтон кладовой строится в stairs.js, штора в торце прохода — в architecture.js.
 // Вся геометрия строго в слое 'curtain' — чистый задел для переключения/скрытия на Этапе 2.
 import * as THREE from 'three';
 import { P } from '../../../core/geom.js';
@@ -15,7 +16,6 @@ const PLEAT_PITCH = 0.24;
 const PLEAT_AMP = 0.035;
 const PLEAT_SUBDIV_DESKTOP = 4;
 const PLEAT_SUBDIV_MOBILE = 2;
-const MOLTON_FOLD_AMP = 0.035;
 const FLOOR_Y = 0;
 
 /** Полотно со складками вдоль ломаной трубки (pts: [[x, y, d], ...]), свисающее до Y = 0. */
@@ -88,24 +88,6 @@ function buildPleatedDrapery(pts, segNormals, step) {
   return geo;
 }
 
-/** Чёрный занавес (мольтон) со складками, перекрывающий проход под верхним маршем лестницы. */
-function buildUnderStairMolton(mobile) {
-  const u = FOYER.curtain.underStairBlack;
-  const w = u.x1 - u.x0;
-  const h = u.y1 - u.y0;
-  const subdiv = mobile ? PLEAT_SUBDIV_MOBILE : PLEAT_SUBDIV_DESKTOP;
-  const seg = Math.max(6, Math.round(w / (PLEAT_PITCH / subdiv)));
-  const g = new THREE.PlaneGeometry(w, h, seg, 1);
-  const pos = g.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    pos.setZ(i, MOLTON_FOLD_AMP * Math.sin(((x + w / 2) / PLEAT_PITCH) * Math.PI * 2));
-  }
-  g.computeVertexNormals();
-  g.translate((u.x0 + u.x1) / 2, (u.y0 + u.y1) / 2, -u.d);
-  return g;
-}
-
 export function buildCurtain(batch, M, { mobile = false } = {}) {
   const ST = FOYER.stairs;
   const CU = FOYER.curtain;
@@ -170,10 +152,13 @@ export function buildCurtain(batch, M, { mobile = false } = {}) {
   }
 
   const pleatStep = PLEAT_PITCH / (mobile ? PLEAT_SUBDIV_MOBILE : PLEAT_SUBDIV_DESKTOP);
-  const velvetGeo = buildPleatedDrapery(pipePts, [nUpper, nLanding, nLower], pleatStep);
-  const moltonGeo = buildUnderStairMolton(mobile);
+  // Полотно начинается не от верха марша, а от правой границы прохода 1,15 м (180759.jpg):
+  // между кирпичным столбом буфета и тканью проход остаётся полностью открытым.
+  const xStart = FOYER.zones.passage.x1;
+  const tStart = (xStart - p0[0]) / (p1[0] - p0[0]);
+  const pStart = [xStart, p0[1] + (p1[1] - p0[1]) * tStart, p0[2] + (p1[2] - p0[2]) * tStart];
+  const velvetGeo = buildPleatedDrapery([pStart, p1, p2, p3], [nUpper, nLanding, nLower], pleatStep);
 
   batch.add('curtain', M.pipe, pipeGeoms);
   batch.add('curtain', M.velvetOrange, velvetGeo);
-  batch.add('curtain', M.molton, moltonGeo);
 }

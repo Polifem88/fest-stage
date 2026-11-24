@@ -98,7 +98,7 @@ describe('Фойе · интерьер и LED-экран (interior.js)', () => {
 });
 
 describe('Фойе · стационарная ткань на лестнице (curtain.js)', () => {
-  it('вся геометрия строго в слое curtain; оранжевая ткань от Y = 0 до верха ≤ 3,05 и обрывается на 4-й ступени', () => {
+  it('вся геометрия строго в слое curtain; оранжевая ткань от Y = 0, начинается от прохода X = −4,79 и обрывается на 4-й ступени', () => {
     const batch = new StaticBatch();
     buildCurtain(batch, fakeM(), { mobile: false });
     const L = batch.build();
@@ -106,31 +106,28 @@ describe('Фойе · стационарная ткань на лестнице 
     expect(Object.keys(L)).toEqual(['curtain']);
     const mats = new Set(L.curtain.children.map((m) => m.material.name));
     expect(mats.has('velvetOrange')).toBe(true);
-    expect(mats.has('molton')).toBe(true);
+    expect(mats.has('molton'), 'старой чёрной шторы на d = 13,75 больше нет').toBe(false);
     expect(mats.has('pipe') || mats.has('steel')).toBe(true);
 
     const bAll = groupBox(L.curtain);
     expect(bAll.min.y).toBeCloseTo(0, 3);
     expect(bAll.max.y).toBeLessThanOrEqual(3.05);
+    // труба Ø32 по-прежнему от верха марша X = −6,15
+    expect(bAll.min.x).toBeLessThanOrEqual(FOYER.stairs.upper.xTop + 0.05);
 
     const velvet = L.curtain.children.find((m) => m.material.name === 'velvetOrange');
     velvet.geometry.computeBoundingBox();
     const vb = velvet.geometry.boundingBox;
     expect(vb.min.y).toBeCloseTo(0, 3);
-    expect(vb.max.y).toBeCloseTo(FOYER.curtain.topY, 2);
     // 4-я ступень снизу: t = (4-1)/13 → x ≈ -0.25, далеко до нижней 1-й ступени x = +0.54
     expect(vb.max.x).toBeLessThan(0.10);
-    expect(vb.min.x).toBeCloseTo(FOYER.stairs.upper.xTop, 1);
-
-    // Чёрный занавес под верхним маршем (проход 1,15 м)
-    const molton = L.curtain.children.find((m) => m.material.name === 'molton');
-    molton.geometry.computeBoundingBox();
-    const mb = molton.geometry.boundingBox;
-    const u = FOYER.curtain.underStairBlack;
-    expect(mb.min.x).toBeCloseTo(u.x0, 2);
-    expect(mb.max.x).toBeCloseTo(u.x1, 2);
-    expect(mb.min.y).toBeCloseTo(u.y0, 2);
-    expect(mb.max.y).toBeCloseTo(u.y1, 2);
+    // полотно начинается от правой границы прохода 1,15 м — проход открыт (180759.jpg)
+    const P = FOYER.zones.passage;
+    expect(vb.min.x).toBeCloseTo(P.x1, 2);
+    // верх полотна — высота трубы над X = −4,79 (линейно 3,00 у xTop → 1,75 у xBot)
+    const U = FOYER.stairs.upper;
+    const yPipe = FOYER.curtain.topY + (FOYER.stairs.landingY - FOYER.curtain.topY) * (P.x1 - U.xTop) / (U.xBot - U.xTop);
+    expect(vb.max.y).toBeCloseTo(yPipe, 2);
   });
 
   it('mobile бюджет треугольников interior + curtain < 25 000 и меньше desktop', () => {

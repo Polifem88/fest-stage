@@ -30,6 +30,9 @@ const SERVICE_RECESS = 0.12;    // глубина ниши служебного 
 const CURTAIN_ROD_H = 0.04;     // высота карниза в проёме служебного входа буфета
 const SCONCE_WALL_MARGIN = 0.30;// запас светлой стены за крайним настенным бра перед тёмным гардеробом
 const GLASS_SPLIT = 0.004;      // разнесение двусторонней пары плоскостей стекла
+const MOLTON_PLEAT = 0.24;      // шаг складок чёрной шторы в торце прохода
+const MOLTON_AMP = 0.035;       // глубина складок шторы
+const MOLTON_SUBDIV = { desktop: 4, mobile: 2 };
 
 /** Односторонний четырёхугольник с явной геометрической нормалью по правилу правой руки (p0→p1 × p0→p2). */
 function quad(p0, p1, p2, p3) {
@@ -154,6 +157,22 @@ function glassPair(axis, at, a0, a1, b0, b1) {
   ];
 }
 
+/** Чёрная штора со складками в плоскости d = at (лицом в −d), от y0 до y1 на ширине x0..x1. */
+function pleatedCurtainD(at, x0, x1, y0, y1, mobile) {
+  const w = x1 - x0;
+  const seg = Math.max(6, Math.round(w / (MOLTON_PLEAT / (mobile ? MOLTON_SUBDIV.mobile : MOLTON_SUBDIV.desktop))));
+  const g = new THREE.PlaneGeometry(w, y1 - y0, seg, 1);
+  const pos = g.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    pos.setZ(i, MOLTON_AMP * Math.sin(((x + w / 2) / MOLTON_PLEAT) * Math.PI * 2));
+  }
+  g.computeVertexNormals();
+  // PlaneGeometry смотрит в +Z (= −d); складки ±MOLTON_AMP вокруг плоскости d = at
+  g.translate((x0 + x1) / 2, (y0 + y1) / 2, -at);
+  return g;
+}
+
 export function buildArchitecture(batch, M, { mobile = false } = {}) {
   const R = FOYER.room;
   const C1 = FOYER.ceil1;
@@ -175,6 +194,8 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
   ];
   const floors = [
     rect('y', 0, R.x0, R.x1, R.dGlass1, R.dWhite1, 1),
+    // пол коридора прохода за белой стеной
+    rect('y', 0, Z.passage.x0, Z.passage.x1, R.dWhite1, Z.passage.d1, 1),
     horizontalShape(floor2Poly, R.y2, 1),
     ...Z.corridors.map((c) => rect('y', c.y0, c.x0, c.x1, c.d0, c.d1, 1)),
   ];
@@ -233,6 +254,8 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
   // Кирпичный столб с южного края буфета (за ним остаётся проход 1,15 м под лестницей)
   const bp = Z.buffet.pier;
   brickGeoms.push(box(bp.x0, bp.x1, 0, C1.buffet, bp.d0, bp.d1));
+  // Левая (кирпичная) стенка коридора прохода за белой стеной (181052.jpg)
+  brickGeoms.push(rect('x', Z.passage.x0, R.dWhite1, Z.passage.d1, 0, Z.passage.h, 1));
 
   // Наружные кирпичные стены двух коридоров 2-го этажа в Большой зал
   for (const c of Z.corridors) {
@@ -250,8 +273,13 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
     ...FOYER.duty.sconces.map((s) => s.x),
   ) + SCONCE_WALL_MARGIN;
 
-  // 1-й этаж: светлая оштукатуренная стена за лестницей, диваном и 4 бра (от буфета до тёмного гардероба)
-  plasterWalls.push(rect('d', R.dWhite1, Z.buffet.x1, whiteWallX1, 0, R.y2, -1));
+  // 1-й этаж: светлая оштукатуренная стена за лестницей, диваном и 4 бра — с проёмом прохода 1,15 м
+  const PS = Z.passage;
+  plasterWalls.push(...wallWithHoles('d', R.dWhite1, Z.buffet.x1, whiteWallX1, 0, R.y2, -1, [
+    { a0: PS.x0, a1: PS.x1, b0: 0, b1: PS.h },
+  ]));
+  // Коридор прохода за белой стеной: правая стенка — штукатурка (левая — кирпич, см. brickGeoms)
+  plasterWalls.push(rect('x', PS.x1, R.dWhite1, PS.d1, 0, PS.h, -1));
 
   // 2-й этаж: стена витрин (d = 20,22) с двумя проёмами коридоров и проёмом двери малой лестницы
   const SS = FOYER.smallStairs;
@@ -345,6 +373,7 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
   }
 
   batch.add('walls', M.plasterLight, plasterWalls, { tag: 'plasterWalls' });
+  batch.add('walls', M.molton, pleatedCurtainD(PS.d1, PS.x0, PS.x1, 0, PS.h, mobile), { tag: 'passageMolton', shadow: false });
   if (darkDoors.length) batch.add('walls', M.door, darkDoors, { tag: 'doors' });
   if (grayDoors.length) batch.add('walls', M.steelGray, grayDoors, { tag: 'doorsGray' });
 
@@ -505,6 +534,9 @@ export function buildArchitecture(batch, M, { mobile = false } = {}) {
 
     // 1-й этаж: потолок под мостиком буфета (Y = 2,82)
     rect('y', C1.buffet, B.x0, B.x1, B.d0, B.d1, -1),
+
+    // 1-й этаж: потолок коридора прохода за белой стеной (Y = 2,45)
+    rect('y', Z.passage.h, Z.passage.x0, Z.passage.x1, R.dWhite1, Z.passage.d1, -1),
   ];
 
   batch.add('ceiling', M.ceilPerfGray, ceilings, { tag: 'ceiling', shadow: false });

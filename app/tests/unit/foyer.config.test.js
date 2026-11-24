@@ -147,6 +147,28 @@ describe('Фойе · конфигурация (SSOT)', () => {
     expect(T.perimeter.y0 + T.size).toBeLessThanOrEqual(FOYER.room.y2);
   });
 
+  it('проход 1,15 м под лестницей (M7 — допущение): коридор за белой стеной, без старой чёрной шторы на d = 13,75', () => {
+    const P = FOYER.zones.passage;
+    expect(P).toEqual({ x0: -5.94, x1: -4.79, d0: 11.45, d1: 16.00, h: 2.45, assumption: true });
+    expect(P.x1 - P.x0).toBeCloseTo(FOYER.zones.buffet.passageW, 6);
+    expect(P.x0).toBe(FOYER.zones.buffet.pier.x1); // сразу за кирпичным столбом буфета
+    expect(P.d1).toBeGreaterThan(FOYER.room.dWhite1);
+    expect(FOYER.curtain.underStairBlack).toBeUndefined();
+  });
+
+  it('кладовая под лестницей (молтон, допущение) по правой границе прохода и задней кромке площадки', () => {
+    const U = FOYER.stairs.underStorage;
+    const S = FOYER.stairs;
+    expect(U.assumption).toBe(true);
+    expect(U.side).toEqual([[-4.79, 11.45], [-4.79, 13.95]]);
+    expect(U.back).toEqual([[-3.67, 13.95], [-1.57, 13.18]]);
+    expect(U.side[0][0]).toBe(FOYER.zones.passage.x1);
+    expect(U.side[0][1]).toBe(S.upper.d0);
+    expect(U.side[1][1]).toBe(S.upper.d1);
+    // задняя кромка промежуточной площадки (landing[3] → landing[2])
+    expect(U.back).toEqual([S.landing[3], S.landing[2]]);
+  });
+
   it('все оценочные по фото элементы помечены флагом assumption', () => {
     expect(FOYER.ceil2.rampAssumption).toBe(true);
     expect(FOYER.smallStairs.assumption).toBe(true);

@@ -1,8 +1,10 @@
 // Лестницы и ограждения Фойе театра «ФЭСТ» (Этап 1 — черновик, слой stairs):
-//  • ломаная парадная лестница (13 косых нижних ступеней под 28° + трапециевидная площадка Y = 1,75
-//    + 9 прямых верхних ступеней до Y = 3,00), закрытый подлестничный объём с открытым проходом 1,15 м за буфетом;
+//  • ломаная парадная стальная лестница (13 косых нижних ступеней под 28° + трапециевидная площадка Y = 1,75
+//    + 9 прямых верхних ступеней до Y = 3,00): тёмные корпуса ступеней с накладками проступи, белые наклонные
+//    подшивки маршей и тонкая подшивка площадки; под площадкой и маршем — кладовая за чёрным молтоном,
+//    проход 1,15 м за буфетом открыт;
 //  • ограждения ОГ-2 (высота 0,95 м, отступ 0,10 м от кромки проёма, поручень Ø50,8 мм, стойки Ø38 мм
-//    с латунными стаканами 0,18 м, вертикальные прутья Ø16 мм с разреженным шагом на mobile);
+//    с латунными стаканами 0,18 м, вертикальные прутья Ø16 мм до ступени/пола, разреженный шаг на mobile);
 //  • малая 5-ступенчатая лестница 2-го этажа (Y = 3,00 → 3,84) с площадкой и ограждением.
 // Все габариты — из config/dimensions.js (FOYER); здесь только пропорции деталей.
 import * as THREE from 'three';
@@ -12,14 +14,17 @@ import { FOYER } from '../config/dimensions.js';
 
 // Визуальные константы деталей
 const TREAD_CAP = 0.05;         // толщина тёмной накладки проступи на площадках и ступенях
+const PLINTH_OUT = 0.04;        // вынос цоколя нижней ступени по бокам марша
 const RAIL_EDGE_INSET = 0.06;   // отступ оси ограждения от края лестничного марша
 const COLLAR_SCALE = 1.35;      // отношение радиуса латунного стакана к радиусу стойки
-const BOTTOM_RAIL_Y = 0.08;     // высота нижней горизонтальной связки прутьев от ступени/пола
 const RAIL_SEG_DESKTOP = 8;     // число граней поручня и стоек на десктопе
 const RAIL_SEG_MOBILE = 4;      // число граней труб на мобильном (бюджет треугольников ≤ 45k)
 const BALUSTER_SEG_DESKTOP = 6; // число граней вертикальных балясин на десктопе
 const BALUSTER_SEG_MOBILE = 4;  // 4-гранные призмы балясин на мобильном
 const COL_CLEARANCE = 0.04;     // зазор при разрыве западного ограждения на гранях внутренних колонн
+const MOLTON_PLEAT = 0.24;      // шаг складок молтона кладовой
+const MOLTON_AMP = 0.035;       // глубина складок молтона
+const MOLTON_SUBDIV = { desktop: 4, mobile: 2 };
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const lerp2 = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
@@ -85,8 +90,8 @@ function stepPrism(p00, p01, p11, p10, y0, y1) {
 
 /**
  * Секция ограждения ОГ-2 от точки p0=[x,y,d] до p1=[x,y,d]:
- * поручень Ø50,8, нижняя тяга, стойки Ø38 (шаг 1,00 м) с латунными стаканами 0,18 м,
- * вертикальные балясины Ø16 (шаг 0,10 м десктоп / 0,28 м мобильный).
+ * поручень Ø50,8, стойки Ø38 (шаг 1,00 м) с латунными стаканами 0,18 м,
+ * вертикальные балясины Ø16 от ступени/пола до поручня (шаг 0,10 м десктоп / 0,28 м мобильный).
  */
 function addRailingRun(p0, p1, steel, brass, { mobile = false, withBrass = true } = {}) {
   const RL = FOYER.railing;
@@ -101,9 +106,8 @@ function addRailingRun(p0, p1, steel, brass, { mobile = false, withBrass = true 
 
   const top0 = P(x0, y0 + RL.h, d0);
   const top1 = P(x1, y1 + RL.h, d1);
-  // Поручень и нижняя связка балясин
+  // Поручень (нижней горизонтальной связки у ОГ-2 нет — 180818.jpg)
   steel.push(tubeBetween(top0, top1, RL.railR, railSeg));
-  steel.push(tubeBetween(P(x0, y0 + BOTTOM_RAIL_Y, d0), P(x1, y1 + BOTTOM_RAIL_Y, d1), RL.balusterR, balSeg));
 
   // Опорные стойки (шаг ~1,00 м) + латунные стаканы у основания
   const postCount = Math.max(1, Math.round(runLen / RL.postStep));
@@ -135,8 +139,48 @@ function addRailingRun(p0, p1, steel, brass, { mobile = false, withBrass = true 
     const x = lerp(x0, x1, t);
     const y = lerp(y0, y1, t);
     const d = lerp(d0, d1, t);
-    steel.push(tubeBetween(P(x, y + BOTTOM_RAIL_Y, d), P(x, y + RL.h, d), RL.balusterR, balSeg));
+    steel.push(tubeBetween(P(x, y, d), P(x, y + RL.h, d), RL.balusterR, balSeg));
   }
+}
+
+/**
+ * Чёрный молтон со складками между точками a=[x,d] и b=[x,d] от пола (Y = 0)
+ * до верхних отметок yTopA / yTopB (низ подшивки марша или площадки).
+ */
+function moltonRun(a, b, yTopA, yTopB, mobile) {
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const tx = (b[0] - a[0]) / len;
+  const td = (b[1] - a[1]) / len;
+  const step = MOLTON_PLEAT / (mobile ? MOLTON_SUBDIV.mobile : MOLTON_SUBDIV.desktop);
+  const n = Math.max(2, Math.round(len / step));
+  const pos = [];
+  const col = (i) => {
+    const t = i / n;
+    const w = MOLTON_AMP * Math.sin(((len * t) / MOLTON_PLEAT) * Math.PI * 2);
+    return {
+      x: a[0] + (b[0] - a[0]) * t + td * w,
+      d: a[1] + (b[1] - a[1]) * t - tx * w,
+      y: yTopA + (yTopB - yTopA) * t,
+    };
+  };
+  for (let i = 0; i < n; i++) {
+    const c0 = col(i);
+    const c1 = col(i + 1);
+    pos.push(
+      c0.x, c0.y, -c0.d, c0.x, 0, -c0.d, c1.x, 0, -c1.d,
+      c0.x, c0.y, -c0.d, c1.x, 0, -c1.d, c1.x, c1.y, -c1.d,
+    );
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
+/** Корпус ступени (тёмный) + накладка проступи (плитка) по 4 углам в (x, d). */
+function addStep(bodiesDark, treads, p00, p01, p11, p10, y0, y1) {
+  bodiesDark.push(stepPrism(p00, p01, p11, p10, y0, y1 - TREAD_CAP));
+  treads.push(stepPrism(p00, p01, p11, p10, y1 - TREAD_CAP, y1));
 }
 
 /** Разрезать отрезок [xA, xB] по X, вырезая колонны (чтобы перила не проходили сквозь бетон). */
@@ -166,6 +210,8 @@ export function buildStairs(batch, M, { mobile = false } = {}) {
 
   const treads = [];
   const bodies = [];
+  const bodiesDark = [];
+  const molton = [];
   const steel = [];
   const brass = [];
 
@@ -176,6 +222,7 @@ export function buildStairs(batch, M, { mobile = false } = {}) {
   const [tL, tR] = S.lower.top;
   const nLow = S.lower.risers;
   const lowRise = S.landingY / nLow;
+  const lowW = Math.hypot(bR[0] - bL[0], bR[1] - bL[1]);
 
   for (let i = 0; i < nLow; i++) {
     const u0 = i / nLow;
@@ -186,9 +233,17 @@ export function buildStairs(batch, M, { mobile = false } = {}) {
     const p01 = lerp2(bR, tR, u0);
     const p10 = lerp2(bL, tL, u1);
     const p11 = lerp2(bR, tR, u1);
-    treads.push(stepPrism(p00, p01, p11, p10, y0, y1));
+    addStep(bodiesDark, treads, p00, p01, p11, p10, y0, y1);
+    if (i === 0) {
+      // Выступающий по бокам цоколь нижней ступени
+      const k = -PLINTH_OUT / lowW;
+      bodiesDark.push(stepPrism(
+        lerp2(p00, p01, k), lerp2(p01, p00, k), lerp2(p11, p10, k), lerp2(p10, p11, k),
+        y0, y1 - TREAD_CAP,
+      ));
+    }
   }
-  // Несущая наклонная плита-косоур строго под внутренними углами ступеней нижнего марша
+  // Несущая наклонная плита-косоур с белой подшивкой строго под внутренними углами ступеней нижнего марша
   const lowUnderL = lerp2(bL, tL, 1 / nLow);
   const lowUnderR = lerp2(bR, tR, 1 / nLow);
   bodies.push(
@@ -205,10 +260,11 @@ export function buildStairs(batch, M, { mobile = false } = {}) {
   );
 
   // ===========================================================================
-  //  2. ПРОМЕЖУТОЧНАЯ ТРАПЕЦИЕВИДНАЯ ПЛОЩАДКА (Y = 1,75) И ЗАКРЫТЫЙ ОБЪЁМ ПОД НЕЙ
+  //  2. ПРОМЕЖУТОЧНАЯ ТРАПЕЦИЕВИДНАЯ ПЛОЩАДКА (Y = 1,75): накладка + тонкая светлая подшивка
   // ===========================================================================
+  const yLandingSoffit = S.landingY - TREAD_CAP - S.slabThick;
   treads.push(prism(S.landing, S.landingY - TREAD_CAP, S.landingY));
-  bodies.push(prism(S.landing, 0, S.landingY - TREAD_CAP));
+  bodies.push(prism(S.landing, yLandingSoffit, S.landingY - TREAD_CAP));
 
   // ===========================================================================
   //  3. ВЕРХНИЙ МАРШ ПАРАДНОЙ ЛЕСТНИЦЫ (9 прямых ступеней, Y = 1,75 → 3,00)
@@ -223,38 +279,34 @@ export function buildStairs(batch, M, { mobile = false } = {}) {
     const xb = U.xBot + (i + 1) * stepDx;
     const y0 = S.landingY + i * upRise;
     const y1 = S.landingY + (i + 1) * upRise;
-    treads.push(box(xb, xa, y0, y1, U.d0, U.d1));
+    bodiesDark.push(box(xb, xa, y0, y1 - TREAD_CAP, U.d0, U.d1));
+    treads.push(box(xb, xa, y1 - TREAD_CAP, y1, U.d0, U.d1));
   }
-  // Наклонная плита-подшивка строго под внутренними углами верхнего марша (оставляет проход 1,15 м свободным!)
+  // Наклонная плита с белой подшивкой строго под внутренними углами верхнего марша (проход 1,15 м свободен!)
   const upUnderX = U.xBot + stepDx;
+  const ySoffitA = S.landingY - S.slabThick;
+  const ySoffitB = R.y2 - upRise - S.slabThick;
   bodies.push(
     ...slopedSlab(
       [upUnderX, U.d0],
       [upUnderX, U.d1],
       [U.xTop, U.d0],
       [U.xTop, U.d1],
-      S.landingY - S.slabThick,
+      ySoffitA,
       S.landingY,
-      R.y2 - upRise - S.slabThick,
+      ySoffitB,
       R.y2 - upRise,
     ),
   );
-  // Закрытый подлестничный объём только до границы прохода 1,15 м (x = xBot .. underStairBlack.x1)
-  const passageEdgeX = FOYER.curtain.underStairBlack.x1;
-  const tPassage = (passageEdgeX - U.xBot) / (U.xTop - U.xBot);
-  const yUnderPassage = lerp(S.landingY - S.slabThick, R.y2 - S.slabThick, tPassage);
-  bodies.push(
-    ...slopedSlab(
-      [U.xBot, U.d0],
-      [U.xBot, U.d1],
-      [passageEdgeX, U.d0],
-      [passageEdgeX, U.d1],
-      0,
-      S.landingY - S.slabThick,
-      0,
-      yUnderPassage,
-    ),
-  );
+  /** Низ наклонной подшивки верхнего марша над точкой x. */
+  const upperSoffitY = (x) => lerp(ySoffitA, ySoffitB, (x - upUnderX) / (U.xTop - upUnderX));
+
+  // Кладовая под лестницей: чёрный молтон по правой границе прохода и по задней кромке площадки
+  const US = S.underStorage;
+  const [sa, sb] = US.side;
+  molton.push(moltonRun(sa, sb, upperSoffitY(sa[0]), upperSoffitY(sb[0]), mobile));
+  const [ba, bb] = US.back;
+  molton.push(moltonRun(ba, bb, yLandingSoffit, yLandingSoffit, mobile));
 
   // ===========================================================================
   //  4. ОГРАЖДЕНИЯ ОГ-2: ПЕРИМЕТР ВТОРОГО СВЕТА + ОБА МАРША ПАРАДНОЙ ЛЕСТНИЦЫ
@@ -294,7 +346,6 @@ export function buildStairs(batch, M, { mobile = false } = {}) {
   addRailingRun([R.x0, R.y2, A.buffetEdgeD + ins], [A.buffetX1, R.y2, A.buffetEdgeD + ins], steel, brass, { mobile });
 
   // 4.5. Обе стороны нижнего марша (смещение внутрь марша на RAIL_EDGE_INSET)
-  const lowW = Math.hypot(bR[0] - bL[0], bR[1] - bL[1]);
   const lowInsetFrac = RAIL_EDGE_INSET / lowW;
   const lbIn = lerp2(bL, bR, lowInsetFrac);
   const ltIn = lerp2(tL, tR, lowInsetFrac);
@@ -351,6 +402,8 @@ export function buildStairs(batch, M, { mobile = false } = {}) {
   // --- Упаковка в слой stairs ---
   batch.add('stairs', M.tileFloorDark, treads, { tag: 'stairTreads' });
   batch.add('stairs', M.plasterLight, bodies, { tag: 'stairStructure' });
+  batch.add('stairs', M.booth, bodiesDark, { tag: 'stairBodies' });
+  batch.add('stairs', M.molton, molton, { tag: 'underStorage', shadow: false });
   batch.add('stairs', M.steel, steel, { tag: 'railings' });
   batch.add('stairs', M.brass, brass, { tag: 'railingCollars' });
 }
