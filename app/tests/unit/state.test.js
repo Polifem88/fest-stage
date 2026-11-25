@@ -57,7 +57,10 @@ describe('Ссылка: формат v2', () => {
           ? { cyc: false }
           : { lights: false };
       const st = stateOf(venue, { fixturesOn: lights, view: Object.keys(venue.views).at(-1), layers: { ...stateOf(venue).layers, ...offLayer } });
-      if (venue.rigging) st.heights[venue.rigging.list[3].id] = 2.35;
+      if (venue.rigging) {
+        const r = venue.rigging.list[Math.min(3, venue.rigging.list.length - 1)];
+        st.heights[r.id] = Math.min(r.max, Math.max(r.min, 2.35));
+      }
       const s = encodeState(st, venue);
       expect(peekVenue(s)).toBe(venue.id);
       const back = decodeState(s, venue);

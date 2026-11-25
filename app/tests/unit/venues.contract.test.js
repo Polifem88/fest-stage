@@ -60,4 +60,18 @@ describe('Контракт: трансформируемый зал (caps.layout
       expect(has(with_(true, l), new RegExp(`layouts\\.${k}`)), k).toBe(true);
     }
   });
+  it('опциональные layouts.steppers, layouts.animate, texts.rigHint/layoutHint и вид механики truss валидируются', () => {
+    expect(validateVenue(with_(true, { ...okLayouts(), steppers: false, animate: () => null }))).toEqual([]);
+    expect(has(with_(true, { ...okLayouts(), steppers: 'no' }), /layouts\.steppers/)).toBe(true);
+    expect(has(with_(true, { ...okLayouts(), animate: 123 }), /layouts\.animate/)).toBe(true);
+    const withTrussRig = {
+      ...base,
+      caps: { ...base.caps, rigging: true },
+      rigging: { list: [{ id: 'MF', name: 'ФП', kind: 'truss', min: 0, max: 4.5, rest: 4.5 }] },
+      texts: { ...base.texts, rigHint: 'Подсказка механики', layoutHint: 'Подсказка зала' },
+    };
+    expect(validateVenue(withTrussRig)).toEqual([]);
+    expect(has({ ...base, texts: { rigHint: 123 } }, /texts\.rigHint/)).toBe(true);
+    expect(has({ ...base, texts: { layoutHint: false } }, /texts\.layoutHint/)).toBe(true);
+  });
 });

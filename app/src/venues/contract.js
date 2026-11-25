@@ -29,7 +29,7 @@ import { SPECS } from '../library/specs.js';
  * @property {Partial<Record<'planDXF'|'sectionDXF'|'dxf3d'|'glb', (stage) => any>>} exports
  * @property {{maxDistance?: number}} [camera]
  * @property {{fixtures:number, layers:number}} [linkV1]  — только у площадки ссылок формата v1 (Большая сцена)
- * @property {{rigDrag?: string, extraEquipment?: string}} [texts]   — extraEquipment: оборудование под спектакль (текст внизу панели «Свет»)
+ * @property {{rigDrag?: string, rigHint?: string, layoutHint?: string, extraEquipment?: string}} [texts]   — extraEquipment: оборудование под спектакль (текст внизу панели «Свет»)
  * @property {LayoutsCfg|null} layouts        — трансформируемый зал (caps.layouts); null — зал неизменный.
  *           Порядок layouts.list — часть формата ссылки (поле lo): только добавлять в конец
  *
@@ -37,8 +37,10 @@ import { SPECS } from '../library/specs.js';
  *           counterweights — информационный флаг (противовесы строит сама площадка), интерфейс по нему ничего не скрывает
  * @typedef {{id:string, rows:number, shift:number}} LayoutState   — shift в шагах shiftStep
  * @typedef {{list: Array<{id:string, name:string, rowsMax:number}>, default:string, shiftStep:number,
+ *            steppers?:boolean,
  *            range:(id:string, rows:number)=>[number, number], seats:(st:LayoutState)=>number,
- *            build:(st:LayoutState, ctx:{M:Object, profile:Object})=>Object}} LayoutsCfg
+ *            build:(st:LayoutState, ctx:{M:Object, profile:Object})=>Object,
+ *            animate?:(from:LayoutState, to:LayoutState, ctx:{M:Object, profile:Object})=>{group:Object, duration:number, update:(k:number)=>void, dispose?:()=>void}|null}} LayoutsCfg
  *           range — допустимые шаги сдвига [min, max] (всегда содержит 0); build — группа слоя 'hall'
  * @typedef {{name:string, type:'persp'|'ortho', pos?:number[], target?:number[], dir?:'top'|'side',
  *            center?:number[], height?:number, width?:number, portraitPullback?:boolean|number, allRopeLabels?:boolean, legendRows?:number}} View
@@ -68,6 +70,8 @@ function validateLayouts(v, need) {
   need(lo.shiftStep > 0, 'layouts.shiftStep > 0');
   need((v.layers || []).some((l) => l[0] === 'hall'), "layouts: нет слоя 'hall' (в него движок кладёт зал)");
   for (const k of ['build', 'range', 'seats']) need(typeof lo[k] === 'function', `нет layouts.${k}()`);
+  if (lo.steppers !== undefined) need(typeof lo.steppers === 'boolean', 'layouts.steppers должен быть boolean');
+  if (lo.animate !== undefined) need(typeof lo.animate === 'function', 'layouts.animate должна быть функцией');
 }
 
 /** Проверка модуля площадки. @returns {string[]} список ошибок (пустой — всё в порядке) */
@@ -142,5 +146,11 @@ export function validateVenue(v) {
     for (const g of v.lightPlans?.[plan] || []) for (const m of g.members) need(!!fx?.groups?.[m], `lightPlans.${plan}.${g.id}: группа «${m}» не описана`);
   }
   need(v.exports && typeof v.exports === 'object', 'нет exports (может быть пустым объектом)');
+  if (v.texts !== undefined) {
+    need(v.texts && typeof v.texts === 'object', 'texts должен быть объектом');
+    for (const k of ['rigDrag', 'rigHint', 'layoutHint', 'extraEquipment']) {
+      if (v.texts?.[k] !== undefined) need(typeof v.texts[k] === 'string', `texts.${k} должен быть строкой`);
+    }
+  }
   return err;
 }

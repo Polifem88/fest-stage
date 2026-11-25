@@ -85,7 +85,7 @@ export function rigPanel(stage, { compact = false } = {}) {
   const legend = h('div', { class: 'legend' },
     kindsPresent(RIGGING).map((k) => h('span', { class: `k-${k}` }, RIG_KINDS[k].short)),
   );
-  return h('div', { class: 'panel-rig' }, bar, compact ? null : legend, h('div', { class: 'hint' }, 'Порядок — спереди назад. Высота трубы над планшетом.'), list);
+  return h('div', { class: 'panel-rig' }, bar, compact ? null : legend, h('div', { class: 'hint' }, stage.venue.texts?.rigHint || 'Порядок — спереди назад. Высота трубы над планшетом.'), list);
 }
 
 /** Переключатель-«пилюля». */
@@ -271,7 +271,7 @@ export function layoutPanel(stage, { compact = false } = {}) {
   const cur = () => stage.layout;
   const btns = cfg.list.map((l) => {
     const seats = h('small', { class: 'layout-seats' });
-    const b = h('button', { class: 'btn layout-btn', 'data-layout': l.id, onclick: () => stage.setLayout({ id: l.id }) },
+    const b = h('button', { class: 'btn layout-btn', 'data-layout': l.id, onclick: () => stage.setLayout({ id: l.id }, { animate: true }) },
       h('span', { class: 'lbl' }, l.name), seats);
     b._seats = seats;
     b._id = l.id;
@@ -299,7 +299,7 @@ export function layoutPanel(stage, { compact = false } = {}) {
       const n = cfg.seats(on ? st : { id: l.id, rows: l.rowsMax, shift: 0 });
       b._seats.textContent = seatsLabel(n) || 'без мест';
     }
-    steppers.hidden = it.rowsMax === 0;
+    steppers.hidden = cfg.steppers === false || it.rowsMax === 0;
     const [s0, s1] = cfg.range(st.id, st.rows);
     rows.val.textContent = `${st.rows} из ${it.rowsMax}`;
     rows.minus.disabled = st.rows <= Math.min(1, it.rowsMax);
@@ -315,7 +315,7 @@ export function layoutPanel(stage, { compact = false } = {}) {
     h('h4', {}, 'Планировка зала'),
     h('div', { class: `layout-list ${compact ? 'grid-2' : 'grid-1'}` }, btns),
     steppers,
-    h('div', { class: 'hint' }, `«Рядов» убирает задние ряды, «Сдвиг» двигает весь зал поперёк рядов с шагом ${fmt(step, 1)} м.`),
+    h('div', { class: 'hint' }, stage.venue.texts?.layoutHint ?? `«Рядов» убирает задние ряды, «Сдвиг» двигает весь зал поперёк рядов с шагом ${fmt(step, 1)} м.`),
   );
 }
 

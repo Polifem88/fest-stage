@@ -116,7 +116,7 @@
   - Контракт `texts`: опциональные `rigHint?: string`, `layoutHint?: string`.
   - `stage.setLayout(partial = {}, { animate = false } = {})`: без `animate` (или без `venue.layouts.animate`) — прежний синхронный `_swapHall(st)`; при `animate === true && venue.layouts.animate` — останавливает прежнюю `_hallAnim`, обновляет `this.layout = st`, `floor.setLayout?.(st)`, помещает анимируемую группу в `layerGroups.hall` (применяя `_bpApply`, если `_bpOn`), крутит `update(k)` в `_loop()`, а при `k >= 1` (или при отмене в `_stopHallAnim()`) освобождает временную группу и вызывает штатный `_swapHall(st)` + `fixtures.updateAll()` + `lighting.placeGroupLights()`. Событие `emit('layout', { ...st })` отправляется сразу при начале перехода, чтобы кнопки UI переключались мгновенно.
 
-- [ ] **Step 1: Написать падающие тесты в `venues.contract.test.js` и поправить индекс механики в `state.test.js`**
+- [x] **Step 1: Написать падающие тесты в `venues.contract.test.js` и поправить индекс механики в `state.test.js`**
   В `app/tests/unit/venues.contract.test.js` добавить проверки:
   - подъём с `kind: 'truss'` проходит `validateVenue`;
   - `layouts` со `steppers: false` и функцией `animate` проходит `validateVenue`, а `steppers: 'no'` или `animate: 123` возвращают ошибку контракта.
@@ -128,18 +128,18 @@
   }
   ```
 
-- [ ] **Step 2: Запустить тесты и убедиться, что новые проверки падают**
+- [x] **Step 2: Запустить тесты и убедиться, что новые проверки падают**
   Run: `cd app; npx.cmd vitest run tests/unit/venues.contract.test.js tests/unit/state.test.js`
   Expected: FAIL на `kind: 'truss'` и валидации `steppers` / `animate`.
 
-- [ ] **Step 3: Реализовать расширения в `rigKinds.js`, `style.css`, `contract.js`, `ui/common.js`, `engine/stage.js`**
+- [x] **Step 3: Реализовать расширения в `rigKinds.js`, `style.css`, `contract.js`, `ui/common.js`, `engine/stage.js`**
   - В `style.css` добавить `--truss: #2dd4bf;` в `:root` и `.k-truss { color: var(--truss); }` рядом с `.k-side`.
   - В `ui/common.js`:
     - `rigPanel`: текст подсказки `stage.venue.texts?.rigHint || 'Порядок — спереди назад. Высота трубы над планшетом.'`;
     - `layoutPanel`: клик по кнопке планировки вызывает `stage.setLayout({ id: l.id }, { animate: true })`; `steppers.hidden = cfg.steppers === false || it.rowsMax === 0`; текст подсказки `stage.venue.texts?.layoutHint ?? '«Рядов» убирает задние ряды…'`.
   - В `engine/stage.js`: добавить метод `_stopHallAnim({ commit = false } = {})` и вызывать его в `_teardownVenue()` (`commit: false`), в начале `setLayout()` (`commit: false`) и при переходе в `ortho` в `setView()` (`commit: true`). В `_loop()` наравне с `this._anim` обновлять `this._hallAnim`.
 
-- [ ] **Step 4: Проверить все юнит-тесты и 100 % паритет `big`, `chamber`, `roof`**
+- [x] **Step 4: Проверить все юнит-тесты и 100 % паритет `big`, `chamber`, `roof`**
   Run:
   ```powershell
   cd "d:\Antigravity Projects\fest-3dmodels-and-stages\app"
@@ -149,7 +149,7 @@
   ```
   Expected: все юнит-тесты (включая `boundaries.test.js`) PASS; `parity.mjs compare` — код `0` (100 % по всем трём готовым площадкам).
 
-- [ ] **Step 5: Закоммитить и проверить счётчик 10-го коммита**
+- [x] **Step 5: Закоммитить и проверить счётчик 10-го коммита**
   ```powershell
   git add app/src/library/rigKinds.js app/src/ui/style.css app/src/venues/contract.js app/src/ui/common.js app/src/engine/stage.js app/tests/unit/state.test.js app/tests/unit/venues.contract.test.js
   git commit -m "Движок и UI: вид механики truss, опция layouts.steppers и хук анимации зала"

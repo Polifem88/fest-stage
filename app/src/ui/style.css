@@ -12,6 +12,7 @@
   --light: #ffb35c;
   --track: #b98cff;
   --side: #46d39a;
+  --truss: #2dd4bf;
   --r: 10px;
   color-scheme: dark;
 }
@@ -43,7 +44,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 h4 { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .hint { color: var(--muted); font-size: 12px; margin: 4px 0 8px; }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; margin-bottom: 4px; }
-.k-batten { color: var(--batten); } .k-light { color: var(--light); } .k-track { color: var(--track); } .k-side { color: var(--side); }
+.k-batten { color: var(--batten); } .k-light { color: var(--light); } .k-track { color: var(--track); } .k-side { color: var(--side); } .k-truss { color: var(--truss); }
 
 /* --- механика --- */
 .rig-list { display: grid; gap: 2px; }
