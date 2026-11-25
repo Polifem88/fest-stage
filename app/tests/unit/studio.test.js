@@ -3,15 +3,17 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { StaticBatch, rect } from '../../src/core/geom.js';
 import { STUDIO, ceilingItems, trussFootprints } from '../../src/venues/fest-studio/config/dimensions.js';
+import { RIGGING, RIG_BY_ID, describeRig } from '../../src/venues/fest-studio/config/rigging.js';
 import { FIXTURES, TYPES, SPECS, GROUPS, GROUP_SETS, LIGHT_PLANS } from '../../src/venues/fest-studio/config/fixtures.js';
 import { panelUV } from '../../src/venues/fest-studio/build/panels.js';
 import { buildArchitecture } from '../../src/venues/fest-studio/build/architecture.js';
 import { cycPatches, buildCyclorama, FLOOR_LIFT } from '../../src/venues/fest-studio/build/cyclorama.js';
 import { buildTrusses } from '../../src/venues/fest-studio/build/trusses.js';
+import { StudioRigging } from '../../src/venues/fest-studio/build/rigging.js';
 import { buildEmitters } from '../../src/venues/fest-studio/build/emitters.js';
 import { ambientLights } from '../../src/venues/fest-studio/build/ambient.js';
 
-const fakeM = () => new Proxy({}, { get: (t, p) => (t[p] ||= new THREE.MeshBasicMaterial({ name: String(p) })) });
+const fakeM = () => new Proxy({}, { get: (t, p) => (t[p] ||= new THREE.MeshStandardMaterial({ name: String(p) })) });
 const triCount = (group) => { let n = 0; group?.traverse((o) => { if (o.isMesh) n += o.geometry.attributes.position.count / 3; }); return n; };
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
 const overlap = (a, b, eps = 1e-6) => a[0] < b[1] - eps && a[1] > b[0] + eps && a[2] < b[3] - eps && a[3] > b[2] + eps;
@@ -351,6 +353,86 @@ describe('Студия · фермы и дежурный свет', () => {
     for (const L of [...full.duty, ...lite.duty]) {
       expect(L.position.y).toBeLessThan(STUDIO.trusses.upper.y0);
     }
+  });
+});
+
+describe('Студия · подвижная ферма', () => {
+  it('габариты и зазоры: оси 4,10 × 5,00 под Ф3 (−3,20) и Ф5 (+1,80), 1,00 м от стен, 0,35 м до нижних ферм, без касания выкружек циклорамы', () => {
+    const MT = STUDIO.movableTruss;
+    const T = STUDIO.trusses, half = T.size / 2;
+    const f3 = T.upper.lines.find((l) => l.id === 'Ф3');
+    const f5 = T.upper.lines.find((l) => l.id === 'Ф5');
+    expect(MT.d0).toBe(f3.at);
+    expect(MT.d1).toBe(f5.at);
+    expect(near(STUDIO.room.x1 - MT.x, 1.00)).toBe(true);
+    expect(near(MT.x * 2, 4.10)).toBe(true);
+    expect(near(MT.d1 - MT.d0, 5.00)).toBe(true);
+    expect(near(T.upper.y0 - (MT.restY + T.size), 0.40)).toBe(true);
+
+    // Внешний габарит [-2.20..2.20] × [-3.35..1.95]
+    const extX = MT.x + half, extD0 = MT.d0 - half, extD1 = MT.d1 + half;
+    expect(near(extX, 2.20) && near(extD0, -3.35) && near(extD1, 1.95)).toBe(true);
+    const innerLowerX = 2.70 - half; // 2.55
+    expect(near(innerLowerX - extX, 0.35)).toBe(true);
+    // Внутри циклорамы (d > 0) рама целиком помещается на плоском полу до начала дуг R = 0,70
+    const flatCycX = STUDIO.cyc.x1 - STUDIO.cyc.r; // 2.325
+    const flatCycD = STUDIO.cyc.d1 - STUDIO.cyc.r; // 3.275
+    expect(extX).toBeLessThan(flatCycX);
+    expect(extD1).toBeLessThan(flatCycD);
+
+    expect(RIGGING).toEqual([{ id: 'MF', name: 'ФП', fullName: 'Подъёмная ферма 4,1 × 5,0 м (4 лебёдки)', kind: 'truss', min: 0, max: 4.5, rest: 4.5 }]);
+    expect(RIG_BY_ID.MF).toEqual(RIGGING[0]);
+    expect(describeRig(RIGGING[0]).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('StudioRigging: ход 0…4,50 м, 4 динамические цепи к лебёдкам, 4-сторонний hit, меньше треугольников на mobile', () => {
+    const M = fakeM();
+    const desk = new StudioRigging(M, { mobile: false });
+    const mob = new StudioRigging(M, { mobile: true });
+    expect(triCount(mob.get('MF').visual)).toBeLessThan(triCount(desk.get('MF').visual));
+
+    const batch = new StaticBatch();
+    desk.buildStatic(batch);
+    const L = batch.build();
+    expect(L.rigging).toBeTruthy();
+
+    expect(desk.height('MF')).toBe(4.5);
+    expect(desk.get('MF').hit.userData.pick).toEqual({ kind: 'rig', id: 'MF' });
+
+    // Проверка зажима и обновления 4 цепей (верх 4,92 м, низ h + 0,30 м)
+    const checkChains = (expectedH) => {
+      expect(desk.get('MF').group.position.y).toBeCloseTo(expectedH, 5);
+      const pos = desk.cables.geometry.attributes.position;
+      expect(pos.count).toBe(8); // 4 цепи × 2 вершины
+      for (let i = 0; i < 4; i++) {
+        const yA = pos.getY(i * 2), yB = pos.getY(i * 2 + 1);
+        expect(Math.min(yA, yB)).toBeCloseTo(expectedH + STUDIO.trusses.size, 5);
+        expect(Math.max(yA, yB)).toBeCloseTo(STUDIO.movableTruss.hoist.y0, 5);
+      }
+    };
+    checkChains(4.5);
+    desk.setHeight('MF', -1);
+    expect(desk.height('MF')).toBe(0);
+    checkChains(0);
+    desk.setHeight('MF', 9.9);
+    expect(desk.height('MF')).toBe(4.5);
+    desk.setHeight('MF', 2.15);
+    expect(desk.height('MF')).toBe(2.15);
+    checkChains(2.15);
+
+    // Луч в каждую из 4 сторон рамы попадает в hit
+    desk.root.updateMatrixWorld(true);
+    const ray = new THREE.Raycaster();
+    for (const [x, d] of [[-2.05, 0], [2.05, 0], [0, -3.20], [0, 1.80]]) {
+      ray.set(new THREE.Vector3(x, 10, -d), new THREE.Vector3(0, -1, 0));
+      const hits = ray.intersectObject(desk.get('MF').hit, false);
+      expect(hits.length, `луч в сторону (${x}, ${d})`).toBeGreaterThan(0);
+    }
+
+    desk.highlight('MF');
+    expect(desk.hover('MF')).toBe(true);
+    expect(desk.axis('MF')).toHaveLength(2);
+    expect(desk.snapshot()).toEqual({ MF: 2.15 });
   });
 });
 

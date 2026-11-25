@@ -187,27 +187,27 @@
   - `config/rigging.js`: `RIGGING` (`[{ id: 'MF', name: 'ФП', fullName: 'Подъёмная ферма 4,1 × 5,0 м (4 лебёдки)', kind: 'truss', min: 0, max: 4.5, rest: 4.5 }]`), `RIG_BY_ID`, `describeRig(r)`.
   - `build/rigging.js`: `export class StudioRigging` с конструктором `(M, { labels = null, mobile = false } = {})` и полным контрактом движка (`root`, `items`, `cables`, `buildStatic(batch)`, `onChange(fn)`, `get(id)`, `height(id)`, `setHeight(id, h, { silent })`, `highlight(id)`, `hover(id)`, `axis(id)`, `setLabelLayout(mode)`, `snapshot()`).
 
-- [ ] **Step 1: Написать падающие тесты в `app/tests/unit/studio.test.js` (блок `Студия · подвижная ферма`)**
+- [x] **Step 1: Написать падающие тесты в `app/tests/unit/studio.test.js` (блок `Студия · подвижная ферма`)**
   Проверить:
   - оси подвеса совпадают с `Ф3` (`-3.20`) и `Ф5` (`+1.80`), отступ от боковых стен `3.05 - 2.05 = 1.00` м;
   - при `h = 4.50` м верх фермы `4.80` м отстоит на `0.40` м от `STUDIO.trusses.upper.y0` (`5.20` м);
   - зазор внешнего габарита `[-2.20..2.20] × [-3.35..1.95]` до нижних боковых ферм (`±2.55`) равен `0.35` м, а внутри циклорамы (`d > 0`) рама целиком лежит в пределах плоского пола `[-2.325..2.325] × [0..3.275]` без пересечения с выкружками `R = 0.70`;
   - `StudioRigging`: `setHeight('MF', 0)` и `setHeight('MF', 2.15)` зажимают ход в `[0, 4.5]`, двигают `group.position.y` и обновляют нижние концы всех 4 цепей в `cables.geometry.attributes.position` на `h + 0.30` при верхних концах `4.92`; на `mobile: true` число треугольников рамы меньше, чем на `mobile: false`; `hit.userData.pick` равен `{ kind: 'rig', id: 'MF' }`.
 
-- [ ] **Step 2: Запустить тест и убедиться в FAIL**
+- [x] **Step 2: Запустить тест и убедиться в FAIL**
   Run: `cd app; npx.cmd vitest run tests/unit/studio.test.js`
   Expected: FAIL (`Cannot find module .../config/rigging.js`).
 
-- [ ] **Step 3: Реализовать `STUDIO.movableTruss`, `config/rigging.js` и `build/rigging.js`**
+- [x] **Step 3: Реализовать `STUDIO.movableTruss`, `config/rigging.js` и `build/rigging.js`**
   - В `StudioRigging`: рама строится в локальных координатах `y0: 0, y1: 0.30` через `trussLineTubes`, сливается в один меш `visual` с материалом `M.trussAlu.clone()` (`group.position.y = h`).
   - `hit` — один невидимый меш из 4 боксов сечением `0.42 × 0.42` м вдоль 4 сторон рамы (внутри `group`, поднимается вместе с ней).
   - `buildStatic(batch)` добавляет в слой `'rigging'` 4 корпуса лебёдок (`M.fixtureBody`) и 4 спансета (`M.steel`) под `Ф3` и `Ф5`.
 
-- [ ] **Step 4: Прогнать тесты**
+- [x] **Step 4: Прогнать тесты**
   Run: `cd app; npx.cmd vitest run tests/unit/studio.test.js`
   Expected: PASS.
 
-- [ ] **Step 5: Закоммитить и проверить счётчик 10-го коммита**
+- [x] **Step 5: Закоммитить и проверить счётчик 10-го коммита**
   ```powershell
   git add app/src/venues/fest-studio/config/dimensions.js app/src/venues/fest-studio/config/rigging.js app/src/venues/fest-studio/build/rigging.js app/tests/unit/studio.test.js
   git commit -m "Студия: подвижная ферма 4,1×5,0 м на 4 цепных лебёдках (конфиг и кинематика)"
