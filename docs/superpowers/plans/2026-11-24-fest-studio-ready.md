@@ -556,7 +556,7 @@
   ```
   Expected: `npm.cmd run check` зелёный; бэкап сообщает `VERIFIED (100% MATCH)` для рабочего зеркала и снимка, архив `.zip` проверен `tar.exe -tf`.
 
-- [ ] **Step 6: Живой показ заказчику и слияние в `master` (ТОЧКА ОСТАНОВКИ)**
+- [x] **Step 6: Живой показ заказчику и слияние в `master` (ТОЧКА ОСТАНОВКИ)**
   Запустить `npm.cmd run dev` для итоговой проверки заказчиком (`desktop.html#v=studio`, `mobile.html#v=studio`, `index.html`). **Только после явного «ок» заказчика:**
   ```powershell
   cd "d:\Antigravity Projects\fest-3dmodels-and-stages"
