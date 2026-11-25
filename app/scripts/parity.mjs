@@ -89,6 +89,17 @@ const VENUES = {
     exports: ['default', 'lo-traverse', 'lo-cross-r4-s3'],
     states: ['default', 'lo-traverse', 'lo-cross-r4-s3', 'plan+bp+dims+grid', 'off+house+haze55'],
   },
+  studio: {
+    layouts: true,
+    shots: async (page) => [
+      ...(await VENUES.chamber.shots(page)),
+      'overview+lo-unfolded', 'hall+lo-unfolded', 'cycToExit+lo-unfolded',
+      'plan+lo-unfolded+bp+dims', 'section+lo-unfolded+bp+dims',
+      'overview+lo-unfolded+mf2', 'camera+mf2', 'overview+selMF',
+    ],
+    exports: ['default', 'lo-unfolded', 'lo-unfolded-mf2'],
+    states: ['default', 'lo-unfolded', 'lo-unfolded-mf2', 'plan+bp+dims+grid', 'off+haze55'],
+  },
 };
 const STATE_KEYS = ['heights', 'fixturesOn', 'flags', 'layers', 'portable', 'view'];
 /** Ключи состояния площадки: с трансформируемым залом (VENUES[id].layouts) сравнивается и планировка. */
@@ -164,6 +175,9 @@ async function applyScenario(page, name) {
       case 'off+house+haze55': f.light('all', false); f.flag('house', true); f.flag('hazeDensity', 0.55); break;
       case 'lo-traverse': f.setLayout({ id: 'traverse' }); break;
       case 'lo-cross-r4-s3': f.setLayout({ id: 'cross', rows: 4, shift: 3 }); break;
+      case 'lo-unfolded': f.setLayout({ id: 'unfolded' }); break;
+      case 'lo-unfolded-mf2': f.setLayout({ id: 'unfolded' }); f.setHeight('MF', 2); break;
+      case 'off+haze55': f.light('all', false); f.flag('hazeDensity', 0.55); break;
       default: throw new Error(`неизвестный сценарий ${name}`);
     }
     f.renderNow();

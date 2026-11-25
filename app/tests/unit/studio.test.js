@@ -3,15 +3,35 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { StaticBatch, rect } from '../../src/core/geom.js';
 import { STUDIO, ceilingItems, trussFootprints } from '../../src/venues/fest-studio/config/dimensions.js';
-import { FIXTURES, TYPES, SPECS, GROUPS, GROUP_SETS, LIGHT_PLANS } from '../../src/venues/fest-studio/config/fixtures.js';
+import { RIGGING, RIG_BY_ID, describeRig } from '../../src/venues/fest-studio/config/rigging.js';
+import { LAYOUTS, DEFAULT_LAYOUT, SHIFT_STEP, shiftRange, seatCount, bleacherPose, placed } from '../../src/venues/fest-studio/config/layouts.js';
+import { FIXTURES, TYPES, SPECS, INVENTORY, GROUPS, GROUP_SETS, LIGHT_PLANS, countByType } from '../../src/venues/fest-studio/config/fixtures.js';
+import { TYPES as LIB_TYPES } from '../../src/library/fixtureTypes.js';
 import { panelUV } from '../../src/venues/fest-studio/build/panels.js';
 import { buildArchitecture } from '../../src/venues/fest-studio/build/architecture.js';
 import { cycPatches, buildCyclorama, FLOOR_LIFT } from '../../src/venues/fest-studio/build/cyclorama.js';
 import { buildTrusses } from '../../src/venues/fest-studio/build/trusses.js';
+import { StudioRigging } from '../../src/venues/fest-studio/build/rigging.js';
+import { buildHall, animateHall } from '../../src/venues/fest-studio/build/hall.js';
+import { FLOOR, hangs, poolK } from '../../src/venues/fest-studio/build/floor.js';
 import { buildEmitters } from '../../src/venues/fest-studio/build/emitters.js';
 import { ambientLights } from '../../src/venues/fest-studio/build/ambient.js';
+import { dimList, buildDims, buildGrid } from '../../src/venues/fest-studio/build/overlays.js';
+import { setGridView } from '../../src/core/overlays.js';
 
-const fakeM = () => new Proxy({}, { get: (t, p) => (t[p] ||= new THREE.MeshBasicMaterial({ name: String(p) })) });
+const fakeM = () => new Proxy({}, {
+  get: (t, p) => {
+    if (!t[p]) {
+      const m = new THREE.MeshStandardMaterial({ name: String(p) });
+      if (p === 'aluDeck') {
+        m.map = new THREE.Texture();
+        m.userData.uvScale = 0.25;
+      }
+      t[p] = m;
+    }
+    return t[p];
+  },
+});
 const triCount = (group) => { let n = 0; group?.traverse((o) => { if (o.isMesh) n += o.geometry.attributes.position.count / 3; }); return n; };
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
 const overlap = (a, b, eps = 1e-6) => a[0] < b[1] - eps && a[1] > b[0] + eps && a[2] < b[3] - eps && a[3] > b[2] + eps;
@@ -141,15 +161,6 @@ describe('Студия · геометрия', () => {
         expect(overlap(a, tr), `${it.kind} (${it.x0}..${it.x1}, ${it.d0}..${it.d1}) ↔ ферма ${JSON.stringify(tr)}`).toBe(false);
       }
     }
-  });
-
-  it('развес приборов в черновике пуст', () => {
-    expect(FIXTURES).toEqual([]);
-    expect(TYPES).toEqual({});
-    expect(SPECS).toEqual({});
-    expect(GROUPS).toEqual({});
-    expect(GROUP_SETS).toEqual([]);
-    expect(LIGHT_PLANS).toEqual({ full: [], lite: [] });
   });
 });
 
@@ -351,6 +362,302 @@ describe('Студия · фермы и дежурный свет', () => {
     for (const L of [...full.duty, ...lite.duty]) {
       expect(L.position.y).toBeLessThan(STUDIO.trusses.upper.y0);
     }
+  });
+});
+
+describe('Студия · подвижная ферма', () => {
+  it('габариты и зазоры: оси 4,10 × 5,00 под Ф3 (−3,20) и Ф5 (+1,80), 1,00 м от стен, 0,35 м до нижних ферм, без касания выкружек циклорамы', () => {
+    const MT = STUDIO.movableTruss;
+    const T = STUDIO.trusses, half = T.size / 2;
+    const f3 = T.upper.lines.find((l) => l.id === 'Ф3');
+    const f5 = T.upper.lines.find((l) => l.id === 'Ф5');
+    expect(MT.d0).toBe(f3.at);
+    expect(MT.d1).toBe(f5.at);
+    expect(near(STUDIO.room.x1 - MT.x, 1.00)).toBe(true);
+    expect(near(MT.x * 2, 4.10)).toBe(true);
+    expect(near(MT.d1 - MT.d0, 5.00)).toBe(true);
+    expect(near(T.upper.y0 - (MT.restY + T.size), 0.40)).toBe(true);
+
+    // Внешний габарит [-2.20..2.20] × [-3.35..1.95]
+    const extX = MT.x + half, extD0 = MT.d0 - half, extD1 = MT.d1 + half;
+    expect(near(extX, 2.20) && near(extD0, -3.35) && near(extD1, 1.95)).toBe(true);
+    const innerLowerX = 2.70 - half; // 2.55
+    expect(near(innerLowerX - extX, 0.35)).toBe(true);
+    // Внутри циклорамы (d > 0) рама целиком помещается на плоском полу до начала дуг R = 0,70
+    const flatCycX = STUDIO.cyc.x1 - STUDIO.cyc.r; // 2.325
+    const flatCycD = STUDIO.cyc.d1 - STUDIO.cyc.r; // 3.275
+    expect(extX).toBeLessThan(flatCycX);
+    expect(extD1).toBeLessThan(flatCycD);
+
+    expect(RIGGING).toEqual([{ id: 'MF', name: 'ФП', fullName: 'Подъёмная ферма 4,1 × 5,0 м (4 лебёдки)', kind: 'truss', min: 0, max: 4.5, rest: 4.5 }]);
+    expect(RIG_BY_ID.MF).toEqual(RIGGING[0]);
+    expect(describeRig(RIGGING[0]).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('StudioRigging: ход 0…4,50 м, 4 динамические цепи к лебёдкам, 4-сторонний hit, меньше треугольников на mobile', () => {
+    const M = fakeM();
+    const desk = new StudioRigging(M, { mobile: false });
+    const mob = new StudioRigging(M, { mobile: true });
+    expect(triCount(mob.get('MF').visual)).toBeLessThan(triCount(desk.get('MF').visual));
+
+    const batch = new StaticBatch();
+    desk.buildStatic(batch);
+    const L = batch.build();
+    expect(L.rigging).toBeTruthy();
+
+    expect(desk.height('MF')).toBe(4.5);
+    expect(desk.get('MF').hit.userData.pick).toEqual({ kind: 'rig', id: 'MF' });
+
+    // Проверка зажима и обновления 4 цепей (верх 4,92 м, низ h + 0,30 м)
+    const checkChains = (expectedH) => {
+      expect(desk.get('MF').group.position.y).toBeCloseTo(expectedH, 5);
+      const pos = desk.cables.geometry.attributes.position;
+      expect(pos.count).toBe(8); // 4 цепи × 2 вершины
+      for (let i = 0; i < 4; i++) {
+        const yA = pos.getY(i * 2), yB = pos.getY(i * 2 + 1);
+        expect(Math.min(yA, yB)).toBeCloseTo(expectedH + STUDIO.trusses.size, 5);
+        expect(Math.max(yA, yB)).toBeCloseTo(STUDIO.movableTruss.hoist.y0, 5);
+      }
+    };
+    checkChains(4.5);
+    desk.setHeight('MF', -1);
+    expect(desk.height('MF')).toBe(0);
+    checkChains(0);
+    desk.setHeight('MF', 9.9);
+    expect(desk.height('MF')).toBe(4.5);
+    desk.setHeight('MF', 2.15);
+    expect(desk.height('MF')).toBe(2.15);
+    checkChains(2.15);
+
+    // Луч в каждую из 4 сторон рамы попадает в hit
+    desk.root.updateMatrixWorld(true);
+    const ray = new THREE.Raycaster();
+    for (const [x, d] of [[-2.05, 0], [2.05, 0], [0, -3.20], [0, 1.80]]) {
+      ray.set(new THREE.Vector3(x, 10, -d), new THREE.Vector3(0, -1, 0));
+      const hits = ray.intersectObject(desk.get('MF').hit, false);
+      expect(hits.length, `луч в сторону (${x}, ${d})`).toBeGreaterThan(0);
+    }
+
+    desk.highlight('MF');
+    expect(desk.hover('MF')).toBe(true);
+    expect(desk.axis('MF')).toHaveLength(2);
+    expect(desk.snapshot()).toEqual({ MF: 2.15 });
+  });
+});
+
+describe('Студия · блитчер и планировки', () => {
+  it('планировки folded (по умолчанию, 0 мест) и unfolded (40 мест), проходы и зазоры у стен, дверей и фермы', () => {
+    expect(DEFAULT_LAYOUT).toBe('folded');
+    expect(LAYOUTS.map((l) => l.id)).toEqual(['folded', 'unfolded']);
+    expect(SHIFT_STEP).toBe(0.5);
+    expect(shiftRange('folded', 0)).toEqual([0, 0]);
+    expect(shiftRange('unfolded', 5)).toEqual([0, 0]);
+    expect(seatCount({ id: 'folded', rows: 0, shift: 0 })).toBe(0);
+    expect(seatCount({ id: 'unfolded', rows: 5, shift: 0 })).toBe(40);
+
+    // Свёрнутый вид: пакет 1,07 м (d = −7,90 … −6,83), проход 0,70 м под козырьком, все 8 боковых поручней не выходят за стены
+    const pf = placed({ id: 'folded', rows: 0, shift: 0 });
+    expect(pf.tiers).toHaveLength(4);
+    expect(near(Math.min(...pf.tiers.map((t) => t.d0)), -7.90)).toBe(true);
+    expect(near(Math.max(...pf.tiers.map((t) => t.d1)), -6.83)).toBe(true);
+    expect(near(pf.tiers[0].d0 - STUDIO.room.d0, 0.70)).toBe(true);
+    expect(pf.floorChairs).toHaveLength(0);
+    expect(pf.sideRails).toHaveLength(8);
+    for (const sr of pf.sideRails) {
+      const tipX = sr.x + Math.sin(sr.splayRad) * (sr.d1 - sr.d0);
+      expect(tipX).toBeGreaterThanOrEqual(STUDIO.room.x0 + 0.025);
+      expect(tipX).toBeLessThanOrEqual(STUDIO.room.x1 - 0.025);
+    }
+    expect(pf.backRail.y1).toBeCloseTo(2.20, 5);
+    expect(pf.backRail.y1).toBeLessThan(STUDIO.canopy.y);
+
+    // Разложенный вид: 4 яруса 0,30…1,20 на d = −7,90…−4,10, справа проход 1,45 м, 32 кресла + 8 стульев 0-го ряда
+    const pu = placed({ id: 'unfolded', rows: 5, shift: 0 });
+    expect(pu.tiers.map((t) => t.h).sort((a, b) => a - b)).toEqual([0.30, 0.60, 0.90, 1.20]);
+    expect(near(Math.min(...pu.tiers.map((t) => t.d0)), -7.90)).toBe(true);
+    expect(near(Math.max(...pu.tiers.map((t) => t.d1)), -4.10)).toBe(true);
+    expect(near(STUDIO.room.x1 - STUDIO.bleacher.x1, 1.45)).toBe(true);
+    expect(pu.bleacherSeats).toHaveLength(32);
+    expect(pu.floorChairs).toHaveLength(8);
+    for (const ch of pu.floorChairs) {
+      expect(ch.y).toBe(0);
+      expect(ch.d).toBeCloseTo(-3.60, 5);
+      // Передний край сиденья стула (глубина 0,42) оставляет запас ≥ 2,5 см до задней грани подвижной фермы (−3,35)
+      expect(ch.d + 0.21).toBeLessThanOrEqual(STUDIO.movableTruss.d0 - STUDIO.trusses.size / 2 - 0.025);
+    }
+  });
+
+  it('двухфазная кинематика bleacherPose, worldUV настилов и оранжевые боковины в buildHall / animateHall', () => {
+    expect(bleacherPose(0)).toEqual({ tSlide: 0, tFold: 0, tChairs: 0 });
+    expect(bleacherPose(1)).toEqual({ tSlide: 1, tFold: 1, tChairs: 1 });
+    const p04 = bleacherPose(0.4);
+    expect(p04.tSlide).toBeGreaterThan(0);
+    expect(p04.tSlide).toBeLessThan(1);
+    expect(p04.tFold).toBe(0);
+    expect(p04.tChairs).toBe(0);
+    const p08 = bleacherPose(0.8);
+    expect(p08.tSlide).toBe(1);
+    expect(p08.tFold).toBeGreaterThan(0);
+    expect(p08.tFold).toBeLessThan(1);
+    expect(p08.tChairs).toBeGreaterThan(0);
+
+    const M = fakeM();
+    for (const st of [{ id: 'folded', rows: 0, shift: 0 }, { id: 'unfolded', rows: 5, shift: 0 }]) {
+      const g = buildHall(st, { M, profile: { name: 'desktop' } });
+      let fabricCount = -1;
+      let deckUVSpan = 0;
+      let curtainHex = 0;
+      g.traverse((o) => {
+        if (!o.isMesh) return;
+        const pos = o.geometry.attributes.position;
+        expect(pos.count, `пустая геометрия меша ${o.name}`).toBeGreaterThan(0);
+        for (let i = 0; i < pos.count; i++) {
+          expect(Number.isFinite(pos.getX(i)) && Number.isFinite(pos.getY(i)) && Number.isFinite(pos.getZ(i))).toBe(true);
+        }
+        if (o.name === 'hallDeck') {
+          const uv = o.geometry.attributes.uv;
+          let minU = Infinity, maxU = -Infinity;
+          for (let i = 0; i < uv.count; i++) { minU = Math.min(minU, uv.getX(i)); maxU = Math.max(maxU, uv.getX(i)); }
+          deckUVSpan = maxU - minU;
+        }
+        if (o.name === 'hallCurtains') {
+          curtainHex = o.material.color.getHex();
+          expect(o.material.emissiveIntensity).toBeGreaterThanOrEqual(0.5);
+        }
+        if (o.userData.static) {
+          // проверка совместимости с режимом «чертёж» (EdgesGeometry)
+          const eg = new THREE.EdgesGeometry(o.geometry, 28);
+          eg.dispose();
+        }
+        if (o.name === 'seatsFabric') fabricCount = o.count;
+      });
+      expect(fabricCount).toBe(st.id === 'unfolded' ? 40 : 0);
+      // 4,50 м ширины при uvScale = 0,25 м даёт размах U ≈ 18 повторов (не стандартный 0..1)
+      expect(deckUVSpan).toBeGreaterThan(15);
+      expect(curtainHex).toBe(0xc4602a);
+    }
+
+    const anim = animateHall({ id: 'folded', rows: 0, shift: 0 }, { id: 'unfolded', rows: 5, shift: 0 }, { M, profile: { name: 'desktop' } });
+    expect(anim.duration).toBeGreaterThanOrEqual(800);
+    for (const k of [0, 0.25, 0.5, 0.75, 1]) anim.update(k);
+    anim.dispose();
+  });
+});
+
+describe('Студия · наложения чертежа (overlays) и метка ФП', () => {
+  it('размерные цепочки разнесены с сеткой на разрезе, zeroLineLabel скрывается на разрезе, метка ФП вне Ф3/лебёдки', () => {
+    const dims = dimList();
+    const depthDim = dims.find(([, , txt]) => txt.startsWith('Глубина'));
+    const mfDim = dims.find(([, , txt]) => txt.startsWith('ФП ') && !txt.startsWith('ФП макс.'));
+    expect(depthDim[0][1]).toBeLessThan(-0.2); // ниже уровня пола и меток сетки Y = 0,02 на разрезе
+    expect(mfDim[0][1]).toBeGreaterThan(4.5); // выше уровня пола на разрезе
+    expect(mfDim[0][0]).toBeLessThan(STUDIO.movableTruss.x - 0.2); // сдвинута внутрь от ветви МП-П
+    expect(mfDim[3]).toBeGreaterThan(0.6); // в пролёте Ф4–Ф5, вдали от шильдика ФП (d = −2,05) на разрезе
+
+    const fakeLabels = {
+      make: (text, opts = {}) => {
+        const o = new THREE.Object3D();
+        o.name = `lbl:${text}`;
+        o.material = { depthTest: opts.depthTest !== false };
+        return o;
+      },
+    };
+    const grid = buildGrid(fakeLabels);
+    setGridView(grid, 'side');
+    expect(grid.userData.xLabels.visible).toBe(false);
+    let zeroInX = false;
+    grid.userData.xLabels.traverse((o) => { if (o.name === `lbl:${STUDIO.zeroLineLabel}`) zeroInX = true; });
+    expect(zeroInX).toBe(true);
+    expect(buildDims(fakeLabels).children.length).toBeGreaterThan(0);
+
+    const rig = new StudioRigging(fakeM(), { labels: fakeLabels });
+    const lbl = rig.get('MF').label;
+    const lblD = -lbl.position.z;
+    expect(lblD).toBeGreaterThan(-3.0); // не лежит на ферме Ф3 (−3,20)
+    expect(lblD).toBeLessThan(-1.0); // и не доходит до Ф4 (−0,70)
+    expect(lbl.position.y).toBeLessThanOrEqual(STUDIO.trusses.size); // не задевает лебёдку (4,92..5,10) при h = 4,50
+  });
+});
+
+describe('Студия · свет и пол пятен', () => {
+  it('15 приборов постоянного развеса, локальный паспорт BSW200 вне общего справочника, подвес под нижним поясом ферм', () => {
+    expect(FIXTURES).toHaveLength(15);
+    expect(FIXTURES.map((f) => f.no)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    expect(countByType()).toEqual(INVENTORY);
+    expect(INVENTORY).toEqual({ PROF_CW: 3, BSW200: 2, PROF100_RGB: 2, BEYE640: 8 });
+    expect(TYPES.BSW200).toBeTruthy();
+    expect(SPECS.BSW200).toBeTruthy();
+    // BSW200 НЕ должен быть в общем справочнике, чтобы не сдвинуть палитру Большой сцены
+    expect('BSW200' in LIB_TYPES).toBe(false);
+
+    const allLines = [
+      ...STUDIO.trusses.upper.lines.map((l) => ({ ...l, y0: STUDIO.trusses.upper.y0 })),
+      ...STUDIO.trusses.lower.lines.map((l) => ({ ...l, y0: STUDIO.trusses.lower.y0 })),
+    ];
+    const lineById = Object.fromEntries(allLines.map((l) => [l.id, l]));
+    for (const f of FIXTURES) {
+      expect(f.assumed).toBe(true);
+      expect(f.mount.on).toBeNull();
+      expect(hangs(f)).toBe(true);
+      expect(poolK(f)).toBeGreaterThan(0);
+      const l = lineById[f.line];
+      expect(l, `нет фермы ${f.line} у прибора №${f.no}`).toBeTruthy();
+      expect(l.y0 - f.mount.y).toBeGreaterThanOrEqual(0);
+      expect(l.y0 - f.mount.y).toBeLessThanOrEqual(0.03);
+      if (l.axis === 'd') {
+        expect(near(f.mount.d, l.at)).toBe(true);
+        expect(f.mount.x >= l.a0 && f.mount.x <= l.a1).toBe(true);
+      } else {
+        expect(near(f.mount.x, l.at)).toBe(true);
+        expect(f.mount.d >= l.a0 && f.mount.d <= l.a1).toBe(true);
+      }
+    }
+    expect(GROUP_SETS.map((s) => s.id)).toEqual(['front', 'spot', 'sides', 'cyc']);
+    for (const s of GROUP_SETS) expect(s.name.length, `слишком длинное имя набора ${s.name} для телефона`).toBeLessThanOrEqual(11);
+    // Внешняя кромка конусов всех приборов на полу не выходит за боковые стены ±3,05 м
+    for (const f of FIXTURES) {
+      const throwD = Math.hypot(f.aim.x - f.mount.x, f.aim.y - (f.mount.y - 0.22), f.aim.d - f.mount.d);
+      const rCone = throwD * Math.tan(((TYPES[f.type].beam || 20) * Math.PI) / 360);
+      expect(Math.abs(f.aim.x) + rCone, `конус №${f.no} выходит за стену`).toBeLessThanOrEqual(STUDIO.room.x1);
+    }
+    expect(LIGHT_PLANS.full.length).toBeGreaterThanOrEqual(3);
+    expect(LIGHT_PLANS.lite.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('FLOOR (pool-studio): трассировка по ярусам блитчера, плоскому полу до дуг циклорамы и стенам', () => {
+    const mat = new THREE.MeshBasicMaterial();
+    FLOOR.clip(mat);
+    expect(mat.customProgramCacheKey()).toBe('pool-studio');
+
+    const down = new THREE.Vector3(0, -1, 0);
+    // В разложенном состоянии над 3-м ярусом (d = −6,50 → z = +6,50) луч попадает в ярус h = 0,90
+    FLOOR.setLayout({ id: 'unfolded', rows: 5, shift: 0 });
+    const hitTier = FLOOR.trace(new THREE.Vector3(0, 5, 6.50), down);
+    expect(hitTier.floor).toBe(true);
+    expect(hitTier.point.y).toBeCloseTo(0.90, 4);
+    expect(FLOOR.zone(hitTier.point)).toBe(1);
+
+    // В свёрнутом состоянии в той же точке луч попадает в чистый пол Y = 0
+    FLOOR.setLayout({ id: 'folded', rows: 0, shift: 0 });
+    const hitFloor = FLOOR.trace(new THREE.Vector3(0, 5, 6.50), down);
+    expect(hitFloor.floor).toBe(true);
+    expect(hitFloor.point.y).toBeCloseTo(0, 4);
+    expect(FLOOR.zone(hitFloor.point)).toBe(0);
+
+    // В зоне выкружки циклорамы (d = 3,65 > 3,275) луч не создаёт плоское пятно зоны 0 (floor: false)
+    const hitCycCurve = FLOOR.trace(new THREE.Vector3(0, 5.18, -3.65), down);
+    expect(hitCycCurve.floor).toBe(false);
+    expect(hitCycCurve.point).toBeTruthy();
+    expect(hitCycCurve.point.y).toBeGreaterThan(0.05);
+
+    // Пологий луч в левую стену и в заднюю стенку циклорамы останавливается внутри помещения с floor: false
+    const hitLeftWall = FLOOR.trace(new THREE.Vector3(0, 3, 2), new THREE.Vector3(-1, -0.1, 0).normalize());
+    expect(hitLeftWall.floor).toBe(false);
+    expect(hitLeftWall.point.x).toBeCloseTo(-3.05, 3);
+
+    const hitCycWall = FLOOR.trace(new THREE.Vector3(0, 2.5, 0), new THREE.Vector3(0, -0.05, -1).normalize());
+    expect(hitCycWall.floor).toBe(false);
+    expect(-hitCycWall.point.z).toBeCloseTo(STUDIO.cyc.d1, 2);
   });
 });
 

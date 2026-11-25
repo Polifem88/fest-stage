@@ -14,6 +14,10 @@ import roofVenue from '../../src/venues/fest-roof/index.js';
 import { FIXTURES as ROOF_FIXTURES } from '../../src/venues/fest-roof/config/fixtures.js';
 import { buildPlanDXF as buildRoofPlanDXF, buildSectionDXF as buildRoofSectionDXF } from '../../src/venues/fest-roof/export/dxf2d.js';
 import { build3DDXF as buildRoof3DDXF, buildGLB as buildRoofGLB, buildExportSceneForGLTF as buildRoofExportScene } from '../../src/venues/fest-roof/export/export3d.js';
+import studioVenue from '../../src/venues/fest-studio/index.js';
+import { FIXTURES as STUDIO_FIXTURES } from '../../src/venues/fest-studio/config/fixtures.js';
+import { buildPlanDXF as buildStudioPlanDXF, buildSectionDXF as buildStudioSectionDXF } from '../../src/venues/fest-studio/export/dxf2d.js';
+import { build3DDXF as buildStudio3DDXF, buildGLB as buildStudioGLB, buildExportSceneForGLTF as buildStudioExportScene } from '../../src/venues/fest-studio/export/export3d.js';
 
 describe('Ядро генератора DXF (DxfWriter)', () => {
   it('формирует валидные секции HEADER ($INSUNITS=6, $DWGCODEPAGE=ANSI_1251), TABLES, BLOCKS, ENTITIES, EOF и кодирует Windows-1251', () => {
@@ -479,5 +483,115 @@ describe('Сцена под крышей: экспорт 2D и 3D (DXF и GLB) �
     const names = (s) => { const out = []; s.traverse((o) => out.push(o.name)); return out; };
     expect(names(buildRoofExportScene(stageOf(std)))).toContain('Seats_90');
     expect(names(buildRoofExportScene(stageOf({ id: 'arena', rows: 3, shift: 0 })))).toContain('Seats_82');
+  });
+});
+
+describe('Студия мультимедиа: экспорт 2D и 3D (DXF и GLB) с учётом высоты фермы и блитчера', () => {
+  const stageOf = ({ layout = { id: 'folded', rows: 0, shift: 0 }, mfH = 4.5 } = {}) => ({
+    venue: studioVenue,
+    layout,
+    rigging: { height: (id) => (id === 'MF' ? mfH : 4.5) },
+    fixtures: { list: STUDIO_FIXTURES.map((f, idx) => ({ ...f, idx, on: true, hidden: false })) },
+  });
+  const ents = (dxf) => {
+    const L = dxf.split('\n').map((s) => s.trim());
+    let i = L.indexOf('ENTITIES') + 1;
+    const out = [];
+    let cur = null;
+    for (; i + 1 < L.length; i += 2) {
+      const code = L[i], val = L[i + 1];
+      if (code === '0') { if (val === 'ENDSEC') break; cur = { type: val, layer: null, z: [] }; out.push(cur); }
+      else if (cur && code === '8') cur.layer = val;
+      else if (cur && /^3[0-3]$/.test(code)) cur.z.push(+val);
+    }
+    return out;
+  };
+  const count = (dxf, type, layer) => ents(dxf).filter((e) => e.type === type && e.layer === layer).length;
+
+  it('2D-план: все слои, 15 блоков приборов 1*…15*, поворот боковых №6–7, 12 светильников дежурки, folded vs unfolded и высота ФП', () => {
+    const defPlan = buildStudioPlanDXF(null);
+    for (const layer of [
+      '0_AXES', '0_GRID', 'WALLS', 'DOORS', 'CANOPY', 'CYC', 'TRUSSES', 'RIGGING',
+      'DUTY', 'CEIL_EQUIP', 'STANDS', 'SEATS', 'FIXTURES', 'DIMS', 'TEXT',
+    ]) {
+      expect(defPlan, `отсутствует слой ${layer}`).toContain(`\n2\n${layer}\n`);
+    }
+    expect(count(defPlan, 'INSERT', 'FIXTURES')).toBe(15);
+    // Боковые профили № 6 и № 7 развёрнуты к циклораме (ненулевой угол поворота код 50 в INSERT)
+    expect(defPlan).toMatch(/\n0\nINSERT\n[\s\S]*?\n8\nFIXTURES\n[\s\S]*?\n50\n-?[1-9]/);
+    expect(count(defPlan, 'INSERT', 'DUTY')).toBe(12);
+    expect(count(defPlan, 'INSERT', 'SEATS')).toBe(0);
+    expect(ents(defPlan).filter((e) => e.layer === 'STANDS').length).toBeGreaterThan(0);
+    for (let no = 1; no <= 15; no++) expect(defPlan, `${no}*`).toContain(`\n1\n${no}*\n`);
+    expect(defPlan).toMatch(/\* [-—] номер по допущению/);
+    expect(defPlan).toContain('ФП (H=+4,50 м)');
+    expect(defPlan.trim().endsWith('0\nEOF')).toBe(true);
+
+    const unfPlan = buildStudioPlanDXF(stageOf({ layout: { id: 'unfolded', rows: 5, shift: 0 }, mfH: 2.1 }));
+    expect(count(unfPlan, 'INSERT', 'SEATS')).toBe(40);
+    expect(unfPlan).toContain('ФП (H=+2,10 м)');
+  });
+
+  it('2D продольный разрез: высотные отметки с 3 знаками (включая ФП), групповые номера приборов, дуга циклорамы и профиль блитчера', () => {
+    const defSec = buildStudioSectionDXF(null);
+    for (const mark of ['±0,000', '+2,400', '+3,250', '+3,900', '+5,200', '+5,650']) {
+      expect(defSec, mark).toContain(mark);
+    }
+    expect(defSec).toContain('ФП (+4,500 м)');
+    expect(defSec).toMatch(/1\*[-–]3\*/);
+    expect(defSec).toMatch(/4\*[-–]5\*/);
+    expect(defSec).toMatch(/6\*[-–]7\*/);
+    expect(defSec).toMatch(/10\*[-–]13\*/);
+    expect(count(defSec, 'ARC', 'CYC')).toBeGreaterThanOrEqual(1);
+
+    const unfSec = buildStudioSectionDXF(stageOf({ layout: { id: 'unfolded', rows: 5, shift: 0 }, mfH: 2.1 }));
+    expect(unfSec).toContain('ФП (+2,100 м)');
+    expect(unfSec).toContain('+2,20');
+    expect(ents(unfSec).filter((e) => e.layer === 'STANDS').length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('3D DXF: слои WCS (Z — высота), внешние стены на 3D_OUTER_WALLS, опускание 3D_RIGGING по высоте MF', () => {
+    const dxfHi = buildStudio3DDXF(stageOf({ mfH: 4.5 }));
+    for (const layer of [
+      '3D_OUTER_WALLS', '3D_WALLS', '3D_CEILING', '3D_CYC',
+      '3D_TRUSSES', '3D_RIGGING', '3D_HALL', '3D_DUTY', '3D_FIXTURES',
+    ]) {
+      expect(dxfHi, layer).toContain(`\n2\n${layer}\n`);
+    }
+    expect(count(dxfHi, '3DFACE', '3D_OUTER_WALLS')).toBeGreaterThan(0);
+    expect(count(dxfHi, '3DFACE', '3D_CYC')).toBeGreaterThan(0);
+    expect(count(dxfHi, '3DFACE', '3D_HALL')).toBeGreaterThan(0);
+    const allZ = ents(dxfHi).filter((e) => e.type === '3DFACE').flatMap((e) => e.z);
+    expect(Math.min(...allZ)).toBeGreaterThanOrEqual(-0.02);
+    expect(Math.max(...allZ)).toBeLessThanOrEqual(5.66);
+
+    const minRigZHi = Math.min(...ents(dxfHi).filter((e) => e.type === '3DFACE' && e.layer === '3D_RIGGING').flatMap((e) => e.z));
+    expect(minRigZHi).toBeCloseTo(4.5, 1);
+
+    const dxfLo = buildStudio3DDXF(stageOf({ mfH: 1.2 }));
+    const minRigZLo = Math.min(...ents(dxfLo).filter((e) => e.type === '3DFACE' && e.layer === '3D_RIGGING').flatMap((e) => e.z));
+    expect(minRigZLo).toBeCloseTo(1.2, 1);
+  });
+
+  it('3D GLB: валидный glTF 2.0, односторонние материалы, без NaN, узлы Seats_0 / Seats_40 и MovableTruss_H...', async () => {
+    const buf = await buildStudioGLB(null);
+    expect(buf).toBeInstanceOf(ArrayBuffer);
+    const dv = new DataView(buf);
+    expect(dv.getUint32(0, true)).toBe(0x46546C67);
+    expect(dv.getUint32(4, true)).toBe(2);
+    const gltf = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 20, dv.getUint32(12, true))));
+    expect(gltf.asset.version).toBe('2.0');
+    for (const mat of gltf.materials || []) expect(mat.doubleSided, mat.name).not.toBe(true);
+    for (const acc of gltf.accessors) for (const v of [...(acc.min || []), ...(acc.max || [])]) expect(Number.isFinite(v)).toBe(true);
+
+    const names = (s) => { const out = []; s.traverse((o) => out.push(o.name)); return out; };
+    const nFold = names(buildStudioExportScene(null));
+    expect(nFold).toContain('Seats_0');
+    expect(nFold).toContain('MovableTruss');
+    expect(nFold.some((n) => n.startsWith('MovableTruss_H4_50'))).toBe(true);
+
+    const nUnf = names(buildStudioExportScene(stageOf({ layout: { id: 'unfolded', rows: 5, shift: 0 }, mfH: 2.1 })));
+    expect(nUnf).toContain('Seats_40');
+    expect(nUnf.some((n) => n.startsWith('MovableTruss_H2_10'))).toBe(true);
   });
 });

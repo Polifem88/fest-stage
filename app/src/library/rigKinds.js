@@ -8,6 +8,7 @@ export const RIG_KINDS = {
   light: { letter: 'С', name: 'Софит', short: 'С — софит', legend: 'С — софит', color: 0xe8590c },
   track: { letter: 'З', name: 'Дорога занавеса', short: 'З — дорога занавеса', legend: 'З — дорога занавеса', color: 0x8b3fd6 },
   side: { letter: 'Б', name: 'Боковой штанкет', short: 'Б — боковой', legend: 'Б — боковой штанкет', color: 0x1a9e6a },
+  truss: { letter: 'Ф', name: 'Подъёмная ферма', short: 'Ф — подъёмная ферма', legend: 'Ф — подъёмная ферма', color: 0x0ea5a4 },
 };
 
 export const cssColor = (c) => `#${c.toString(16).padStart(6, '0')}`;

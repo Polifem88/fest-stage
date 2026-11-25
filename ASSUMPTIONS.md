@@ -76,9 +76,9 @@
 
 ---
 
-### 1.4. Студия мультимедиа (`fest-studio`, статус `draft`)
+### 1.4. Студия мультимедиа (`fest-studio`, статус `ready`)
 
-Файлы конфигурации: [`app/src/venues/fest-studio/config/dimensions.js`](app/src/venues/fest-studio/config/dimensions.js), [`app/src/venues/fest-studio/config/fixtures.js`](app/src/venues/fest-studio/config/fixtures.js).
+Файлы конфигурации: [`app/src/venues/fest-studio/config/dimensions.js`](app/src/venues/fest-studio/config/dimensions.js), [`app/src/venues/fest-studio/config/rigging.js`](app/src/venues/fest-studio/config/rigging.js), [`app/src/venues/fest-studio/config/layouts.js`](app/src/venues/fest-studio/config/layouts.js), [`app/src/venues/fest-studio/config/fixtures.js`](app/src/venues/fest-studio/config/fixtures.js).
 
 | Узел / параметр | Ключ в конфиге | Текущее значение в модели | Характер допущения |
 | :--- | :--- | :--- | :--- |
@@ -87,7 +87,10 @@
 | **Окно операторской в козырьке** | `STUDIO.window` | `d = -7,90` м, `x = -2,70 … 2,90` м, `y = 3,70 … 4,60` м, 5 секций | **`assumption: true`:** габариты и членение рамы оценены по фото |
 | **Раскладка потолочных панелей** | `STUDIO.panels.ceilAssumption` | Начало отсчёта рядов `0,62` м от стены `d = 4,00` м | **`assumption: true`:** привязка сетки потолка принята от стены за циклорамой |
 | **Врезные элементы потолка (дежурка, кассеты, диффузоры)** | `STUDIO.duty`, `STUDIO.cassettes`, `STUDIO.diffusers` | 12 дисков дежурки (`r = 0,10` м), 2 кассеты кондиционера (`0,80 × 0,80` м), 4 диффузора (`0,60 × 0,60` м) | **`assumption: true`:** продольные координаты `d` (по центрам рядов панелей) и габариты оценены по фото |
-| **Незавершённые блоки черновика** | `FIXTURES = []`, `layouts: null`, `exports: {}` | Отсутствуют в `draft` | Постоянный развес света, трансформируемый зал-блитчер и собственные DXF-чертежи запланированы на этап перевода в `ready` |
+| **Корпуса лебёдок подвижной фермы** | `STUDIO.movableTruss.hoist` | `0,24 × 0,18 × 0,20` м на `Y = 4,92 … 5,10` м, спансеты до `5,20` м под `Ф3` и `Ф5` | **`assumption: true`:** габариты и вертикальная посадка 4 цепных лебёдок под верхними фермами оценены (координаты подвеса `(±2,05; −3,20)` и `(±2,05; +1,80)` и контур `4,10 × 5,00` м заданы ТЗ) |
+| **Посадка, свёрнутый пакет, ступени и ограждения блитчера** | `STUDIO.bleacher` (`leftWallGapAssumption`, `foldedAssumption`, `halfStepAssumption`, `row0Assumption`, `railsAssumption`) | Отступ от левой стены `0,15` м (`x0 = -2,90`, справа проход `1,45` м); свёрнутый пакет `1,07` м (`d = -7,90 … -6,83`, каскад `0,04` м); полуступени лестницы `0,15 × 0,30` м; ось 0-го ряда стульев `row0D = -3,60` м; заднее ограждение `1,00` м (`+2,20` м) и боковые поручни `0,85` м с веерным отгибом `3°…5,5°` в свёрнутом виде | **`assumption: true`:** оценены по референс-фото телескопического блитчера и габаритам зазоров у стены, козырька `+2,40` м и опущенной подвижной фермы (ширина `4,50` м, 4 яруса × `0,95 × 0,30` м, 32 кресла + 8 стульев = 40 мест заданы описанием цеха) |
+| **Привязка голов `BSW 200` и боковых профилей `Profile 100`** | `FIXTURES` (`№ 4–5`, `№ 6–7`) | `№ 4–5` (`BSW200` на `Ф2`, `d = -5,70`): `x = ±1,35` м;<br>`№ 6–7` (`PROF100_RGB` на `Н±2.70`): `d = -0,55` м | **`assumption: true`:** поперечная координата голов на `Ф2` снята со схемы развеса; продольная координата боковых профилей у переднего края циклорамы уточнена по натурному фото «Вид с задней стены на циклораму» |
+| **Условные номера приборов (`1*…15*`) и линии свитчера** | `FIXTURES` (`assumed: true`), `powerOf()` | Номера `1*…15*`; свитчер `Light Union CommuPack 24` (24 линии), пульт `ETC Cobalt Congo Kid` | На схеме цеха сквозная нумерация приборов, номера свитчерных линий и адреса DMX не указаны (в 2D DXF номера помечены `*`) |
 
 ---
 
@@ -122,4 +125,4 @@
 
 1. **Условное наведение приборов (`AIM_NOTE` во всех `config/fixtures.js`):** в исходных схемах светового цеха не указываются точки фокусировки (`aim`) и рабочие углы зума — в 3D-модели приборы направлены алгоритмически («веером» по планам сцены).
 2. **Паспорт `LEDPAR933` ([`app/src/library/specs.js`](app/src/library/specs.js#L34-L35)):** для прибора `Involight LedPar 933` (`№ 109` на Сцене под крышей) официальный паспорт не найден (`confidence: 'низкая'`); мощность указана оценочно `≈ 27 Вт (9 × 3 Вт)`, угол луча, вес и каналы DMX не заполнены (`«—»`).
-3. **Паспорта со средней уверенностью ([`app/src/library/specs.js`](app/src/library/specs.js#L5-L29)):** `SPOT585` (взят паспорт `Phoenix Spot 585 FS`), `WASHZOOM` (`DiaLighting Wash Zoom 37x15 v2`), `BROPAR` (`Stage4 broPAR 4x50 UV IP`), `COMPC` (`SpotLight Combi 12 PC`), `SVETOCH1000` (`Светоч Fr-1000`).
+3. **Паспорта со средней уверенностью ([`app/src/library/specs.js`](app/src/library/specs.js#L5-L29) и локальные паспорта площадок):** `SPOT585` (взят паспорт `Phoenix Spot 585 FS`), `WASHZOOM` (`DiaLighting Wash Zoom 37x15 v2`), `BROPAR` (`Stage4 broPAR 4x50 UV IP`), `COMPC` (`SpotLight Combi 12 PC`), `SVETOCH1000` (`Светоч Fr-1000`), а также локальный `LOCAL_SPECS.BSW200` в [`app/src/venues/fest-studio/config/fixtures.js`](app/src/venues/fest-studio/config/fixtures.js) (`Showlee BSW 200` — типовой OEM-паспорт `LED 200 Вт белый`, `≈ 250 Вт`, `16–20 кан.`, `≈ 11 кг`).

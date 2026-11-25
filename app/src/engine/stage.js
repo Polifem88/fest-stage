@@ -233,6 +233,7 @@ export class Stage {
     // трансформируемый зал: группа слоя hall по планировке (до приборов — пол пятен знает планировку)
     this.layout = null;
     this._hallGroup = null;
+    this._hallAnim = null;
     this._bpOn = false; // «чертёж» к новой площадке применит _applyFlags ниже
     if (venue.layouts) this._swapHall(normLayout(null, venue.layouts));
     this.rigging = built.rigging || null;
@@ -272,6 +273,7 @@ export class Stage {
   /** Освободить всё, что построила площадка (WebGL-контекст, камеры и материалы движка остаются). */
   _teardownVenue() {
     this._anim = null;
+    this._stopHallAnim({ commit: false });
     this.selected = null;
     this.clearMeasure();
     const keep = sharedSet(this.M, this._bp, { off: this._off });
@@ -297,15 +299,43 @@ export class Stage {
   /**
    * Сменить планировку зала: { id?, rows?, shift? } (shift — в шагах layouts.shiftStep).
    * Новая планировка без rows/shift — все ряды, без сдвига. Значения зажимаются в допустимые пределы.
+   * При { animate: true } и наличии venue.layouts.animate запускает плавную анимацию перехода.
    * @returns {boolean} false — у площадки нет трансформируемого зала
    */
-  setLayout(partial = {}) {
+  setLayout(partial = {}, { animate = false } = {}) {
     const cfg = this.venue?.layouts;
     if (!cfg) return false;
     const cur = this.layout;
     const p = partial.id && partial.id !== cur.id ? { rows: Infinity, shift: 0, ...partial } : { ...cur, ...partial };
     const st = normLayout(p, cfg);
-    if (st.id === cur.id && st.rows === cur.rows && st.shift === cur.shift) return true;
+    if (st.id === cur.id && st.rows === cur.rows && st.shift === cur.shift) {
+      if (this._hallAnim && !animate) this._stopHallAnim({ commit: true });
+      return true;
+    }
+    this._stopHallAnim({ commit: false });
+    if (animate && cfg.animate && this.camera !== this.ortho) {
+      const anim = cfg.animate(cur, st, { M: this.M, profile: this.profile });
+      if (anim) {
+        const hall = this.layerGroups.hall;
+        if (this._hallGroup) {
+          hall.remove(this._hallGroup);
+          disposeTree(this._hallGroup, sharedSet(this.M, this._bp, { off: this._off }));
+          this._hallGroup = null;
+        }
+        this.venue.fixtures.floor.setLayout?.(st);
+        this.layout = st;
+        anim.update(0);
+        hall.add(anim.group);
+        if (this._bpOn) this._bpApply(anim.group, true);
+        this._hallAnim = { t0: performance.now(), dur: Math.max(1, anim.duration || 900), anim };
+        this.fixtures.updateAll();
+        this.lighting.placeGroupLights();
+        this._shadowsDirty = true;
+        this.invalidate();
+        this.emit('layout', { ...st });
+        return true;
+      }
+    }
     this._swapHall(st);
     this.fixtures.updateAll();
     this.lighting.placeGroupLights();
@@ -313,6 +343,22 @@ export class Stage {
     this.invalidate();
     this.emit('layout', { ...st });
     return true;
+  }
+
+  /** Остановить текущую анимацию зала; при commit: true — построить финальную статическую группу _swapHall. */
+  _stopHallAnim({ commit = false } = {}) {
+    const a = this._hallAnim;
+    if (!a) return;
+    this._hallAnim = null;
+    a.anim.dispose?.();
+    disposeTree(a.anim.group, sharedSet(this.M, this._bp, { off: this._off }));
+    if (commit && this.venue?.layouts && this.layout) {
+      this._swapHall(this.layout);
+      this.fixtures.updateAll();
+      this.lighting.placeGroupLights();
+      this._shadowsDirty = true;
+      this.invalidate();
+    }
   }
 
   /** Заменить группу зала: пол пятен → новая группа → освободить старую → «чертёж», если включён. */
@@ -381,6 +427,7 @@ export class Stage {
       requestAnimationFrame(tick);
       if (!this.venue) return;
       if (this._anim) this._stepAnim(t);
+      if (this._hallAnim) this._stepHallAnim(t);
       const changed = this.controls.update();
       if (changed) this._dirty = true;
       if (!this._dirty) return;
@@ -434,6 +481,7 @@ export class Stage {
       this.controls.touches.ONE = THREE.TOUCH.PAN;
       this._updateOrtho();
       this._anim = null;
+      this._stopHallAnim({ commit: true });
     } else {
       const wasOrtho = this.camera === this.ortho;
       this.camera = this.persp;
@@ -467,6 +515,14 @@ export class Stage {
     this.controls.target.lerpVectors(a.t0v, a.t1v, e);
     this._dirty = true;
     if (k >= 1) this._anim = null;
+  }
+
+  _stepHallAnim(now) {
+    const a = this._hallAnim;
+    const k = Math.min(1, Math.max(0, (now - a.t0) / a.dur));
+    a.anim.update(k);
+    this._dirty = true;
+    if (k >= 1) this._stopHallAnim({ commit: true });
   }
 
   // ---------------------------------------------------------------------------
