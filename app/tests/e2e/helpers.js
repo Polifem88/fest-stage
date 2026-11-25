@@ -55,6 +55,8 @@ export async function applyShot(page, spec) {
       if (m === 'low') { for (const id of ['Sh3', 'Sh5', 'Sh9']) f.setHeight(id, 2); f.setHeight('C2', 3); }
       if (m === 'sel53') f.selectFixture(53);
       if (m === 'selSh5') f.select({ kind: 'rig', id: 'Sh5' });
+      if (m === 'mf2') f.setHeight('MF', 2);
+      if (m === 'selMF') f.select({ kind: 'rig', id: 'MF' });
       if (m.startsWith('lo-')) f.setLayout({ id: m.slice(3) }); // планировка зала: lo-traverse
     }
     f.renderNow();

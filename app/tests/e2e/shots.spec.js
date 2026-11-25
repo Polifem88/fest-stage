@@ -128,8 +128,15 @@ test('стартовая страница: карточки сцен и реко
 // Остальные площадки каталога: все их виды + чертёж/размеры/сетка и свет.
 // Снимки: review/shots/<раунд>/<проект>/<площадка>/NN-<вид>.jpg. VENUE=chamber — только одна площадка.
 const OTHER_VENUES = (process.env.VENUE ? [process.env.VENUE] : ['chamber', 'roof', 'foyer', 'studio']).filter((v) => v !== 'big');
-/** Дополнительные снимки площадки: планировки трансформируемого зала. */
-const EXTRA_SHOTS = { roof: ['cross', 'traverse', 'arena'].flatMap((lo) => [`overview+lo-${lo}`, `plan+lo-${lo}`]) };
+/** Дополнительные снимки площадки: планировки трансформируемого зала и механика. */
+const EXTRA_SHOTS = {
+  roof: ['cross', 'traverse', 'arena'].flatMap((lo) => [`overview+lo-${lo}`, `plan+lo-${lo}`]),
+  studio: [
+    'overview+lo-unfolded', 'hall+lo-unfolded', 'cycToExit+lo-unfolded',
+    'plan+lo-unfolded+bp+dims', 'section+lo-unfolded+bp+dims',
+    'overview+lo-unfolded+mf2', 'camera+mf2', 'overview+selMF',
+  ],
+};
 for (const venue of OTHER_VENUES) {
   test(`снимки площадки: ${venue}`, async ({ page }, info) => {
     const mobile = !!info.project.use.isMobile;

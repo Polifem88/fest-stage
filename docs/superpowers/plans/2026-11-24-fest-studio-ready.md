@@ -402,7 +402,7 @@
 - Modify: `app/tests/e2e/shots.spec.js`
 - Modify: `app/tests/e2e/perf.spec.js`
 
-- [ ] **Step 1: Дополнить `helpers.js`, `venues.spec.js`, `shots.spec.js`, `perf.spec.js`**
+- [x] **Step 1: Дополнить `helpers.js`, `venues.spec.js`, `shots.spec.js`, `perf.spec.js`**
   - В `app/tests/e2e/helpers.js` в цикле модификаторов `applyShot` добавить:
     ```js
     if (m === 'mf2') f.setHeight('MF', 2);
@@ -422,7 +422,7 @@
     ```
   - В `app/tests/e2e/perf.spec.js` добавить `'studio:overview+lo-unfolded'` в `otherCases` (проверка бюджета треугольников ≤ `200 000` и вызовов ≤ `150` в самом тяжёлом состоянии Студии!).
 
-- [ ] **Step 2: Снять снимки Студии и визуально сверить рендеры с фотографиями `data/studio/`**
+- [x] **Step 2: Снять снимки Студии и визуально сверить рендеры с фотографиями `data/studio/`**
   Run:
   ```powershell
   cd "d:\Antigravity Projects\fest-3dmodels-and-stages\app"
@@ -431,7 +431,7 @@
   ```
   Открыть через `read_file` рендеры `app/review/shots/studio-dev/desktop/studio/*.jpg` и `iphone/studio/*.jpg` и сверить с `data/studio/Фото/` и `data/studio/Блитчер/` (ориентация лестницы справа, оранжевые кресла и боковины, поручни на всех 4 ярусах в свёрнутом виде, отсутствие щелей и пробоев лучей, читаемость чертежа `+bp+dims`). При необходимости скорректировать ракурс `hall` или визуальные константы.
 
-- [ ] **Step 3: Запустить полную проверку `npm.cmd run check` и `parity.mjs compare`**
+- [x] **Step 3: Запустить полную проверку `npm.cmd run check` и `parity.mjs compare`**
   Run:
   ```powershell
   cd "d:\Antigravity Projects\fest-3dmodels-and-stages\app"
@@ -440,7 +440,7 @@
   ```
   Expected: `npm.cmd run check` полностью зелёный (Vitest + однофайловая сборка ≤ 1,3 МБ + весь Playwright); `parity.mjs compare` — код `0` (100 % паритет `big`, `chamber`, `roof`).
 
-- [ ] **Step 4: Закоммитить и проверить счётчик 10-го коммита**
+- [x] **Step 4: Закоммитить и проверить счётчик 10-го коммита**
   ```powershell
   git add app/tests/e2e/helpers.js app/tests/e2e/venues.spec.js app/tests/e2e/shots.spec.js app/tests/e2e/perf.spec.js app/src/venues/fest-studio/
   git commit -m "Студия: E2E-тесты механики, блитчера, анимации, 44 px и сюжетные снимки"

@@ -48,6 +48,17 @@ function staticMesh(geo, mat, name, bpRole = null) {
   return m;
 }
 
+/** Боковая тканевая шторка блитчера: лёгкий тёплый отсвет в узком зазоре 15 см у левой стены. */
+function makeCurtainMat(M) {
+  const base = M?.velvetOrange;
+  if (!base?.clone) return base;
+  const mat = base.clone();
+  mat.name = 'velvetOrange';
+  mat.emissive?.setHex(0x3b1506);
+  if ('emissiveIntensity' in mat) mat.emissiveIntensity = 0.45;
+  return mat;
+}
+
 /** Стул/кресло в разложенном вертикальном положении (центр сиденья над (0, 0), лицом в +d / −Z). */
 function uprightSeatGeometry() {
   const C = CHAIR;
@@ -202,10 +213,11 @@ export function buildHall(st, { M, profile } = {}) {
 
   const g = new THREE.Group();
   g.name = `hall:${st?.id || 'folded'}`;
+  const curtainMat = makeCurtainMat(M);
   for (const [list, mat, name, role] of [
     [deck, M.aluDeck, 'hallDeck', null],
     [steel, M.steel, 'hallSteel', null],
-    [curtains, M.velvetOrange, 'hallCurtains', null],
+    [curtains, curtainMat, 'hallCurtains', null],
     [foldedFabric, M.seatFabric, 'hallFoldedFabric', 'seatF'],
     [foldedFrame, M.seatFrame, 'hallFoldedFrame', 'seatK'],
   ]) {
@@ -280,6 +292,7 @@ export function animateHall(fromSt, toSt, { M, profile } = {}) {
   const rowSeatKGeo = mergeAll(seatBasesK);
   const rowBackFGeo = mergeAll(seatBacksF);
   const rowBackKGeo = mergeAll(seatBacksK);
+  const curtainMat = makeCurtainMat(M);
 
   const tierRig = [];
   for (const t of pose0.tiers) {
@@ -295,7 +308,7 @@ export function animateHall(fromSt, toSt, { M, profile } = {}) {
     tg.add(
       staticMesh(mergeAll(tDeck), M.aluDeck, `tierDeck:${t.tier}`),
       staticMesh(mergeAll(tSteel), M.steel, `tierSteel:${t.tier}`),
-      staticMesh(mergeAll(tCurt), M.velvetOrange, `tierCurt:${t.tier}`),
+      staticMesh(mergeAll(tCurt), curtainMat, `tierCurt:${t.tier}`),
     );
 
     const railL = staticMesh(sharedSideRailGeo, M.steel, `railL:${t.tier}`);

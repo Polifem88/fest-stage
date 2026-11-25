@@ -32,7 +32,7 @@ export function dimList() {
   // Разнесены по d, чтобы на продольном разрезе ('side') вертикальные цепочки и подписи не накладывались
   return [
     [[R.x0, FLOOR_Y, R.d0 + OFF], [R.x1, FLOOR_Y, R.d0 + OFF], `Ширина ${fmtM(R.x1 - R.x0)}`],
-    [[R.x0 + OFF, FLOOR_Y, R.d0], [R.x0 + OFF, FLOOR_Y, R.d1], `Глубина ${fmtM(R.d1 - R.d0)}`, 0.45],
+    [[R.x0 + OFF, FLOOR_Y, R.d0], [R.x0 + OFF, FLOOR_Y, R.d1], `Глубина ${fmtM(R.d1 - R.d0)}`, 0.58],
     [[xCeil, 0, -4.95], [xCeil, R.ceiling, -4.95], `Потолок ${fmtM(R.ceiling)}`, 0.68],
     [[xUpper, 0, -3.75], [xUpper, T.upper.y0, -3.75], `Верхние фермы ${fmtM(T.upper.y0)}`, 0.54],
     [[xLower, 0, -2.05], [xLower, T.lower.y0, -2.05], `Нижние фермы ${fmtM(T.lower.y0)}`, 0.42],
