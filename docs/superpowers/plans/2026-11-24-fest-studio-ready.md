@@ -287,24 +287,24 @@
     - `traceToFloor(p, dir)` проверяет ярусы блитчера, плоский пол зоны `0`, цилиндрические/плоские грани циклорамы и стены павильона (возвращая `floor: false` при ударе в стену или стенку/дугу циклорамы).
     - `mat.customProgramCacheKey = () => 'pool-studio'`.
 
-- [ ] **Step 1: Обновить и дополнить тесты в `app/tests/unit/studio.test.js` (блок `Студия · свет и пол пятен`)**
+- [x] **Step 1: Обновить и дополнить тесты в `app/tests/unit/studio.test.js` (блок `Студия · свет и пол пятен`)**
   Заменить старый тест черновика (`развес приборов в черновике пуст`) на проверки:
   - `FIXTURES` содержит 15 приборов с уникальными номерами `1…15` и флагом `assumed: true`, `countByType()` совпадает с `INVENTORY`;
   - каждый прибор висит на расстоянии `≤ 0.03` м под нижним поясом своей фермы (`5.20` или `3.25`) в пределах её пролёта, `mount.on === null`;
   - `'BSW200'` присутствует в `TYPES` Студии, но **отсутствует** в `library/fixtureTypes.js` (палитра Большой сцены не сдвинута);
   - `FLOOR`: при `setLayout({ id: 'unfolded' })` вертикальный луч над 3-м ярусом (`x = 0, d = -6.50`) даёт `point.y ≈ 0.90, floor: true` и `poolZone(point) === 1`, а при `setLayout({ id: 'folded' })` в той же точке даёт `point.y ≈ 0, floor: true` и `poolZone(point) === 0`; пологий луч в стену или в вертикальную часть циклорамы останавливается внутри помещения с `floor: false`; `clip` выставляет `customProgramCacheKey() === 'pool-studio'`.
 
-- [ ] **Step 2: Запустить тест и убедиться в FAIL**
+- [x] **Step 2: Запустить тест и убедиться в FAIL**
   Run: `cd app; npx.cmd vitest run tests/unit/studio.test.js`
   Expected: FAIL.
 
-- [ ] **Step 3: Реализовать `config/fixtures.js` и `build/floor.js`**
+- [x] **Step 3: Реализовать `config/fixtures.js` и `build/floor.js`**
 
-- [ ] **Step 4: Прогнать все юнит-тесты**
+- [x] **Step 4: Прогнать все юнит-тесты**
   Run: `cd app; npx.cmd vitest run`
   Expected: PASS.
 
-- [ ] **Step 5: Закоммитить и проверить счётчик 10-го коммита**
+- [x] **Step 5: Закоммитить и проверить счётчик 10-го коммита**
   ```powershell
   git add app/src/venues/fest-studio/config/fixtures.js app/src/venues/fest-studio/build/floor.js app/tests/unit/studio.test.js
   git commit -m "Студия: развес 15 приборов, паспорт BSW 200 и обрезка пятен pool-studio"

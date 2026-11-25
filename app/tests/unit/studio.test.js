@@ -5,13 +5,15 @@ import { StaticBatch, rect } from '../../src/core/geom.js';
 import { STUDIO, ceilingItems, trussFootprints } from '../../src/venues/fest-studio/config/dimensions.js';
 import { RIGGING, RIG_BY_ID, describeRig } from '../../src/venues/fest-studio/config/rigging.js';
 import { LAYOUTS, DEFAULT_LAYOUT, SHIFT_STEP, shiftRange, seatCount, bleacherPose, placed } from '../../src/venues/fest-studio/config/layouts.js';
-import { FIXTURES, TYPES, SPECS, GROUPS, GROUP_SETS, LIGHT_PLANS } from '../../src/venues/fest-studio/config/fixtures.js';
+import { FIXTURES, TYPES, SPECS, INVENTORY, GROUPS, GROUP_SETS, LIGHT_PLANS, countByType } from '../../src/venues/fest-studio/config/fixtures.js';
+import { TYPES as LIB_TYPES } from '../../src/library/fixtureTypes.js';
 import { panelUV } from '../../src/venues/fest-studio/build/panels.js';
 import { buildArchitecture } from '../../src/venues/fest-studio/build/architecture.js';
 import { cycPatches, buildCyclorama, FLOOR_LIFT } from '../../src/venues/fest-studio/build/cyclorama.js';
 import { buildTrusses } from '../../src/venues/fest-studio/build/trusses.js';
 import { StudioRigging } from '../../src/venues/fest-studio/build/rigging.js';
 import { buildHall, animateHall } from '../../src/venues/fest-studio/build/hall.js';
+import { FLOOR, hangs, poolK } from '../../src/venues/fest-studio/build/floor.js';
 import { buildEmitters } from '../../src/venues/fest-studio/build/emitters.js';
 import { ambientLights } from '../../src/venues/fest-studio/build/ambient.js';
 
@@ -145,15 +147,6 @@ describe('Студия · геометрия', () => {
         expect(overlap(a, tr), `${it.kind} (${it.x0}..${it.x1}, ${it.d0}..${it.d1}) ↔ ферма ${JSON.stringify(tr)}`).toBe(false);
       }
     }
-  });
-
-  it('развес приборов в черновике пуст', () => {
-    expect(FIXTURES).toEqual([]);
-    expect(TYPES).toEqual({});
-    expect(SPECS).toEqual({});
-    expect(GROUPS).toEqual({});
-    expect(GROUP_SETS).toEqual([]);
-    expect(LIGHT_PLANS).toEqual({ full: [], lite: [] });
   });
 });
 
@@ -519,6 +512,81 @@ describe('Студия · блитчер и планировки', () => {
     expect(anim.duration).toBeGreaterThanOrEqual(800);
     for (const k of [0, 0.25, 0.5, 0.75, 1]) anim.update(k);
     anim.dispose();
+  });
+});
+
+describe('Студия · свет и пол пятен', () => {
+  it('15 приборов постоянного развеса, локальный паспорт BSW200 вне общего справочника, подвес под нижним поясом ферм', () => {
+    expect(FIXTURES).toHaveLength(15);
+    expect(FIXTURES.map((f) => f.no)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    expect(countByType()).toEqual(INVENTORY);
+    expect(INVENTORY).toEqual({ PROF_CW: 3, BSW200: 2, PROF100_RGB: 2, BEYE640: 8 });
+    expect(TYPES.BSW200).toBeTruthy();
+    expect(SPECS.BSW200).toBeTruthy();
+    // BSW200 НЕ должен быть в общем справочнике, чтобы не сдвинуть палитру Большой сцены
+    expect('BSW200' in LIB_TYPES).toBe(false);
+
+    const allLines = [
+      ...STUDIO.trusses.upper.lines.map((l) => ({ ...l, y0: STUDIO.trusses.upper.y0 })),
+      ...STUDIO.trusses.lower.lines.map((l) => ({ ...l, y0: STUDIO.trusses.lower.y0 })),
+    ];
+    const lineById = Object.fromEntries(allLines.map((l) => [l.id, l]));
+    for (const f of FIXTURES) {
+      expect(f.assumed).toBe(true);
+      expect(f.mount.on).toBeNull();
+      expect(hangs(f)).toBe(true);
+      expect(poolK(f)).toBeGreaterThan(0);
+      const l = lineById[f.line];
+      expect(l, `нет фермы ${f.line} у прибора №${f.no}`).toBeTruthy();
+      expect(l.y0 - f.mount.y).toBeGreaterThanOrEqual(0);
+      expect(l.y0 - f.mount.y).toBeLessThanOrEqual(0.03);
+      if (l.axis === 'd') {
+        expect(near(f.mount.d, l.at)).toBe(true);
+        expect(f.mount.x >= l.a0 && f.mount.x <= l.a1).toBe(true);
+      } else {
+        expect(near(f.mount.x, l.at)).toBe(true);
+        expect(f.mount.d >= l.a0 && f.mount.d <= l.a1).toBe(true);
+      }
+    }
+    expect(GROUP_SETS.map((s) => s.id)).toEqual(['front', 'spot', 'sides', 'cyc']);
+    expect(LIGHT_PLANS.full.length).toBeGreaterThanOrEqual(3);
+    expect(LIGHT_PLANS.lite.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('FLOOR (pool-studio): трассировка по ярусам блитчера, плоскому полу до дуг циклорамы и стенам', () => {
+    const mat = new THREE.MeshBasicMaterial();
+    FLOOR.clip(mat);
+    expect(mat.customProgramCacheKey()).toBe('pool-studio');
+
+    const down = new THREE.Vector3(0, -1, 0);
+    // В разложенном состоянии над 3-м ярусом (d = −6,50 → z = +6,50) луч попадает в ярус h = 0,90
+    FLOOR.setLayout({ id: 'unfolded', rows: 5, shift: 0 });
+    const hitTier = FLOOR.trace(new THREE.Vector3(0, 5, 6.50), down);
+    expect(hitTier.floor).toBe(true);
+    expect(hitTier.point.y).toBeCloseTo(0.90, 4);
+    expect(FLOOR.zone(hitTier.point)).toBe(1);
+
+    // В свёрнутом состоянии в той же точке луч попадает в чистый пол Y = 0
+    FLOOR.setLayout({ id: 'folded', rows: 0, shift: 0 });
+    const hitFloor = FLOOR.trace(new THREE.Vector3(0, 5, 6.50), down);
+    expect(hitFloor.floor).toBe(true);
+    expect(hitFloor.point.y).toBeCloseTo(0, 4);
+    expect(FLOOR.zone(hitFloor.point)).toBe(0);
+
+    // В зоне выкружки циклорамы (d = 3,65 > 3,275) луч не создаёт плоское пятно зоны 0 (floor: false)
+    const hitCycCurve = FLOOR.trace(new THREE.Vector3(0, 5.18, -3.65), down);
+    expect(hitCycCurve.floor).toBe(false);
+    expect(hitCycCurve.point).toBeTruthy();
+    expect(hitCycCurve.point.y).toBeGreaterThan(0.05);
+
+    // Пологий луч в левую стену и в заднюю стенку циклорамы останавливается внутри помещения с floor: false
+    const hitLeftWall = FLOOR.trace(new THREE.Vector3(0, 3, 2), new THREE.Vector3(-1, -0.1, 0).normalize());
+    expect(hitLeftWall.floor).toBe(false);
+    expect(hitLeftWall.point.x).toBeCloseTo(-3.05, 3);
+
+    const hitCycWall = FLOOR.trace(new THREE.Vector3(0, 2.5, 0), new THREE.Vector3(0, -0.05, -1).normalize());
+    expect(hitCycWall.floor).toBe(false);
+    expect(-hitCycWall.point.z).toBeCloseTo(STUDIO.cyc.d1, 2);
   });
 });
 
