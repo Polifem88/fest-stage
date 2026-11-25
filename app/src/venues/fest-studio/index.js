@@ -17,6 +17,8 @@ import { FLOOR, hangs, poolK } from './build/floor.js';
 import { buildEmitters } from './build/emitters.js';
 import { ambientLights } from './build/ambient.js';
 import { buildDims, buildGrid } from './build/overlays.js';
+import { buildPlanDXF, buildSectionDXF } from './export/dxf2d.js';
+import { build3DDXF, buildGLB } from './export/export3d.js';
 
 /** Готовые точки обзора. Координаты: [x, y, d]. */
 const VIEWS = {
@@ -97,7 +99,12 @@ export default {
     layoutHint: 'При переключении блитчер выезжает от стены операторской, поднимаются кресла и выставляется 0-й ряд стульев.',
     extraEquipment: 'Пульт управления светом ETC Cobalt Congo Kid, свитчер Light Union CommuPack 24 (24 свитчерные линии). Под проект возможен довес и установка дополнительного LED-оборудования, профильных и линзовых прожекторов, голов Wash, хейзера (Hazer), штативов и коммутации. Всё постоянное оборудование — направленного театрально-постановочного света (не специализированное кино-видеосветительное).',
   },
-  exports: {},
+  exports: {
+    planDXF: buildPlanDXF,
+    sectionDXF: buildSectionDXF,
+    dxf3d: build3DDXF,
+    glb: buildGLB,
+  },
 
   build(ctx) {
     const mobile = ctx.profile?.name === 'mobile';

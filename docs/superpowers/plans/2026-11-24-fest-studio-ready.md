@@ -370,22 +370,22 @@
   - `build3DDXF(stage)`: 3D WCS (`Z` — высота), внешние стены и пол на отключаемом слое `3D_OUTER_WALLS`, слои `3D_WALLS`, `3D_CEILING`, `3D_CYC`, `3D_TRUSSES`, `3D_RIGGING` (рама на высоте `mfH` + лебёдки + линии цепей), `3D_HALL`, `3D_DUTY`, `3D_FIXTURES`.
   - `buildGLB(stage)` и `buildExportSceneForGLTF(stage)`: односторонние материалы (`doubleSided: false`), цвета всех материалов студии (`walnutWall`, `walnutCeil`, `cyc`, `floorPoured`, `trussAlu`, `plasticWhite`, `ventGrille`, `velvetOrange`, `seatFabric`, `seatFrame`, `aluDeck`, `steel`, `door`, `glass`, `booth`, `fixtureBody`, `dutyBulb`), без `NaN`, узлы `Seats_0` / `Seats_40` и `MovableTruss`.
 
-- [ ] **Step 1: Написать падающие тесты экспорта Студии в `app/tests/unit/export.test.js`**
+- [x] **Step 1: Написать падающие тесты экспорта Студии в `app/tests/unit/export.test.js`**
   Проверить:
   - `planDXF`: все целевые слои объявлены, `15` блоков `INSERT` на `FIXTURES`, номера `1*…15*` и сноска `* — номер по допущению`, `12` светильников дежурки; по умолчанию (`null` / `folded`) `0` мест на `SEATS` и `ФП (H=+4,50 м)`; при `{ layout: { id: 'unfolded' }, rigging: { height: () => 2.1 } }` — `40` блоков `INSERT` на `SEATS` и подпись `ФП (H=+2,10 м)`;
   - `sectionDXF`: отметки `±0,000`, `+2,400`, `+3,250`, `+3,900`, `+5,200`, `+5,650`, динамическая отметка `+2,10` у `ФП` и гребёнка ярусов в `unfolded`;
   - `dxf3d`: `3DFACE` на `3D_OUTER_WALLS`, `3D_CYC`, `3D_RIGGING`, `3D_HALL`, `3D_FIXTURES`, все `Z ∈ [-0.02, 5.66]`, при смене `mfH` с `4.5` на `1.2` минимальный `Z` на `3D_RIGGING` опускается до `≈ 1.20`;
   - `glb`: валидный glTF 2.0, `doubleSided !== true`, без `NaN`, сцены дают `Seats_0` (`folded`) и `Seats_40` (`unfolded`).
 
-- [ ] **Step 2: Запустить `npx.cmd vitest run tests/unit/export.test.js` и убедиться в FAIL**
+- [x] **Step 2: Запустить `npx.cmd vitest run tests/unit/export.test.js` и убедиться в FAIL**
 
-- [ ] **Step 3: Реализовать `export/dxf2d.js`, `export/export3d.js` и подключить их в `fest-studio/index.js`**
+- [x] **Step 3: Реализовать `export/dxf2d.js`, `export/export3d.js` и подключить их в `fest-studio/index.js`**
 
-- [ ] **Step 4: Прогнать все юнит-тесты**
+- [x] **Step 4: Прогнать все юнит-тесты**
   Run: `cd app; npx.cmd vitest run`
   Expected: PASS.
 
-- [ ] **Step 5: Закоммитить и проверить счётчик 10-го коммита**
+- [x] **Step 5: Закоммитить и проверить счётчик 10-го коммита**
   ```powershell
   git add app/src/venues/fest-studio/export/dxf2d.js app/src/venues/fest-studio/export/export3d.js app/src/venues/fest-studio/index.js app/tests/unit/export.test.js
   git commit -m "Студия: экспорт 2D/3D DXF и GLB с учётом высоты фермы и состояния блитчера"
