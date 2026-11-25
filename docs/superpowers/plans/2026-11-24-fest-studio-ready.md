@@ -238,7 +238,7 @@
     - `buildHall(st, { M, profile }) → THREE.Group`: строит чистое терминальное состояние (`folded` или `unfolded`): статика с `userData.static = true, userData.layer = 'hall'` (настилы `M.aluDeck`, подступенки/каркас/поручни `M.steel`, оранжевые тканевые боковины `M.velvetOrange`) + `InstancedMesh` кресел и стульев (`seatsFabric` на `M.seatFabric`, `seatsFrame` на `M.seatFrame` с `userData.layer = 'hall'`). Пустые `InstancedMesh` (`count = 0`) или пустые геометрии не ломают `EdgesGeometry`!
     - `animateHall(fromSt, toSt, { M, profile }) → { group, duration: 950, update(k), dispose() }`: строит артикулированную группу из переиспользуемых мешей 4 ярусов, шарнирных спинок, поворачиваемых боковых поручней и группы 0-го ряда стульев; `update(k)` интерполирует `p = fromP + (toP - fromP) * k` без создания новых `BufferGeometry` в кадре.
 
-- [ ] **Step 1: Написать падающие тесты в `app/tests/unit/studio.test.js` (блок `Студия · блитчер и планировки`)**
+- [x] **Step 1: Написать падающие тесты в `app/tests/unit/studio.test.js` (блок `Студия · блитчер и планировки`)**
   Проверить:
   - `seatCount({ id: 'folded' }) === 0`, `seatCount({ id: 'unfolded' }) === 40`; `DEFAULT_LAYOUT === 'folded'`;
   - в `folded`: габарит ярусов `d ∈ [-7.90, -6.83]` (`1.07` м), за спиной проход `0.70` м (`-8.60..-7.90`), все 8 боковых поручней присутствуют и с учётом отгиба не выходят за левую стену `x = -3.05`, верх заднего ограждения `2.20 < 2.40` м козырька;
@@ -246,18 +246,18 @@
   - `bleacherPose`: в точке `p = 0.4` ярусы уже выдвинуты частично (`0 < tSlide < 1`), а спинки ещё сложены и 0-го ряда нет (`tFold === 0, tChairs === 0`); в точке `p = 0.8` ярусы полностью выдвинуты (`tSlide === 1`), спинки поднимаются (`0 < tFold < 1`);
   - `buildHall` и `animateHall`: сборка без `NaN`, `animateHall` проходит `update(0) → update(0.5) → update(1)` и `dispose()` без ошибок.
 
-- [ ] **Step 2: Запустить тест и убедиться в FAIL**
+- [x] **Step 2: Запустить тест и убедиться в FAIL**
   Run: `cd app; npx.cmd vitest run tests/unit/studio.test.js`
   Expected: FAIL (`Cannot find module .../config/layouts.js`).
 
-- [ ] **Step 3: Реализовать `STUDIO.bleacher`, `config/layouts.js` и `build/hall.js`**
+- [x] **Step 3: Реализовать `STUDIO.bleacher`, `config/layouts.js` и `build/hall.js`**
   Строго следить, чтобы в `buildHall` не создавались статические `THREE.Mesh` с пустой геометрией (`position.count === 0`), иначе `EdgesGeometry` в режиме «чертёж» упадёт или создаст мусор.
 
-- [ ] **Step 4: Прогнать тесты**
+- [x] **Step 4: Прогнать тесты**
   Run: `cd app; npx.cmd vitest run tests/unit/studio.test.js`
   Expected: PASS.
 
-- [ ] **Step 5: Закоммитить и проверить счётчик 10-го коммита**
+- [x] **Step 5: Закоммитить и проверить счётчик 10-го коммита**
   ```powershell
   git add app/src/venues/fest-studio/config/dimensions.js app/src/venues/fest-studio/config/layouts.js app/src/venues/fest-studio/build/hall.js app/tests/unit/studio.test.js
   git commit -m "Студия: телескопический блитчер на 40 мест и двухфазная анимация"

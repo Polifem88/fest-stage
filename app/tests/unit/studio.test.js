@@ -4,12 +4,14 @@ import * as THREE from 'three';
 import { StaticBatch, rect } from '../../src/core/geom.js';
 import { STUDIO, ceilingItems, trussFootprints } from '../../src/venues/fest-studio/config/dimensions.js';
 import { RIGGING, RIG_BY_ID, describeRig } from '../../src/venues/fest-studio/config/rigging.js';
+import { LAYOUTS, DEFAULT_LAYOUT, SHIFT_STEP, shiftRange, seatCount, bleacherPose, placed } from '../../src/venues/fest-studio/config/layouts.js';
 import { FIXTURES, TYPES, SPECS, GROUPS, GROUP_SETS, LIGHT_PLANS } from '../../src/venues/fest-studio/config/fixtures.js';
 import { panelUV } from '../../src/venues/fest-studio/build/panels.js';
 import { buildArchitecture } from '../../src/venues/fest-studio/build/architecture.js';
 import { cycPatches, buildCyclorama, FLOOR_LIFT } from '../../src/venues/fest-studio/build/cyclorama.js';
 import { buildTrusses } from '../../src/venues/fest-studio/build/trusses.js';
 import { StudioRigging } from '../../src/venues/fest-studio/build/rigging.js';
+import { buildHall, animateHall } from '../../src/venues/fest-studio/build/hall.js';
 import { buildEmitters } from '../../src/venues/fest-studio/build/emitters.js';
 import { ambientLights } from '../../src/venues/fest-studio/build/ambient.js';
 
@@ -433,6 +435,90 @@ describe('Студия · подвижная ферма', () => {
     expect(desk.hover('MF')).toBe(true);
     expect(desk.axis('MF')).toHaveLength(2);
     expect(desk.snapshot()).toEqual({ MF: 2.15 });
+  });
+});
+
+describe('Студия · блитчер и планировки', () => {
+  it('планировки folded (по умолчанию, 0 мест) и unfolded (40 мест), проходы и зазоры у стен, дверей и фермы', () => {
+    expect(DEFAULT_LAYOUT).toBe('folded');
+    expect(LAYOUTS.map((l) => l.id)).toEqual(['folded', 'unfolded']);
+    expect(SHIFT_STEP).toBe(0.5);
+    expect(shiftRange('folded', 0)).toEqual([0, 0]);
+    expect(shiftRange('unfolded', 5)).toEqual([0, 0]);
+    expect(seatCount({ id: 'folded', rows: 0, shift: 0 })).toBe(0);
+    expect(seatCount({ id: 'unfolded', rows: 5, shift: 0 })).toBe(40);
+
+    // Свёрнутый вид: пакет 1,07 м (d = −7,90 … −6,83), проход 0,70 м под козырьком, все 8 боковых поручней не выходят за стены
+    const pf = placed({ id: 'folded', rows: 0, shift: 0 });
+    expect(pf.tiers).toHaveLength(4);
+    expect(near(Math.min(...pf.tiers.map((t) => t.d0)), -7.90)).toBe(true);
+    expect(near(Math.max(...pf.tiers.map((t) => t.d1)), -6.83)).toBe(true);
+    expect(near(pf.tiers[0].d0 - STUDIO.room.d0, 0.70)).toBe(true);
+    expect(pf.floorChairs).toHaveLength(0);
+    expect(pf.sideRails).toHaveLength(8);
+    for (const sr of pf.sideRails) {
+      const tipX = sr.x + Math.sin(sr.splayRad) * (sr.d1 - sr.d0);
+      expect(tipX).toBeGreaterThanOrEqual(STUDIO.room.x0 + 0.01);
+      expect(tipX).toBeLessThanOrEqual(STUDIO.room.x1 - 0.01);
+    }
+    expect(pf.backRail.y1).toBeCloseTo(2.20, 5);
+    expect(pf.backRail.y1).toBeLessThan(STUDIO.canopy.y);
+
+    // Разложенный вид: 4 яруса 0,30…1,20 на d = −7,90…−4,10, справа проход 1,45 м, 32 кресла + 8 стульев 0-го ряда
+    const pu = placed({ id: 'unfolded', rows: 5, shift: 0 });
+    expect(pu.tiers.map((t) => t.h).sort((a, b) => a - b)).toEqual([0.30, 0.60, 0.90, 1.20]);
+    expect(near(Math.min(...pu.tiers.map((t) => t.d0)), -7.90)).toBe(true);
+    expect(near(Math.max(...pu.tiers.map((t) => t.d1)), -4.10)).toBe(true);
+    expect(near(STUDIO.room.x1 - STUDIO.bleacher.x1, 1.45)).toBe(true);
+    expect(pu.bleacherSeats).toHaveLength(32);
+    expect(pu.floorChairs).toHaveLength(8);
+    for (const ch of pu.floorChairs) {
+      expect(ch.y).toBe(0);
+      expect(ch.d).toBeCloseTo(-3.57, 5);
+      // Передний край сиденья стула (глубина 0,42) не доходит до задней грани подвижной фермы (−3,35)
+      expect(ch.d + 0.21).toBeLessThan(STUDIO.movableTruss.d0 - STUDIO.trusses.size / 2);
+    }
+  });
+
+  it('двухфазная кинематика bleacherPose и сборка buildHall / animateHall без NaN и пустых мешей', () => {
+    expect(bleacherPose(0)).toEqual({ tSlide: 0, tFold: 0, tChairs: 0 });
+    expect(bleacherPose(1)).toEqual({ tSlide: 1, tFold: 1, tChairs: 1 });
+    const p04 = bleacherPose(0.4);
+    expect(p04.tSlide).toBeGreaterThan(0);
+    expect(p04.tSlide).toBeLessThan(1);
+    expect(p04.tFold).toBe(0);
+    expect(p04.tChairs).toBe(0);
+    const p08 = bleacherPose(0.8);
+    expect(p08.tSlide).toBe(1);
+    expect(p08.tFold).toBeGreaterThan(0);
+    expect(p08.tFold).toBeLessThan(1);
+    expect(p08.tChairs).toBeGreaterThan(0);
+
+    const M = fakeM();
+    for (const st of [{ id: 'folded', rows: 0, shift: 0 }, { id: 'unfolded', rows: 5, shift: 0 }]) {
+      const g = buildHall(st, { M, profile: { name: 'desktop' } });
+      let fabricCount = -1;
+      g.traverse((o) => {
+        if (!o.isMesh) return;
+        const pos = o.geometry.attributes.position;
+        expect(pos.count, `пустая геометрия меша ${o.name}`).toBeGreaterThan(0);
+        for (let i = 0; i < pos.count; i++) {
+          expect(Number.isFinite(pos.getX(i)) && Number.isFinite(pos.getY(i)) && Number.isFinite(pos.getZ(i))).toBe(true);
+        }
+        if (o.userData.static) {
+          // проверка совместимости с режимом «чертёж» (EdgesGeometry)
+          const eg = new THREE.EdgesGeometry(o.geometry, 28);
+          eg.dispose();
+        }
+        if (o.name === 'seatsFabric') fabricCount = o.count;
+      });
+      expect(fabricCount).toBe(st.id === 'unfolded' ? 40 : 0);
+    }
+
+    const anim = animateHall({ id: 'folded', rows: 0, shift: 0 }, { id: 'unfolded', rows: 5, shift: 0 }, { M, profile: { name: 'desktop' } });
+    expect(anim.duration).toBeGreaterThanOrEqual(800);
+    for (const k of [0, 0.25, 0.5, 0.75, 1]) anim.update(k);
+    anim.dispose();
   });
 });
 
