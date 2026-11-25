@@ -324,7 +324,7 @@
 - Consumes: модули Tasks 1–4.
 - Produces: собранная интерактивная площадка `studio` (пока со `status: 'draft'` до Task 10) с 8 слоями (`walls, ceiling, cyc, trusses, lights, duty, rigging, hall`), 8 видами (включая `hall`: «С блитчера (3-й ряд)» и `plan` с `legendRows: 5`), `caps: { rigging: true, counterweights: false, portable: false, duty: true, houseLight: false, layouts: true }`, `rigging`, `layouts` (`default: 'folded'`, `steppers: false`, `animate: animateHall`), `fixtures`, `texts`.
 
-- [ ] **Step 1: Добавить в `app/tests/unit/state.test.js` тест обратной совместимости ссылки черновика Студии**
+- [x] **Step 1: Добавить в `app/tests/unit/state.test.js` тест обратной совместимости ссылки черновика Студии**
   Сформировать строку ссылки формата v2, какую писал черновик Студии (`{ v: 2, vn: 'studio', h: [], fx: '', fn: 0, f: 0b101, l: 0b111111, ln: 6, view: 'camera', hd: 30 }`), и проверить `decodeState(draftLink, studio)`:
   - `heights` пуст (движок оставит `MF` на `rest = 4.5`);
   - `fixturesOn` длины `15`, все `true`;
@@ -332,7 +332,7 @@
   - слои `rigging` и `hall` не выключены старой 6-битной маской.
   Также проверить round-trip новой ссылки `studio` с `heights: { MF: 1.85 }`, `layout: { id: 'unfolded', rows: 5, shift: 0 }`, `layers: { rigging: false, hall: true, ... }`.
 
-- [ ] **Step 2: Подключить механику, блитчер, свет, новый ракурс `hall` и слои в `fest-studio/index.js` и обновить `overlays.js`**
+- [x] **Step 2: Подключить механику, блитчер, свет, новый ракурс `hall` и слои в `fest-studio/index.js` и обновить `overlays.js`**
   - В `index.js` в `build(ctx)`: создать `const rig = new StudioRigging(ctx.M, { labels: ctx.labels, mobile })`, вызвать `rig.buildStatic(ctx.batch)` **до** `ctx.commitBatch()`, затем `ctx.add('rigging', rig.root)` и вернуть `rigging: rig`.
   - В `texts` задать:
     - `rigDrag: 'подвижную ферму можно тянуть мышью'`,
@@ -340,11 +340,11 @@
     - `layoutHint: 'При переключении блитчер выезжает от стены операторской, поднимаются кресла и выставляется 0-й ряд стульев.'`,
     - `extraEquipment` (по spec §5.1).
 
-- [ ] **Step 3: Запустить полный набор юнит-тестов**
+- [x] **Step 3: Запустить полный набор юнит-тестов**
   Run: `cd app; npx.cmd vitest run`
   Expected: все тесты (`venues.contract.test.js`, `state.test.js`, `studio.test.js`, `boundaries.test.js`, `parity-config.test.js`) — PASS.
 
-- [ ] **Step 4: Закоммитить и проверить счётчик 10-го коммита**
+- [x] **Step 4: Закоммитить и проверить счётчик 10-го коммита**
   ```powershell
   git add app/src/venues/fest-studio/index.js app/src/venues/fest-studio/build/overlays.js app/tests/unit/state.test.js
   git commit -m "Студия: подключение подвижной фермы, блитчера, 15 приборов и слоёв rigging/hall"

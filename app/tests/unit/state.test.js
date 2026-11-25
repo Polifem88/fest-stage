@@ -138,3 +138,34 @@ describe('Хэш ссылки', () => {
     expect(parseHash('')).toEqual({ v: null, s: null });
   });
 });
+
+describe('Студия: совместимость ссылок черновика и round-trip новых полей', () => {
+  it('ссылка черновика Студии (fn=0, ln=6, без lo и h) включает 15 приборов, ставит folded и не гасит rigging/hall', () => {
+    const draftLink = b64(JSON.stringify({ v: 2, vn: 'studio', h: [], fx: '', fn: 0, f: 0b101, l: 0b111111, ln: 6, view: 'camera', hd: 30 }));
+    const st = decodeState(draftLink, studio);
+    expect(st).toBeTruthy();
+    expect(st.heights).toEqual({});
+    expect(st.fixturesOn).toHaveLength(15);
+    expect(st.fixturesOn.every(Boolean)).toBe(true);
+    expect(st.layout).toEqual({ id: 'folded', rows: 0, shift: 0 });
+    expect('rigging' in st.layers).toBe(false);
+    expect('hall' in st.layers).toBe(false);
+    expect(st.layers.cyc).toBe(true);
+    expect(st.view).toBe('camera');
+  });
+
+  it('новая ссылка Студии сохраняет высоту MF, состояние блитчера unfolded, вид hall и новые слои', () => {
+    const st = stateOf(studio, {
+      heights: { MF: 1.85 },
+      layout: { id: 'unfolded', rows: 5, shift: 0 },
+      layers: { ...stateOf(studio).layers, rigging: false, hall: true },
+      view: 'hall',
+    });
+    const back = decodeState(encodeState(st, studio), studio);
+    expect(back.heights).toEqual({ MF: 1.85 });
+    expect(back.layout).toEqual({ id: 'unfolded', rows: 5, shift: 0 });
+    expect(back.layers.rigging).toBe(false);
+    expect(back.layers.hall).toBe(true);
+    expect(back.view).toBe('hall');
+  });
+});

@@ -19,21 +19,28 @@ export function dimList() {
   const R = STUDIO.room;
   const T = STUDIO.trusses;
   const C = STUDIO.cyc;
+  const MT = STUDIO.movableTruss;
+  const B = STUDIO.bleacher;
   const f2 = T.upper.lines.find((l) => l.id === 'Ф2');
   const f3 = T.upper.lines.find((l) => l.id === 'Ф3');
   const xCeil = R.x0 + OFF * 2;
   const xUpper = xCeil + DIM_X_STEP;
   const xLower = xUpper + DIM_X_STEP;
+  const xMov = xLower + DIM_X_STEP;
   const xCyc = R.x1 - OFF * 2;
-  const dVert = (f2.at + f3.at) / 2;
+  const topTierY = B.tiers * B.riser;
+  // Разнесены по d, чтобы на продольном разрезе ('side') вертикальные цепочки и подписи не накладывались
   return [
     [[R.x0, FLOOR_Y, R.d0 + OFF], [R.x1, FLOOR_Y, R.d0 + OFF], `Ширина ${fmtM(R.x1 - R.x0)}`],
     [[R.x0 + OFF, FLOOR_Y, R.d0], [R.x0 + OFF, FLOOR_Y, R.d1], `Глубина ${fmtM(R.d1 - R.d0)}`, 0.45],
-    [[xCeil, 0, dVert], [xCeil, R.ceiling, dVert], `Потолок ${fmtM(R.ceiling)}`],
-    [[xUpper, 0, dVert], [xUpper, T.upper.y0, dVert], `Верхние фермы ${fmtM(T.upper.y0)}`, 0.6],
-    [[xLower, 0, dVert], [xLower, T.lower.y0, dVert], `Нижние фермы ${fmtM(T.lower.y0)}`, 0.4],
+    [[xCeil, 0, -4.95], [xCeil, R.ceiling, -4.95], `Потолок ${fmtM(R.ceiling)}`, 0.68],
+    [[xUpper, 0, -3.75], [xUpper, T.upper.y0, -3.75], `Верхние фермы ${fmtM(T.upper.y0)}`, 0.54],
+    [[xLower, 0, -2.05], [xLower, T.lower.y0, -2.05], `Нижние фермы ${fmtM(T.lower.y0)}`, 0.42],
+    [[xMov, 0, -0.15], [xMov, MT.maxY, -0.15], `ФП макс. ${fmtM(MT.maxY)}`, 0.56],
+    [[B.x0 + OFF, 0, B.dBack + 0.45], [B.x0 + OFF, topTierY, B.dBack + 0.45], `Блитчер ${fmtM(topTierY)}`, 0.5],
     [[xCyc, 0, C.d1 - C.r], [xCyc, C.h, C.d1 - C.r], `Циклорама ${fmtM(C.h)}`, 0.55],
     [[0, T.upper.y0 - TRUSS_DIM_OFF, f2.at], [0, T.upper.y0 - TRUSS_DIM_OFF, f3.at], `Шаг ферм ${fmtM(f3.at - f2.at)}`],
+    [[MT.x, FLOOR_Y, MT.d0], [MT.x, FLOOR_Y, MT.d1], `ФП ${fmtM(MT.d1 - MT.d0)}`, 0.62],
   ];
 }
 
