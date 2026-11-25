@@ -252,6 +252,10 @@ test('Студия мультимедиа: вкладки, блитчер с д�
   for (const tab of ['rig', 'light', 'hall', 'layers', 'views']) {
     await expect(page.locator(`${tabSel(info)}[data-tab="${tab}"]`)).toHaveCount(1);
   }
+  if (!mobile) {
+    const helpTxt = await page.evaluate(() => document.querySelector('.modal')?.textContent || '');
+    expect(helpTxt).not.toContain('«Рядов»');
+  }
   expect(await page.evaluate(() => window.__fest.layout())).toEqual({ id: 'folded', rows: 0, shift: 0 });
   expect(await page.evaluate(() => window.__fest.height('MF'))).toBe(4.5);
   expect(await page.evaluate(() => window.__fest.stage.layerGroups.hall.children.at(-1).children.find((m) => m.name === 'seatsFabric').count)).toBe(0);
@@ -392,11 +396,21 @@ test('Студия мультимедиа на телефоне: все инте
     });
     await page.waitForTimeout(250);
     for (const s of await measure()) small.add(`[${tab}] ${s}`);
+    const bodyOverflow = await page.evaluate(() => {
+      const b = document.querySelector('.sheet-body');
+      return b ? b.scrollWidth - b.clientWidth : 0;
+    });
+    expect(bodyOverflow, `горизонтальное переполнение шторки во вкладке ${tab}`).toBeLessThanOrEqual(0);
   }
   await page.locator('.handle').click();
   await page.evaluate(() => { window.__fest.select({ kind: 'rig', id: 'MF' }); window.__fest.renderNow(); });
   await page.waitForTimeout(200);
   for (const s of await measure()) small.add(`[карточка MF] ${s}`);
+  const mfCardClip = await page.evaluate(() => {
+    const c = document.querySelector('.card');
+    return c ? c.scrollHeight - c.clientHeight : 0;
+  });
+  expect(mfCardClip, 'карточка MF целиком помещается на телефоне').toBeLessThanOrEqual(2);
   await page.evaluate(() => { window.__fest.selectFixture(1); window.__fest.renderNow(); });
   await page.waitForTimeout(200);
   for (const s of await measure()) small.add(`[карточка №1] ${s}`);

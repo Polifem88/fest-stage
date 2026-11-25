@@ -27,8 +27,8 @@ const VIEWS = {
   camera: { name: 'На циклораму', type: 'persp', pos: [0, 1.6, -6.0], target: [0, 1.4, 3.0] },
   booth: { name: 'Из операторской', type: 'persp', pos: [0.2, 4.1, -7.6], target: [0, 1.0, 2.0] },
   cycToExit: { name: 'С циклорамы к выходу', type: 'persp', pos: [0, 1.7, 3.0], target: [-0.2, 1.2, -7.2] },
-  ceiling: { name: 'Фермы и потолок (снизу)', type: 'persp', pos: [0.8, 1.0, -3.8], target: [-0.3, 5.4, 1.2] },
-  plan: { name: 'План сверху', type: 'ortho', dir: 'top', center: [0, 0, -2.475], height: 15.2, width: 9.2, legendRows: 5 },
+  ceiling: { name: 'Фермы и потолок', type: 'persp', pos: [0.8, 1.0, -3.8], target: [-0.3, 5.4, 1.2] },
+  plan: { name: 'План сверху', type: 'ortho', dir: 'top', center: [0, 0, -2.85], height: 18.0, width: 9.4, legendRows: 5 },
   section: { name: 'Разрез сбоку', type: 'ortho', dir: 'side', center: [0, 2.8, -2.475], height: 6.8, width: 14.5 },
 };
 

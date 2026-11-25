@@ -29,10 +29,10 @@ export function dimList() {
   const xMov = xLower + DIM_X_STEP;
   const xCyc = R.x1 - OFF * 2;
   const topTierY = B.tiers * B.riser;
-  // Разнесены по d, чтобы на продольном разрезе ('side') вертикальные цепочки и подписи не накладывались
+  // Разнесены по d и Y, чтобы ни на плане ('top'), ни на разрезе ('side') подписи не пересекали сетку и фермы
   return [
     [[R.x0, FLOOR_Y, R.d0 + OFF], [R.x1, FLOOR_Y, R.d0 + OFF], `Ширина ${fmtM(R.x1 - R.x0)}`],
-    [[R.x0 + OFF, FLOOR_Y, R.d0], [R.x0 + OFF, FLOOR_Y, R.d1], `Глубина ${fmtM(R.d1 - R.d0)}`, 0.58],
+    [[R.x0 + OFF, -0.42, R.d0], [R.x0 + OFF, -0.42, R.d1], `Глубина ${fmtM(R.d1 - R.d0)}`, 0.58],
     [[xCeil, 0, -4.95], [xCeil, R.ceiling, -4.95], `Потолок ${fmtM(R.ceiling)}`, 0.68],
     [[xUpper, 0, -3.75], [xUpper, T.upper.y0, -3.75], `Верхние фермы ${fmtM(T.upper.y0)}`, 0.54],
     [[xLower, 0, -2.05], [xLower, T.lower.y0, -2.05], `Нижние фермы ${fmtM(T.lower.y0)}`, 0.42],
@@ -40,7 +40,7 @@ export function dimList() {
     [[B.x0 + OFF, 0, B.dBack + 0.45], [B.x0 + OFF, topTierY, B.dBack + 0.45], `Блитчер ${fmtM(topTierY)}`, 0.5],
     [[xCyc, 0, C.d1 - C.r], [xCyc, C.h, C.d1 - C.r], `Циклорама ${fmtM(C.h)}`, 0.55],
     [[0, T.upper.y0 - TRUSS_DIM_OFF, f2.at], [0, T.upper.y0 - TRUSS_DIM_OFF, f3.at], `Шаг ферм ${fmtM(f3.at - f2.at)}`],
-    [[MT.x, FLOOR_Y, MT.d0], [MT.x, FLOOR_Y, MT.d1], `ФП ${fmtM(MT.d1 - MT.d0)}`, 0.62],
+    [[MT.x - 0.40, MT.maxY + 0.15, MT.d0], [MT.x - 0.40, MT.maxY + 0.15, MT.d1], `ФП ${fmtM(MT.d1 - MT.d0)}`, 0.25],
   ];
 }
 
@@ -85,8 +85,8 @@ export function buildGrid(labels) {
     const num = (n) => String(n).replace('-', '−');
     for (let x = Math.ceil(R.x0); x <= Math.floor(R.x1); x++) mk(xl, num(x), x, R.d1 + LABEL_OFF);
     mk(xl, 'м от оси павильона', R.x1 + TRUSS_LABEL_X_OFF, R.d1 + LABEL_OFF, LABEL_Y, { color: '#444' });
+    mk(xl, STUDIO.zeroLineLabel, 0, R.d1 + LABEL_OFF * 1.65, LABEL_Y, { color: '#444' });
     for (let d = Math.ceil(R.d0); d <= Math.floor(R.d1); d++) mk(g, num(d), R.x0 - LABEL_OFF, d);
-    mk(g, STUDIO.zeroLineLabel, R.x0 - LABEL_OFF, R.d1 + LABEL_OFF * 2, LABEL_Y, { color: '#444', cx: 0 });
     for (const l of STUDIO.trusses.upper.lines.filter((t) => t.axis === 'd')) {
       mk(g, `${l.id} (${l.at >= 0 ? '+' : ''}${num(l.at.toFixed(2).replace('.', ','))})`, R.x1 + TRUSS_LABEL_X_OFF, l.at, STUDIO.trusses.upper.y0, { color: '#2b4c7e' });
     }

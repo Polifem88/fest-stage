@@ -87,7 +87,8 @@ export class StudioRigging {
     let label = null;
     if (this.opts.labels) {
       label = this.opts.labels.make(r.name, { px: 15, color: '#8ff0e6', kind: 'rig' });
-      label.position.set(-MT.x - LABEL_X_OFF, T.size + LABEL_Y_OFF, -MT.d0);
+      // В пролёте d = −2,05 (между Ф3 = −3,20 и Ф4 = −0,70) на середине высоты фермы — вне Ф3 и лебёдки
+      label.position.set(-MT.x - LABEL_X_OFF, T.size / 2, 2.05);
       label.userData.home = label.position.clone();
       g.add(label);
     }

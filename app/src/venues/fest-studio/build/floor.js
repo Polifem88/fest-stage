@@ -58,7 +58,7 @@ export function hangs() {
 }
 
 export function poolK(f) {
-  return f.group === 'CYC' ? 0.45 : 0.5;
+  return f.group === 'CYC' ? 0.68 : 0.74;
 }
 
 function inRects(x, d, rects) {
@@ -191,6 +191,10 @@ bool inR(vec4 r, float x, float d) { return x >= r.x && x <= r.y && d >= r.z && 
   bool ok = false;
   if (vZone < 0.5) {
     for (int i = 0; i < ${nRoom}; i++) if (inR(uRoom[i], px, pd)) ok = true;
+    if (pd > -0.50 && pd < 0.0) {
+      float halfW = mix(${(C.x1 - C.r).toFixed(3)}, ${R.x1.toFixed(3)}, clamp(-pd / 0.50, 0.0, 1.0));
+      if (abs(px) > halfW) ok = false;
+    }
   } else {
     for (int i = 0; i < ${MAX_TOPS}; i++) if (i < uTopN && abs(vPoolW.y - 0.012 - uTopH[i]) < ${H_TOL.toFixed(3)} && inR(uTops[i], px, pd)) ok = true;
   }

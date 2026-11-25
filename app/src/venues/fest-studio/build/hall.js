@@ -4,7 +4,7 @@
 //    без пересоздания BufferGeometry в кадре.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { box } from '../../../core/geom.js';
+import { box, worldUV } from '../../../core/geom.js';
 import { STUDIO } from '../config/dimensions.js';
 import { bleacherPose, placed, placedAt } from '../config/layouts.js';
 
@@ -38,6 +38,7 @@ function mergeAll(list) {
 }
 
 function staticMesh(geo, mat, name, bpRole = null) {
+  if (mat?.map) worldUV(geo, mat.userData?.uvScale || 0.25);
   const m = new THREE.Mesh(geo, mat);
   m.name = name;
   m.userData.static = true;
@@ -48,14 +49,15 @@ function staticMesh(geo, mat, name, bpRole = null) {
   return m;
 }
 
-/** Боковая тканевая шторка блитчера: лёгкий тёплый отсвет в узком зазоре 15 см у левой стены. */
+/** Боковая тканевая шторка блитчера: оранжевый тон в цвет кресел с тёплым рассеянным отсветом в тени под ярусами. */
 function makeCurtainMat(M) {
   const base = M?.velvetOrange;
   if (!base?.clone) return base;
   const mat = base.clone();
   mat.name = 'velvetOrange';
-  mat.emissive?.setHex(0x3b1506);
-  if ('emissiveIntensity' in mat) mat.emissiveIntensity = 0.45;
+  mat.color?.setHex(0xc4602a);
+  mat.emissive?.setHex(0x6e2b0d);
+  if ('emissiveIntensity' in mat) mat.emissiveIntensity = 0.55;
   return mat;
 }
 

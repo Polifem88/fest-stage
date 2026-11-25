@@ -134,11 +134,11 @@ export const STUDIO = {
     halfStepH: 0.15,
     halfStepD: 0.30,
     halfStepAssumption: true,
-    row0D: -3.57,
+    row0D: -3.60,
     row0Assumption: true,
     backRailH: 1.00,
     sideRailH: 0.85,
-    sideSplayDeg: [7, 5.6, 4.3, 3], // отгиб боковых поручней наружу по ярусам 1..4 в свёрнутом виде (3°…7°)
+    sideSplayDeg: [5.5, 4.6, 3.8, 3], // отгиб боковых поручней наружу по ярусам 1..4 в свёрнутом виде (3°…5,5°)
     railsAssumption: true,
   },
 
@@ -180,7 +180,7 @@ export const STUDIO = {
   ],
 
   // --- источники дежурного света для LightingSystem --------------------------
-  ambient: { duty: { color: 0xffe2b0, decay: 1.4, full: 16, lite: 42 } },
+  ambient: { duty: { color: 0xffe2b0, decay: 1.4, full: 11, lite: 28 } },
 
   zeroLineLabel: 'd = 0 — передний край циклорамы',
 };

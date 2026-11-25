@@ -21,12 +21,15 @@ export const RIGGING = [
 export const RIG_BY_ID = Object.fromEntries(RIGGING.map((r) => [r.id, r]));
 
 /** Дополнительные строки карточки выбранной подвижной фермы. */
-export function describeRig() {
+export function describeRig(_r, stage) {
   const T = STUDIO.trusses;
   const fmt = (v) => v.toFixed(2).replace('.', ',');
+  if (stage?.profile?.name === 'mobile') {
+    return [['Контур', `${fmt(MT.x * 2)} × ${fmt(MT.d1 - MT.d0)} м · 30×30`]];
+  }
   return [
     ['Контур по осям', `${fmt(MT.x * 2)} × ${fmt(MT.d1 - MT.d0)} м (габарит ${fmt(MT.x * 2 + T.size)} × ${fmt(MT.d1 - MT.d0 + T.size)} м)`],
-    ['Привод', '4 цепные лебёдки синхронно (под Ф3 и Ф5, 1,00 м от стен)'],
-    ['Сечение', 'Алюминиевая квадратная ферма 30 × 30 см (труба Ø50, раскосы Ø16)'],
+    ['Привод', '4 цепные лебёдки синхронно (под Ф3 и Ф5)'],
+    ['Сечение', 'алюминиевая ферма 30 × 30 см (труба Ø50, раскосы Ø16)'],
   ];
 }

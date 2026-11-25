@@ -219,13 +219,17 @@ export function buildPlanDXF(stage) {
     dxf.addInsert('SEAT', se.x, se.d, { layer: 'SEATS', rotation: (-(se.rotY || 0) * 180) / Math.PI });
   }
 
-  // 10. Приборы постоянного развеса и условные номера 1*…15*
+  // 10. Приборы постоянного развеса (развёрнутые по азимуту наведения) и условные номера 1*…15*
   for (const f of fixtures) {
     if (f.hidden) continue;
     const t = TYPES[f.type];
     const sc = t.scale || 1;
-    dxf.addInsert(SHAPE_BLOCK[t.shape] || 'FX_SPOT', f.mount.x, f.mount.d, { layer: 'FIXTURES', scaleX: sc, scaleY: sc, scaleZ: sc });
-    dxf.addText(f.mount.x + 0.17, f.mount.d + 0.16, f.assumed ? `${f.no}*` : String(f.no), { layer: 'TEXT', height: 0.12, valign: 'middle' });
+    const dx = (f.aim?.x ?? f.mount.x) - f.mount.x;
+    const dd = (f.aim?.d ?? f.mount.d + 1) - f.mount.d;
+    const rotDeg = Math.hypot(dx, dd) > 1e-3 ? Math.round((-Math.atan2(dx, dd) * 180) / Math.PI) : 0;
+    dxf.addInsert(SHAPE_BLOCK[t.shape] || 'FX_SPOT', f.mount.x, f.mount.d, { layer: 'FIXTURES', scaleX: sc, scaleY: sc, scaleZ: sc, rotation: rotDeg });
+    const tx = f.mount.x > 2.4 ? f.mount.x - 0.28 : f.mount.x + 0.17;
+    dxf.addText(tx, f.mount.d + 0.16, f.assumed ? `${f.no}*` : String(f.no), { layer: 'TEXT', height: 0.12, valign: 'middle' });
   }
 
   // 11. Размерные цепочки
@@ -367,7 +371,8 @@ export function buildSectionDXF(stage) {
     dxf.addLine(X(hd), H.y1, X(hd), H.spansetTopY, { layer: 'RIGGING' });
     dxf.addLine(X(hd), mfH + T.size, X(hd), H.y0, { layer: 'RIGGING', ltype: 'DASHED' });
   }
-  dxf.addText(X((MT.d0 + MT.d1) / 2), mfH + T.size + 0.08, `ФП (+${fmtM(mfH)} м)`, { layer: 'RIGGING', height: 0.13, align: 'center' });
+  const mfLblY = mfH > 4.1 ? mfH - 0.22 : mfH + T.size + 0.08;
+  dxf.addText(X((MT.d0 + MT.d1) / 2), mfLblY, `ФП (+${fmtM(mfH, 3)} м)`, { layer: 'RIGGING', height: 0.13, align: 'center' });
 
   // 6. Светильники дежурки и кассеты на потолке
   for (const dl of STUDIO.duty.list) {
@@ -397,10 +402,22 @@ export function buildSectionDXF(stage) {
   dxf.addLine(X(plan.backRail.d), plan.backRail.y0, X(plan.backRail.d), plan.backRail.y1, { layer: 'STANDS' });
   dxf.addText(X(plan.backRail.d) - 0.08, plan.backRail.y1 - 0.06, `ограждение +${fmtM(plan.backRail.y1)}`, { layer: 'TEXT', height: 0.11, align: 'right' });
 
-  // 8. Приборы в разрезе
+  // 8. Приборы в разрезе (сгруппированы по позиции в плоскости разреза без двойного наложения)
+  const secGroups = new Map();
   for (const f of fixtures) {
     if (f.hidden) continue;
-    dxf.addRect(X(f.mount.d) - 0.10, f.mount.y - 0.28, X(f.mount.d) + 0.10, f.mount.y, { layer: 'FIXTURES' });
+    const key = `${f.mount.d.toFixed(3)}|${f.mount.y.toFixed(3)}`;
+    if (!secGroups.has(key)) secGroups.set(key, { d: f.mount.d, y: f.mount.y, list: [] });
+    secGroups.get(key).list.push(f);
+  }
+  for (const grp of secGroups.values()) {
+    dxf.addRect(X(grp.d) - 0.10, grp.y - 0.28, X(grp.d) + 0.10, grp.y, { layer: 'FIXTURES' });
+    const nos = grp.list.map((f) => f.no).sort((a, b) => a - b);
+    const allAssumed = grp.list.every((f) => f.assumed);
+    const star = (n) => (allAssumed ? `${n}*` : String(n));
+    const contiguous = nos.length > 1 && nos.every((n, i) => i === 0 || n === nos[i - 1] + 1);
+    const lbl = nos.length === 1 ? star(nos[0]) : contiguous ? `${star(nos[0])}–${star(nos.at(-1))}` : nos.map(star).join(',');
+    dxf.addText(X(grp.d), grp.y - 0.43, lbl, { layer: 'TEXT', height: 0.10, align: 'center' });
   }
 
   // 9. Высотные отметки и линейные размеры

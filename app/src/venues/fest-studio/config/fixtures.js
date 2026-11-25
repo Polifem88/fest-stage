@@ -47,10 +47,10 @@ export const GROUPS = {
 };
 
 export const GROUP_SETS = [
-  { id: 'front', name: 'Фронт (Ф1)', groups: ['FRONT'] },
-  { id: 'spot', name: 'Головы BSW (Ф2)', groups: ['SPOT'] },
-  { id: 'sides', name: 'Боковые профили', groups: ['SIDE_L', 'SIDE_R'] },
-  { id: 'cyc', name: 'Циклорама (B-Eye)', groups: ['CYC'] },
+  { id: 'front', name: 'Фронт', groups: ['FRONT'] },
+  { id: 'spot', name: 'BSW 200', groups: ['SPOT'] },
+  { id: 'sides', name: 'Профили', groups: ['SIDE_L', 'SIDE_R'] },
+  { id: 'cyc', name: 'Циклорама', groups: ['CYC'] },
 ];
 
 export const LIGHT_PLANS = {
@@ -94,9 +94,9 @@ const F = (no, type, group, line, along, aim, extra = {}) => ({
 
 export const FIXTURES = [
   // № 1–3: фронтальные профили Anzhee Profile Q400 (WW+CW) на Ф1 (d = −7,55)
-  F(1, 'PROF_CW', 'FRONT', 'Ф1', -1.75, [-1.30, 1.20]),
-  F(2, 'PROF_CW', 'FRONT', 'Ф1', 0, [0, 1.40]),
-  F(3, 'PROF_CW', 'FRONT', 'Ф1', 1.75, [1.30, 1.20]),
+  F(1, 'PROF_CW', 'FRONT', 'Ф1', -1.75, [-0.45, 0.30]),
+  F(2, 'PROF_CW', 'FRONT', 'Ф1', 0, [0, 0.50]),
+  F(3, 'PROF_CW', 'FRONT', 'Ф1', 1.75, [0.45, 0.30]),
 
   // № 4–5: поворотные головы Showlee BSW 200 на Ф2 (d = −5,70)
   F(4, 'BSW200', 'SPOT', 'Ф2', -1.35, [-0.80, 0.80], { assumption: true }),
@@ -124,9 +124,9 @@ export function countByType(groups = null) {
 }
 
 export function powerOf() {
-  return 'свитчерная линия Light Union CommuPack 24 (номер на схеме не указан)';
+  return 'свитчер CommuPack 24 (номер линии не указан)';
 }
 
-export function lineText(g) {
-  return g?.ds ? `${g.ds} · пульт ETC Cobalt Congo Kid` : 'свитчер CommuPack 24 · пульт ETC Cobalt Congo Kid';
+export function lineText() {
+  return 'пульт ETC Cobalt Congo Kid';
 }

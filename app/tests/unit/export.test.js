@@ -508,7 +508,7 @@ describe('Студия мультимедиа: экспорт 2D и 3D (DXF и G
   };
   const count = (dxf, type, layer) => ents(dxf).filter((e) => e.type === type && e.layer === layer).length;
 
-  it('2D-план: все слои, 15 блоков приборов 1*…15*, 12 светильников дежурки, folded (0 мест) vs unfolded (40 мест) и высота ФП', () => {
+  it('2D-план: все слои, 15 блоков приборов 1*…15*, поворот боковых №6–7, 12 светильников дежурки, folded vs unfolded и высота ФП', () => {
     const defPlan = buildStudioPlanDXF(null);
     for (const layer of [
       '0_AXES', '0_GRID', 'WALLS', 'DOORS', 'CANOPY', 'CYC', 'TRUSSES', 'RIGGING',
@@ -517,6 +517,8 @@ describe('Студия мультимедиа: экспорт 2D и 3D (DXF и G
       expect(defPlan, `отсутствует слой ${layer}`).toContain(`\n2\n${layer}\n`);
     }
     expect(count(defPlan, 'INSERT', 'FIXTURES')).toBe(15);
+    // Боковые профили № 6 и № 7 развёрнуты к циклораме (ненулевой угол поворота код 50 в INSERT)
+    expect(defPlan).toMatch(/\n0\nINSERT\n[\s\S]*?\n8\nFIXTURES\n[\s\S]*?\n50\n-?[1-9]/);
     expect(count(defPlan, 'INSERT', 'DUTY')).toBe(12);
     expect(count(defPlan, 'INSERT', 'SEATS')).toBe(0);
     expect(ents(defPlan).filter((e) => e.layer === 'STANDS').length).toBeGreaterThan(0);
@@ -530,16 +532,20 @@ describe('Студия мультимедиа: экспорт 2D и 3D (DXF и G
     expect(unfPlan).toContain('ФП (H=+2,10 м)');
   });
 
-  it('2D продольный разрез: высотные отметки, дуга циклорамы, динамическая отметка ФП и профиль блитчера', () => {
+  it('2D продольный разрез: высотные отметки с 3 знаками (включая ФП), групповые номера приборов, дуга циклорамы и профиль блитчера', () => {
     const defSec = buildStudioSectionDXF(null);
     for (const mark of ['±0,000', '+2,400', '+3,250', '+3,900', '+5,200', '+5,650']) {
       expect(defSec, mark).toContain(mark);
     }
-    expect(defSec).toContain('ФП (+4,50');
+    expect(defSec).toContain('ФП (+4,500 м)');
+    expect(defSec).toMatch(/1\*[-–]3\*/);
+    expect(defSec).toMatch(/4\*[-–]5\*/);
+    expect(defSec).toMatch(/6\*[-–]7\*/);
+    expect(defSec).toMatch(/10\*[-–]13\*/);
     expect(count(defSec, 'ARC', 'CYC')).toBeGreaterThanOrEqual(1);
 
     const unfSec = buildStudioSectionDXF(stageOf({ layout: { id: 'unfolded', rows: 5, shift: 0 }, mfH: 2.1 }));
-    expect(unfSec).toContain('ФП (+2,10');
+    expect(unfSec).toContain('ФП (+2,100 м)');
     expect(unfSec).toContain('+2,20');
     expect(ents(unfSec).filter((e) => e.layer === 'STANDS').length).toBeGreaterThanOrEqual(5);
   });
