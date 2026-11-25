@@ -501,11 +501,11 @@
 - Modify: `app/scripts/parity.mjs` (`VENUES.studio`, `applyScenario`)
 - Modify: `ASSUMPTIONS.md`, `AGENTS.md`, `.agents/skills/venue-module-authoring/SKILL.md`
 
-- [ ] **Step 1: Финальная сверка `big`, `chamber`, `roof` со старым эталоном `master` ПЕРЕД переключением `studio` в `ready`**
+- [x] **Step 1: Финальная сверка `big`, `chamber`, `roof` со старым эталоном `master` ПЕРЕД переключением `studio` в `ready`**
   Run: `cd app; npm.cmd run build; node scripts/parity.mjs compare`
   Expected: код `0` — 100 % гарантия, что за всё время работы три прежние готовые сцены не изменились ни на байт и ни на пиксель.
 
-- [ ] **Step 2: Перевести `studio` в `status: 'ready'` (`index.js`, `catalog.js`), обновить `venues.spec.js` и добавить `studio` в `app/scripts/parity.mjs`**
+- [x] **Step 2: Перевести `studio` в `status: 'ready'` (`index.js`, `catalog.js`), обновить `venues.spec.js` и добавить `studio` в `app/scripts/parity.mjs`**
   В `app/scripts/parity.mjs`:
   - в `VENUES` добавить:
     ```js
@@ -528,7 +528,7 @@
     case 'off+haze55': f.light('all', false); f.flag('hazeDensity', 0.55); break;
     ```
 
-- [ ] **Step 3: Собрать проект, переснять полный 4-площадочный эталон паритета и пройти обязательную самопроверку (`AGENTS.md` §4 п. 3)**
+- [x] **Step 3: Собрать проект, переснять полный 4-площадочный эталон паритета и пройти обязательную самопроверку (`AGENTS.md` §4 п. 3)**
   Run:
   ```powershell
   cd "d:\Antigravity Projects\fest-3dmodels-and-stages\app"
@@ -541,11 +541,11 @@
   ```
   Expected: оба вызова `compare` возвращают код `0`, в отчёте проверены все 4 площадки: `big, chamber, roof, studio` — `100 %`.
 
-- [ ] **Step 4: Синхронно обновить `ASSUMPTIONS.md`, `AGENTS.md` и `.agents/skills/venue-module-authoring/SKILL.md`**
-  - В `ASSUMPTIONS.md` §1.4: перевести заголовок на `статус ready`, убрать строку «Незавершённые блоки черновика», внести все фактические допущения Студии (отступ блитчера `0,15` м слева, пакет `1,07` м в свёрнутом виде, высота/отгиб поручней и полуступени, привязка 0-го ряда `d = −3,57` м, корпуса лебёдок `4,92…5,10` м, поперечные координаты `BSW200` на `Ф2`, условные номера приборов `1*…15*` и типовой паспорт `BSW200` в §1.6).
+- [x] **Step 4: Синхронно обновить `ASSUMPTIONS.md`, `AGENTS.md` и `.agents/skills/venue-module-authoring/SKILL.md`**
+  - В `ASSUMPTIONS.md` §1.4: перевести заголовок на `статус ready`, убрать строку «Незавершённые блоки черновика», внести все фактические допущения Студии (отступ блитчера `0,15` м слева, пакет `1,07` м в свёрнутом виде, высота/отгиб поручней и полуступени, привязка 0-го ряда `d = −3,60` м, корпуса лебёдок `4,92…5,10` м, поперечные координаты `BSW200` на `Ф2`, условные номера приборов `1*…15*` и типовой паспорт `BSW200` в §1.6).
   - В `AGENTS.md` (шапка, §4 п. 3, §7 п. 2) и `.agents/skills/venue-module-authoring/SKILL.md` (§3, §5): обновить описание Студии как готовой площадки (`40 мест`, подъёмная ферма на 4 цепных лебёдках, телескопический блитчер с двухфазной анимацией, 15 приборов, полный экспорт DXF/GLB).
 
-- [ ] **Step 5: Полная проверка `npm.cmd run check`, финальный коммит и полный 3-уровневый бэкап**
+- [x] **Step 5: Полная проверка `npm.cmd run check`, финальный коммит и полный 3-уровневый бэкап**
   Run:
   ```powershell
   cd "d:\Antigravity Projects\fest-3dmodels-and-stages\app"

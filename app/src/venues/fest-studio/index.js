@@ -35,11 +35,10 @@ const VIEWS = {
 export default {
   id: 'studio',
   name: 'Студия мультимедиа',
-  status: 'draft',
+  status: 'ready',
   meta: {
     type: 'Съёмочный павильон с циклорамой',
     seats: 40,
-    note: 'черновик',
   },
   caps: {
     rigging: true,

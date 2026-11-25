@@ -57,8 +57,8 @@ description: >-
   Архитектурным образцом служит модуль `app/src/venues/fest-big/` с разделением на подсистемы (`build/architecture.js`, `build/rigging.js`, `build/overlays.js`, `build/ambient.js`, `build/floor.js`).
 - **Трансформируемый зал (лофт без портала, станки и стулья по планировкам):**
   Образец — `app/src/venues/fest-roof/`: ортогональный контур помещения из прямоугольников, колонны и капитальные фермы с обрезкой по стенам, сетка ферм 30×30 на жёстком подвесе, сменные планировки зала (`caps.layouts`, `config/layouts.js`), пятна света на полу и верхах станков текущей планировки, экспорт DXF/GLB с текущей планировкой.
-- **Съёмочный павильон с циклорамой / площадка в черновике без приборов:**
-  Образец — `app/src/venues/fest-studio/`: параметрическая трёхгранная угловая циклорама со скруглениями и сферическим углом (`build/cyclorama.js`), двухъярусная сетка 4-поясных квадратных ферм на общем построителе `app/src/venues/_template/trusses.js`, модульная UV-раскладка акустических панелей (`build/panels.js`) и работа с пустым списком приборов (`fixtures.list = []`).
+- **Съёмочный павильон с циклорамой, подъёмной фермой и телескопическим блитчером:**
+  Образец — `app/src/venues/fest-studio/`: параметрическая трёхгранная угловая циклорама со скруглениями и сферическим углом (`build/cyclorama.js`), двухъярусная сетка 4-поясных квадратных ферм на общем построителе `app/src/venues/_template/trusses.js` плюс подвижный фермовый контур на 4 цепных лебёдках (`RIG_KINDS.truss`, `build/rigging.js`), телескопический блитчер с двухфазной анимацией раскладывания (`layouts.animate`, `layouts.steppers: false`, `build/hall.js`), модульная UV-раскладка акустических панелей (`build/panels.js`), шейдерная обрезка пятен `'pool-studio'` и полный экспорт DXF/GLB. Для площадки в черновике без приборов (`fixtures.list = []`) см. `app/src/venues/fest-foyer/`.
 
 ---
 
@@ -120,12 +120,12 @@ description: >-
 | `defaultView` | `string` | Вид по умолчанию. Обязан существовать во `views` и иметь `type: 'persp'`. |
 | `camera` | `Object?` | `{ maxDistance?: number }` — максимальное удаление камеры в метрах. |
 | `rigging` | `Object \| null` | `{ list, describe?, controlNames? }` — подвижная механика. Если `caps.rigging === false`, строго `null`. |
-| `layouts` | `LayoutsCfg \| null` | Трансформируемый зал при `caps.layouts: true` (`list`, `default`, `shiftStep`, `range`, `seats`, `build`), иначе строго `null`. |
+| `layouts` | `LayoutsCfg \| null` | Трансформируемый зал при `caps.layouts: true` (`list`, `default`, `shiftStep`, `steppers?`, `range`, `seats`, `build`, `animate?`), иначе строго `null`. При `steppers: false` степперы «Рядов / Сдвиг» скрываются, при `animate` переключение пользователем проигрывает плавный переход. |
 | `fixtures` | `FixturesCfg` | Полная конфигурация света (приборы, типы, группы, пол, обрезка). |
 | `lightPlans` | `{ full, lite }` | Группировка источников света для профилей высокой (`full`) и мобильной (`lite`) производительности. |
 | `build(ctx)` | `Function` | Функция сборки 3D-сцены через контекст `ctx`. |
 | `exports` | `Object` | Функции экспорта `{ planDXF?, sectionDXF?, dxf3d?, glb? }`. Если кастомных DXF нет — `{}` (generic GLB работает автоматически). |
-| `texts` | `Object?` | Тексты интерфейса площадки: `{ rigDrag?, extraEquipment? }`. `extraEquipment` — оборудование под спектакль, которого нет в постоянном развесе (блок «📦 Доп. оборудование» внизу панели «Свет»). |
+| `texts` | `Object?` | Тексты интерфейса площадки: `{ rigDrag?, rigHint?, layoutHint?, extraEquipment? }`. `extraEquipment` — оборудование под спектакль, которого нет в постоянном развесе (блок «📦 Доп. оборудование» внизу панели «Свет»). |
 
 ### Флаги возможностей (`caps`):
 - `rigging: boolean` — наличие подвижных подъёмов (при `false` скрываются вкладка механики и слайдеры).

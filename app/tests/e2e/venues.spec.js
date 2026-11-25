@@ -28,12 +28,14 @@ test('переключение сцены через список в загол�
   await expect(page.locator('[data-id="l-trusses"]')).toHaveCount(1);
   expect((await canvasStats(page)).std, 'Камерная: кадр не пустой').toBeGreaterThan(4);
 
-  // все 5 площадок открываются; черновики (Фойе и Студия) отмечены пометкой «черновик»
+  // все 5 площадок открываются; черновик Фойе отмечен пометкой «черновик», Студия готова (40 мест)
   await page.locator('.brand-btn').click();
-  for (const id of ['foyer', 'studio']) {
-    await expect(page.locator(`.venue-item[data-venue="${id}"]`)).not.toHaveAttribute('aria-disabled', 'true');
-    await expect(page.locator(`.venue-item[data-venue="${id}"]`)).toContainText('черновик');
-  }
+  await expect(page.locator('.venue-item[data-venue="foyer"]')).not.toHaveAttribute('aria-disabled', 'true');
+  await expect(page.locator('.venue-item[data-venue="foyer"]')).toContainText('черновик');
+  const studioItem = page.locator('.venue-item[data-venue="studio"]');
+  await expect(studioItem).not.toHaveAttribute('aria-disabled', 'true');
+  await expect(studioItem).toContainText('40 мест');
+  await expect(studioItem).not.toContainText('черновик');
   await expect(page.locator('.venue-item[data-venue="roof"]'), 'Сцена под крышей открывается').not.toHaveAttribute('aria-disabled', 'true');
   await page.keyboard.press('Escape');
   expect(await page.evaluate(() => window.__fest.venue())).toBe('chamber');
