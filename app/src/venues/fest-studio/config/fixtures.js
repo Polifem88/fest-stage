@@ -50,7 +50,7 @@ export const GROUP_SETS = [
   { id: 'front', name: 'Фронт', groups: ['FRONT'] },
   { id: 'spot', name: 'BSW 200', groups: ['SPOT'] },
   { id: 'sides', name: 'Профили', groups: ['SIDE_L', 'SIDE_R'] },
-  { id: 'cyc', name: 'Циклорама', groups: ['CYC'] },
+  { id: 'cyc', name: 'Заливка', groups: ['CYC'] },
 ];
 
 export const LIGHT_PLANS = {

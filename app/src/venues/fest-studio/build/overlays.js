@@ -40,7 +40,7 @@ export function dimList() {
     [[B.x0 + OFF, 0, B.dBack + 0.45], [B.x0 + OFF, topTierY, B.dBack + 0.45], `Блитчер ${fmtM(topTierY)}`, 0.5],
     [[xCyc, 0, C.d1 - C.r], [xCyc, C.h, C.d1 - C.r], `Циклорама ${fmtM(C.h)}`, 0.55],
     [[0, T.upper.y0 - TRUSS_DIM_OFF, f2.at], [0, T.upper.y0 - TRUSS_DIM_OFF, f3.at], `Шаг ферм ${fmtM(f3.at - f2.at)}`],
-    [[MT.x - 0.40, MT.maxY + 0.15, MT.d0], [MT.x - 0.40, MT.maxY + 0.15, MT.d1], `ФП ${fmtM(MT.d1 - MT.d0)}`, 0.25],
+    [[MT.x - 0.40, MT.maxY + 0.15, MT.d0], [MT.x - 0.40, MT.maxY + 0.15, MT.d1], `ФП ${fmtM(MT.d1 - MT.d0)}`, 0.72],
   ];
 }
 

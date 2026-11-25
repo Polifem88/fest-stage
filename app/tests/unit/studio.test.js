@@ -552,6 +552,7 @@ describe('Студия · наложения чертежа (overlays) и мет
     expect(depthDim[0][1]).toBeLessThan(-0.2); // ниже уровня пола и меток сетки Y = 0,02 на разрезе
     expect(mfDim[0][1]).toBeGreaterThan(4.5); // выше уровня пола на разрезе
     expect(mfDim[0][0]).toBeLessThan(STUDIO.movableTruss.x - 0.2); // сдвинута внутрь от ветви МП-П
+    expect(mfDim[3]).toBeGreaterThan(0.6); // в пролёте Ф4–Ф5, вдали от шильдика ФП (d = −2,05) на разрезе
 
     const fakeLabels = {
       make: (text, opts = {}) => {
